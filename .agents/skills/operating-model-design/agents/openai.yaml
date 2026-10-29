@@ -1,0 +1,4 @@
+interface:
+  display_name: "OME · Operating Model Engineering"
+  short_description: "从结果评价发现 Decision，提取判断、接受标准与案例，保留必要过程约束并独立验证"
+  default_prompt: "使用 $operating-model-design，核对 OM 的工作入口，从什么算 good enough、何时拒绝、怎样比较与何时停止发现 Decision，提取判断依据、上下文和案例，区分自主方法与强制过程，并说明独立验证、缺口和采用状态。"
