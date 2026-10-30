@@ -7,6 +7,7 @@
 | 产品依据 | [PRD](prd.md) 中的 Ontology、Functional Requirements、User Experience 和核心验收 |
 | 设计范围 | 架构、用例与端口、身份接入、运行与消息交付、Session、Workspace、MCP、接口与 UI 技术约束、存储与恢复 |
 | 实现证据 | 当前证据见 [第一阶段报告](backend-phase1-report.md)；历史 M1/fake-port 或 spike 结论仅适用于当时合同，不代表真实适配器已交付 |
+| Worker 与环境细化 | [Worker Skill 与 Pi Durable Agent 工作环境](worker-runtime-design.md)：常驻 Skill、能力映射、输入信封、容器与待验证合同 |
 
 产品语义由 PRD 定义。本文说明怎样实现，不重新增加用户角色、业务实体或专业采纳流程。原型与现有代码用于识别差异，不自动成为新合同。文中的端口名、技术字段和 HTTP 路径是目标设计，不声明当前 SDK 已支持或当前服务已提供。
 
@@ -189,6 +190,14 @@ Decision Context 是 DecisionRequest 的版本化内容，来源引用在其中�
 输入去重、历史扩展字段、MCP 发起记录、稳定游标、停止及重启后续行均是硬性验证项。SDK 若缺少接口，需要适配层补足并证明；不能靠“重放安全”声明替代业务幂等，也不能先写本地已交付再假定 SDK 已接收。
 
 Runtime/模型/Skill 升级需要代表性回归。既有 Execution 保留实际版本，不能静默升级或因镜像缺失改用新环境。
+
+### 6.2 Worker Skill 与宿主装配
+
+[Worker Skill v0.1.0](../backend/skills/airic-work-worker/SKILL.md) 是产品运行时资产，随构建发布；不从 `.agents/skills/` 自动扫描开发或 OME Skill。每次请求实际装配固定 Worker 正文、Root OM 和可信运行快照，其他领域知识按需读取。宿主负责身份、持久输入、工具 Schema、停止与恢复，Skill 不承担这些机制保证。
+
+首版使用一条 Root Conversation，忙时输入有序 follow-up；产品 Steering Input 不直接等于 Pi 的 steer 模式。DecisionRequest 工具保存后立即返回，UserDecision 通过新输入交付。正常让出执行后，宿主核验队列、空闲与工具退出事实，再显式结束当前运行；一次模型回复不代表业务完成。取消需处理已接收但被撤回的输入，不能把持久接收当作已处理。
+
+详细输入、工具、隔离和验收合同以[配套设计](worker-runtime-design.md)为准。该设计同时列出了当前内层合同仍需补齐的实际装配记录、完整输入映射、动态 MCP Schema、调用身份与取消观察；这些能力尚未由生产适配器兑现。
 
 ## 7. Session 和 MCP 操作视图
 

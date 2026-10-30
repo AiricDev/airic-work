@@ -17,5 +17,6 @@
 | DI 装配 | backend/src/bootstrap/container.ts | Awilix 只在组合根，实例与身份隔离测试 |
 | 组合应用能力 | backend/src/bootstrap/container.ts | Awilix 分别注册能力；bindings.ts 仅为组合根适配器类型 |
 | 实现 HOW | backend/src/adapters/README.md | 应用拥有端口，bootstrap 装配；当前无生产适配器 |
+| Worker 执行方式与运行环境 | backend/skills/airic-work-worker/SKILL.md | docs/worker-runtime-design.md；常驻装配、能力映射、输入/停止恢复与待验证场景 |
 
 依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端当前为独立模拟原型，不能作为后端事实来源或反向依赖。

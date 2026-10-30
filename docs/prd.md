@@ -8,6 +8,8 @@ Airic Work 是以 Operating Model（OM）驱动后台自主执行、以 Decision
 平台不内置 CertLab 的对象、工具名或专属流程。下文 CertLab、TestTask/Finding、Assessment 和 `asset.*` 的场景仅说明一种外部业务实践，
 服务的工具 Schema 与能力来自 MCP，业务解释由对应 OM/Skill 和 Agent 承担。
 
+产品包含两项关键方法资产：**OME Skill** 指导专家与外部 Agent 设计和改进 OM；**Worker Skill** 指导后台 Pi Durable Agent 加载和使用 OM、处理人工消息并推进工作。两者分别服务方法工程和实际执行，不构成持续上下级 Agent 委派。
+
 每个实例只使用一个 OM 仓库，平台仅提供文件浏览、全文检索与 Git 历史；OM 构造、Reflection、验证和修改均在外部完成，通过 GitHub/GitLab Review 与合并采纳。新执行使用配置来源分支最新确认提交，实际启动后固定 Commit SHA。
 
 
@@ -55,12 +57,16 @@ Airic Work 是以 Operating Model（OM）驱动后台自主执行、以 Decision
 * 作为任务归属人，我希望清楚知道 Agent 完成了什么、哪些结果已保存到业务系统、还有哪些事项未完成，以便核验成果并安排后续工作。
 * 作为任务归属人，我希望 Agent 在我授权的业务身份和范围内操作，并在授权不足或失效时说明影响及恢复方式，以便放心委托工作。
 
+* 作为任务归属人，我希望后台 Agent 按稳定的 Worker Skill 使用 OM、处理我的回答和补充消息，并在中断后继续原工作，以便无需反复解释平台操作方式和任务上下文。
+
 ### 专家与 OM 维护者
 
 * 作为专家，我希望读取获授权的实际判断记录，了解当时的问题、依据、所用方法、人工介入和后续结果，以便分析成功或偏差的原因。
 * 作为 OM 维护者，我希望在熟悉的外部工具中，结合实践记录和对照案例修改、验证 OM，以便让方法改进有实际依据，并改善后续工作的效率和质量。
 * 作为 OM 维护者，我希望沿用 GitHub/GitLab 的变更评审与合并流程，并能区分历史执行所用版本与当前方法，以便审查改动、追溯影响和解释过去的结果。
 * 作为专家与 OM 维护者，我希望按文件名、路径和正文查找指定版本的 OM 内容，以便准确理解和维护实际使用的方法。
+
+* 作为 OM 维护者，我希望使用已有 OME Skill 将业务目标、专家经验和代表案例转化为可运行、可验证的 OM，以便持续维护方法，而无需进入平台内的方法设计流程。
 
 ### 业务系统集成方
 
@@ -176,6 +182,8 @@ Airic Work 将 OM 作为版本化文件使用，不将其内部知识提取为�
 | Precedent | 经验证与采纳、可在明确适用边界内供后续判断参考的案例知识。Decision Episode 不自动成为 Precedent |
 | Knowledge Gap | 已识别的方法知识不足或不确定性。与某次执行缺少业务事实、文件、工具或授权分别表达 |
 | Skill | 指导 Agent 开展某类活动的行为方法。可以指导 OM 的构造或执行，但不授予权限，也不代替业务系统规则 |
+| OME Skill | 指导专家与外部 Agent 开展 OM Engineering 的方法入口，负责构造、评审、验证和持续改进 OM。沿用 `.agents/skills/operating-model-design/` 中的现有初稿 |
+| Worker Skill | 指导后台 Pi Durable Agent 如何在 Airic Work 中开展工作的执行方法，包括理解任务、使用 OM、取得 Decision Context、调用工具及处理人机消息；与 Agent 运行环境配套设计 |
 | OM Engineering（OME） | 在外部环境中构造、评审、验证和改进 OM 的活动，成果通过 Git 仓库交付 |
 | Reflective Learning | 基于实践记录开展反思、归因、提出改进并验证效果的活动。在外部环境开展，不由 Airic Work 建立内部管理流程 |
 
@@ -250,6 +258,28 @@ CertLab、Assessment、TestTask、Finding 和业务资料修订等属于外部�
 * 一个 Execution 可以包含多个 DecisionRequest；一个 DecisionRequest 对应一个 Decision Episode，UserDecision 提交成功即已回答。
 * UserDecision 和 Steering Input 均作为消息交付 Agent；Execution 结束后收到新消息可以在原 Execution 中继续执行。
 * 本章所列概念边界已确定。具体接口、消息交付与重试、存储、保留和清理机制在后续设计中落实。
+
+## Skill 体系与系统关系
+
+OME Skill 和 Worker Skill 是产品交付与演进的一部分，不只是文档中的泛称。它们与领域 OM、平台和 Runtime 各自承担不同职责。
+
+| 维度 | OME Skill | Worker Skill |
+| --- | --- | --- |
+| 解决的问题 | 怎样把业务目标、专业经验和案例整理成可复用、可验证的方法 | 后台 Agent 怎样在平台中使用这些方法完成被委托的工作 |
+| 使用者与环境 | 专家与 OM 维护者在外部 Agent 环境使用 | 承担 Execution 的后台 Pi Durable Agent 使用 |
+| 主要输入 | 工作目标、业务能力合同、专家经验、代表案例、已有 OM；改进时可读取获准的 Session 和 Decision Episode | 当前 Execution 的 `task`、`instruction`、固定版 OM、UserDecision、Steering Input、Workspace 文件和工具能力 |
+| 主要产出 | Root OM、Decision Model 等运行时知识，以及作者侧候选、案例和验证记录；采纳的方法变更经 Git Review 合并 | Agent 消息、DecisionRequest、业务 MCP 调用及其结果，保留在原 Execution 的 Session 与 Workspace 中 |
+| 与平台的关系 | 平台提供 OM 文件浏览及实践记录读取；方法设计与反思在外部完成，不增加内部学习中心 | 平台装配执行方法并提供受控能力，维护用户身份、输入提交与交付、执行控制及历史 |
+| 当前状态 | 已有 [operating-model-design 初稿](../.agents/skills/operating-model-design/SKILL.md)，作为后续维护基础；存在初稿不等于所有业务场景已经验证 | 已有 [Worker Skill v0.1.0 初稿](../backend/skills/airic-work-worker/SKILL.md) 及配套[运行环境设计](worker-runtime-design.md)；真实 Agent 行为、装配与恢复能力仍待验证 |
+
+关键关系与边界：
+
+* **OME Skill 定义如何设计方法，OM 表达具体领域的方法，Worker Skill 定义如何执行工作。** Worker Skill 包含通用的平台工作约定，领域判据和知识路由由固定版 OM 提供，不把某个业务系统的流程固化进通用 Worker Skill。
+* **运行环境提供真实能力。** Session 持久化、Workspace、文件处理、MCP、消息接收、运行停止与恢复由 Runtime 和宿主兑现。Worker Skill 指导如何使用这些能力，不能以文字替代尚不存在的工具、权限或可靠交付机制。
+* **Root OM 是领域常驻入口，Worker Skill 是执行行为入口。** 执行时两者都需实际装配；仅把文件放进仓库不等于 Agent 已读取。具体装配机制及冲突提示由后续运行环境设计落实。
+* **外部方法改进通过 Git 影响未来执行。** 专家使用 OME Skill 产出 OM 变更，经既有 Review 合并后由平台同步；Worker Skill 不自动运行 OME、修改 OM 或将 UserDecision/Decision Episode 升级为 Precedent。
+* **版本分别记录。** Execution 记录实际 OM Commit SHA、Worker Skill 与 Runtime 版本；同一执行继续时沿用已记录版本。OME Skill 的版本和验证依据属于方法作者侧记录，不要求后台加载作者过程。
+* **沿用现有概念。** Worker Skill 不是新的用户角色、业务 Worker 实体或多 Agent 任务树，也不是负责消息派发的技术 worker；它不改变已确定的 Execution、Session、DecisionRequest 关系。
 
 ## Functional Requirements
 
@@ -383,7 +413,7 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 * **作者边界**：`.ome/` 只存在于维护者本地，不提交 Git，不由平台同步、浏览、搜索或加载。运行时引用缺失或越界时明确报告，不回退到本地作者材料。
 * **知识表达**：Decision Model、Precedent、Knowledge Gap 均按文件内容处理，不建立语义索引、关系图或独立治理页面。
 * **异常反馈**：OM 未配置时引导管理员配置；同步失败时可查看已保存历史，但明确不能确认最新版本。切换仓库来源不改写旧执行记录，历史保留和恢复机制需详细设计。
-* **方法维护**：OME 和 Reflective Learning 在专家的外部环境开展，维护者通过 Git Review 修改并采纳 OM。Airic Work 只同步文件及提供实践记录；后台 Airic Work Skill 负责使用 OM、取得信息、调用工具、提出 DecisionRequest 和处理消息。
+* **方法维护**：OME 和 Reflective Learning 在专家的外部环境开展，维护者通过 Git Review 修改并采纳 OM。Airic Work 只同步文件及提供实践记录；后台 Worker Skill 负责使用 OM、取得信息、调用工具、提出 DecisionRequest 和处理消息，具体要求见本章第 11 节。
 
 ### 9. Airic Work MCP 只读访问（P0）
 
@@ -400,6 +430,17 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 * **实例设置**：集中配置组织/时区、集成方认证、唯一 OM Git 来源、业务 MCP 连接、Runtime 能力和版本，以及文件和记录保留策略；提供标准 API 与 Airic Work MCP 接入说明。
 * **配置反馈**：技术测试、保存成功和实际生效分别展示，失败保留输入。配置变更不静默替换运行中 Execution 的用户或 OM 版本；不明确的历史和运行影响在变更前说明。
 * **个人设置**：支持显示名、语言/时区，以及待回答 DecisionRequest、执行异常和更新的站内提示；提示已读与实际回答分别记录。
+
+### 11. OME Skill 与 Worker Skill（P0）
+
+* **OME 方法入口**：维护和演进现有 `operating-model-design` Skill 初稿，不另建一套平行 OME 方法。支持专家在外部环境构造、评审、验证和改进 OM；作者侧 `.ome/` 保留本地，不进入交付的运行时知识。
+* **OM 的可执行交付**：OME Skill 指导维护者明确 Root 入口、知识路由、Decision Context 依赖、判断方法、结果要求、能力依赖与验证限制，保证 Worker 能按需使用；通用领域适用性仍需案例和专业验证，不能以文件齐全或作者自检代替。
+* **Worker 的任务执行约定**：Worker Skill 指导 Pi Durable Agent 理解本次 `task` 和 `instruction`，读取固定版 Root OM、按需加载相关知识，取得判断所需信息，并在当前用户身份及工具合同内推进工作。
+* **Worker 的人工协作约定**：需要人介入时形成具体 DecisionRequest，并组织可理解的 Decision Context/Decision Brief。收到 UserDecision 后将其作为已回答问题的新输入继续处理；不足以推进时另行提问，不撤销已回答事实。Steering Input 作为一般消息理解，不自动转为 UserDecision。
+* **Worker 的文件与工具约定**：使用本 Execution 的 Workspace 读取实际上传文件，通过运行环境提供的 MCP 能力访问业务系统；保留实际使用来源和必要限制，不把摘要当原文，也不凭调用发起推断业务效果。
+* **Worker 的持续执行约定**：使用环境交付的 Session 历史与输入继续原工作。等待、消息续行、取消和未知工具结果的处理必须与平台控制规则及工具合同一致，不由 Skill 文本自行保证幂等、进程停止或恢复。
+* **Skill 与环境配套交付**：设计 Worker Skill 时同时明确其依赖的工具、文件与 OM 读取方式、消息与执行控制能力，以及记录可用性。依赖能力缺失时明确阻碍，不宣称靠提示词即可工作；具体机制在技术设计与运行环境实现中落实。
+* **装配与版本可查**：能够确认实际执行已装配 Worker Skill 和 Root OM，并从 Execution 定位实际 Skill/OM/Runtime 版本。改进 Skill 或环境时验证代表性执行、回答、消息续行及异常场景，不静默改变既有执行版本。
 
 本章不规定数据库表、完整状态枚举或 Runtime 内部对象。后续设计仍需落实消息协调及交付恢复、取消收尾、token 后台使用与续期、Project 名称更新、历史保留与清理、文件限额及正式 API/MCP 合同；这些设计不得改变 Ontology 已确定的归属、关系和回答语义。CertLab 的资料检索、TestTask/Finding 交接和 Assessment 更新属于业务 MCP 与 OM 的应用场景，见 Narrative，不作为平台专属功能。
 
@@ -464,7 +505,7 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 
 * OM 导航直接进入唯一仓库的文件浏览和搜索，不增加仓库选择步骤。搜索、阅读和历史查看始终显示所浏览版本。
 * 从 Execution 查看方法时定位该执行固定的 OM 版本；切换浏览版本只是查看，不能让用户误以为正在执行的方法也已切换。
-* 专家沿用 GitHub/GitLab 进行方法维护；需要分析实践时，接入说明清楚提供 Airic Work MCP 的 token 配置方式和只读边界，不要求先进入平台学习工作流。
+* 专家在熟悉的外部 Agent 中使用 OME Skill 设计与改进方法，沿用 GitHub/GitLab 进行方法维护；需要分析实践时，接入说明清楚提供 Airic Work MCP 的 token 配置方式和只读边界，不要求先进入平台学习工作流。
 * 外部读取与工作台的记录缺失或不可读提示一致，用户能够理解为什么某段内容无法取得，不误以为取得了完整材料。
 
 **体验检查**：用户能否找到准确版本，专家能否沿熟悉的工具链取得允许读取的记录，而不需要额外的平台审批或方法管理流程。
@@ -485,13 +526,13 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 
 以下为虚构场景，不是用户研究或真实业务规则。
 
-一位材料评估人员在业务系统的大任务中发起附件检查。业务系统将授权目标和稳定任务引用交给 Airic Work；平台把相关执行组织在同一个 Project 下，依据实例唯一 OM 来源的最新确认提交启动，并记录 SHA。评估人员不必保持聊天窗口在线，后台 Agent 使用其本人有效授权的业务身份读取材料。
+一位材料评估人员在业务系统的大任务中发起附件检查。业务系统将授权目标和稳定任务引用交给 Airic Work；平台把相关执行组织在同一个 Project 下，依据实例唯一 OM 来源的最新确认提交启动，并记录 SHA。评估人员不必保持聊天窗口在线，后台 Agent 按 Worker Skill 加载固定版 OM，并使用该用户业务身份读取材料。
 
 检查中发现补充说明缺少签署页。Agent 不把缺失材料自行解释为可接受，而是形成 DecisionRequest：列出正文版本、缺失信息、适用规则、建议及不确定性，说明正式效力判断受阻、独立附件核对仍可继续。评估人员从业务系统进入工作台，核对 Decision Context 原文及版本后给出限定判断。平台先确认正式处理记录，再显示实际继续事件；执行结束不被当作业务审批完成。
 
 另一项判断中，工程师逐项选择“创建现场查验 TestTask”并补充检查范围，Agent 据此在 CertLab 创建事项。其他能够直接确定的测试和整改要求也由 Agent 形成业务产出，工程师通过 CertLab 汇总测试计划和反馈列表集中交接。结果返回后，工程师用 Steering Input 提交测试报告及客户回复；Agent 读取并核对固定资料和实际覆盖范围，通过业务工具登记交付/响应并更新相关 Assessment 草稿，未覆盖部分继续等待，需要新判断的事项再单独提交 DecisionRequest。通过 Steering Input 上传结果不代替 UserDecision，也不代表 Assessment 已正式确认；通过 UserDecision 提交则将对应 DecisionRequest 标记为已回答。
 
-之后，专家在外部 Agent 中配置身份认证 token，通过 Airic Work MCP 读取本人可访问的 Session 和 Decision Episode。外部 OME 分析发现方法的适用边界需要澄清，结合对照案例验证后提交 GitLab Review。Airic Work 不运行反思任务或审阅学习发现，只在变更合并后同步文件与历史。后续执行使用新确认提交，原执行仍保留当时的 OM 和 Decision Context，便于解释过去发生的判断。
+之后，专家在外部 Agent 中配置身份认证 token，通过 Airic Work MCP 读取本人可访问的 Session 和 Decision Episode。专家在外部环境使用 OME Skill 分析发现方法的适用边界需要澄清，结合对照案例验证后提交 GitLab Review。Airic Work 不运行反思任务或审阅学习发现，只在变更合并后同步文件与历史。后续执行使用新确认提交，原执行仍保留当时的 OM 和 Decision Context，便于解释过去发生的判断。
 
 
 ## 产品价值验证
@@ -502,6 +543,8 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 * **成果是否可用**：按原有业务验收要求检查成果，是否存在重要遗漏，以及需要多少人工修正。
 * **工作能否顺畅完成**：用户是否能够理解问题、提交回答、补充文件、核查操作并继续工作，是否出现需要开发人员介入才能推进的卡点。
 * **接入是否足够通用**：接入另一类业务工作时，能否主要通过认证配置、MCP 能力和 OM 完成，而无需修改平台核心代码。
+
+验证中区分领域方法不足、Worker 执行约定或装配问题、运行环境能力缺口和工具失败，不把所有偏差都归因于 OM。
 
 初期通过实际使用、Session 记录和简短复盘验证，不要求专门建设指标看板或埋点系统。OM 改进时，用原案例及其他代表案例复查效果，避免只修好单个案例。
 
@@ -529,10 +572,12 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 | 业务能力边界 | 业务动作与文件处理遵循 MCP 合同，结果记录在 Session 中，不创建平台业务资料或执行结果实体 |
 | OM 交付边界 | 固定 SHA 的 Root 常驻、其他知识按需加载；`.ome/` 不提交 Git、不由平台同步或加载，运行时不依赖本地作者文件 |
 | 本人身份与外部读取 | 后台业务操作使用归属人身份；外部只读 MCP 使用 token 按同一用户规则读取，无独立委托或外部授权流程，无共享身份回退 |
+| OME Skill | 沿用现有初稿，在外部开展方法设计及验证；Git 交付的 OM 有 Root、知识路由和能力依赖，不依赖本地作者材料 |
+| Worker Skill 装配 | 实际执行可确认 Worker Skill 与固定 Root OM 已装配，Execution 可定位对应 OM/Skill/Runtime 版本；不以文件存在冒充已加载 |
+| Worker Skill 与环境配套 | 在真实受控环境中走通读取 OM/文件、业务 MCP、DecisionRequest→UserDecision、Steering Input、结束后续行和取消/未知结果场景；Skill 文本或模拟运行不能替代能力验证 |
 | 学习外置 | OM 维护仅需 Git 权限，分析 Session 时使用 Airic Work MCP；无内部学习中心，Decision Episode 不自动成为 Precedent |
 | 可追溯性 | Execution→Session、DecisionRequest→Decision Episode→Decision Context/UserDecision 可定位，缺失和脱敏限制明确 |
 
 ## 相关文档
 
 * [技术设计](technical-design.md)：架构、技术选型、接口、持久化、运行与恢复机制。
-* [原型交互说明](prototype-design.md)：页面与交互设计；与本文冲突时以本文已确认的产品语义为准。
