@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createPersistence } from '../src/bootstrap/persistence';
+import { createPersistence } from '../src/bootstrap/bindings';
 import { controlStoreContract, settings } from './contracts/control-store';
 
 controlStoreContract('SQLite', async () => {

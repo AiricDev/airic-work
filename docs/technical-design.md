@@ -424,6 +424,6 @@ Execution 结束后是否继续、UserDecision 何时已回答、Decision Episod
 
 业务系统的现有用户 access token 仅用于调用该系统的后台 MCP 凭据签发 API。Airic Work 的 `McpCredentialUseCases` 校验 Execution 归属和连接资格，适配器校验签发响应的用户/Execution，再将专用凭据按用户、Execution、身份来源及完整连接配置加密保存；不写入普通 Execution JSON、Session、Workspace 或模型上下文。
 
-`bootstrap/mcp.ts` 与 `adapters/driven/mcp/` 已实现 HTTPS 签发、撤销、逐请求凭据注入、Schema 发现与调用；原业务用例仍控制权限、发起记录与未知结果。普通网页登录过期/退出不会自动撤销单独的后台凭据；后台凭据过期、撤销或用户停用时阻塞相应访问。CertLab 首版签发固定七天、无滑动续期的专用 token，重新连接使用新的有效登录凭据。凭据撤销先禁止本地使用，再确认业务系统返回的撤销身份。
+`bootstrap/bindings.ts` 与 `adapters/driven/mcp/` 已实现 HTTPS 签发、撤销、逐请求凭据注入、Schema 发现与调用；原业务用例仍控制权限、发起记录与未知结果。普通网页登录过期/退出不会自动撤销单独的后台凭据；后台凭据过期、撤销或用户停用时阻塞相应访问。CertLab 首版签发固定七天、无滑动续期的专用 token，重新连接使用新的有效登录凭据。凭据撤销先禁止本地使用，再确认业务系统返回的撤销身份。
 
 该协议是可部署在 MCP 旁边的自定义业务接口，不宣称完整 OAuth/OIDC 自动发现或通用 Token Exchange。OIDC 集成方可在其接口内验证允许的用户 access token 并签发 MCP 凭据，不能接受任意 audience 或将 ID token 当作通用 API token。配置、接入顺序及测试范围见[业务 MCP 模块说明](../backend/src/adapters/driven/mcp/README.md)。

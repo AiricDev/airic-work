@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AccountUseCases } from '../src/application/account';
-import { createIdentity } from '../src/bootstrap/identity';
-import { createPersistence } from '../src/bootstrap/persistence';
+import { createIdentity } from '../src/bootstrap/bindings';
+import { createPersistence } from '../src/bootstrap/bindings';
 import { settings, user } from './contracts/control-store';
 import { httpsIdentityFixture } from './support/https-identity';
 

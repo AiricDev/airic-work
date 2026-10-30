@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMethods } from '../src/bootstrap/methods';
+import { createMethods } from '../src/bootstrap/bindings';
 import { RuleError } from '../src/domain/model';
 import type { GitMethodSource } from '../src/adapters/driven/methods/repositories';
 import * as runner from '../src/adapters/driven/methods/git';

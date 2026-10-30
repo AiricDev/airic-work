@@ -215,6 +215,6 @@ cd packages/durable
 
 ## 实现接入更新
 
-Worker/Execution 运行核心现已接入项目：`bootstrap/worker.ts`、`driven/runtime/` 与 `driving/worker/execution-runner.ts`。生产依赖已按 1.4.0 安装并写入 backend/package-lock.json；安装包 generation、harness、types、submissions、session 五处 source map 的原始源码与本文固定 commit 一致。完整后端检查通过 24 个文件、286 项测试，其中新增运行测试使用已安装包、真实 SQLite 与 faux 模型。
+Worker/Execution 运行核心现已接入项目：`bootstrap/bindings.ts`、`driven/runtime/` 与 `driving/worker/execution-runner.ts`。生产依赖已按 1.4.0 安装并写入 backend/package-lock.json；安装包 generation、harness、types、submissions、session 五处 source map 的原始源码与本文固定 commit 一致。完整后端检查通过 24 个文件、286 项测试，其中新增运行测试使用已安装包、真实 SQLite 与 faux 模型。
 
 已实现请求锚点、按局部分支路由、同一工作多请求复用、独立回答越过失败交付、原生持久片段、收尾栅栏、全范围取消、Session 读取及 MCP 工具桥接。具体接入和当前限制见[运行模块说明](../backend/src/adapters/driven/runtime/README.md)。Docker Workspace、附件物化、真实业务网关和生产进程唤醒仍未交付，不能将上述测试当作完整部署证明。

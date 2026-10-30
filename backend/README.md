@@ -1,6 +1,8 @@
 # Airic Work 后端
 
-已交付 Domain/Application、入口校验与 DI，以及 SQLite ControlStore / Support、Files Blob、Methods Git/快照/搜索、HTTPS Identity 和本机管理员提升命令。尚无 HTTP 服务或真实 Agent。
+已交付 Domain/Application、入口校验与 DI、SQLite、Files Blob、Methods Git/快照/搜索、HTTPS Identity、本机管理员命令，以及 Pi Worker 和业务 MCP 对接。尚无 HTTP 服务和生产 Workspace 实现。
+
+部署配置统一放在仓库根 `.env`，变量清单见 `.env.example`。填写真实的 Identity/MCP 地址、OM 来源和模型 API key；MCP 加密密钥需要固定保存。系统环境变量优先，相对路径以 dotenv 文件目录为基准。`loadConfiguration()` 和 `createConfiguredBackend(config, workspace)` 都位于 `src/bootstrap/bindings.ts`；完整装配与关闭示例见该目录 README。下面的工厂示例用于了解各 adapter 的独立配置合同。
 
 在仓库根运行：
 
@@ -21,17 +23,17 @@ npm run check
 5. `tests/core.test.ts`、`recovery.test.ts`、`management.test.ts`：行为证据。
 6. `docs/backend-phase1-report.md`：覆盖、限制与交接。
 7. `docs/behavior/sqlite-adapter.md`、`docs/sqlite-adapter-report.md`：真实存储行为与验证范围。
-8. `src/adapters/driven/sqlite/`、`src/bootstrap/persistence.ts`：SQLite 实现、迁移和生命周期。
-9. `src/adapters/driven/files/`、`src/bootstrap/files.ts`：本地 Blob；行为与证据见 `docs/behavior/files-blob.md`、`docs/files-blob-report.md`。
-10. `src/adapters/driven/methods/`、`src/bootstrap/methods.ts`：Git 方法、固定快照与独立 FTS5 索引；见 `docs/behavior/methods-adapter.md`、`docs/methods-adapter-report.md`。
-11. `src/adapters/driven/identity/`、`src/bootstrap/identity.ts`、`scripts/grant-admin.ts`：HTTPS 身份验证与独立管理员运维入口；见 `docs/behavior/identity-adapter.md`、`docs/identity-adapter-report.md`。
+8. `src/adapters/driven/sqlite/`、`src/bootstrap/bindings.ts`：SQLite 实现、迁移和生命周期。
+9. `src/adapters/driven/files/`、`src/bootstrap/bindings.ts`：本地 Blob；行为与证据见 `docs/behavior/files-blob.md`、`docs/files-blob-report.md`。
+10. `src/adapters/driven/methods/`、`src/bootstrap/bindings.ts`：Git 方法、固定快照与独立 FTS5 索引；见 `docs/behavior/methods-adapter.md`、`docs/methods-adapter-report.md`。
+11. `src/adapters/driven/identity/`、`src/bootstrap/bindings.ts`、`scripts/grant-admin.ts`：HTTPS 身份验证与独立管理员运维入口；见 `docs/behavior/identity-adapter.md`、`docs/identity-adapter-report.md`。
 
-`tests/support` 是测试替身或集成 fixture，不可接到生产运行。`adapters/driving/validation` 使用 Zod，`bootstrap/container.ts` 使用 Awilix；业务 MCP 和 HTTP 等生产适配器留待后续实现，不伪造 API、真实认证结果或 MCP。
+`tests/support` 是测试替身或集成 fixture，不可接到生产运行。`adapters/driving/validation` 使用 Zod，`bootstrap/container.ts` 使用 Awilix；生产 HTTP 和 Workspace 仍待实现。
 
 ## HTTPS Identity 与管理员命令
 
 ```ts
-import { createIdentity } from './src/bootstrap/identity';
+import { createIdentity } from './src/bootstrap/bindings';
 
 const { identity } = createIdentity({
     issuer: 'trusted-integration',
@@ -46,13 +48,15 @@ const { identity } = createIdentity({
 - 返回 UTF-8 JSON，映射两个必需的顶层字符串字段（稳定用户 ID、显示名）。不回退到 email/name 合并身份，不接受返回正文中的 issuer/admin/enabled 作为本地权限。
 - TLS 证书/主机名验证开启；可通过可信配置 `ca` 提供企业 CA，不能关闭验证。不接受 HTTP、URL 凭据、查询或片段，不跟随重定向。超时覆盖 DNS/TLS/完整正文；不重试、不缓存成功认证。
 - 本地 User 首次启用但非管理员；重复认证保留本地显示名、资格、管理员权限和偏好。停用用户即使外部验证成功仍被拒绝。
-- token 仅用于本次验证，不写入数据库、日志、Session 或 Workspace，也不自动转发到业务 MCP。业务 MCP 凭据取得/托管/续期尚未交付，必须按目标服务合同处理。
+- 身份 token 仅用于本次验证，不写入数据库、日志、Session 或 Workspace。业务 MCP 另由凭据用例向固定 issue endpoint 换取并加密托管专用凭据，合同见 `src/adapters/driven/mcp/README.md`。
 
 已有用户先通过有效身份接入，再由持有数据库 OS 权限的操作员运行：
 
 ```sh
-npm --prefix backend run admin:grant -- --database /absolute/path/control.sqlite --user <local-user-id>
+npm --prefix backend run admin:grant -- --user <local-user-id>
 ```
+
+默认使用 `.env` 中的数据库路径，可用 `--env /deployment/.env` 指定配置文件；`--database /absolute/path/control.sqlite` 可显式覆盖且不要求加载其他配置。
 
 - 只提升指定的已有启用用户，原子更新 admin/version；重复执行幂等，不修改名称、偏好或身份。不自动选择首个用户，不创建或启用账户。
 - 只打开现存普通数据库文件，拒绝链接；校验当前迁移版本/摘要，不执行迁移、不初始化 Settings、不创建空库或目录。
@@ -65,7 +69,7 @@ npm --prefix backend run admin:grant -- --database /absolute/path/control.sqlite
 `createPersistence` 只创建 Store、Support 和关闭函数，不提供完整 Backend 或后台调度：
 
 ```ts
-import { createPersistence } from './src/bootstrap/persistence';
+import { createPersistence } from './src/bootstrap/bindings';
 
 const persistence = createPersistence({
     filename: '/absolute/path/to/data/control.sqlite',
@@ -95,7 +99,7 @@ try {
 ## Files Blob
 
 ```ts
-import { createFileStorage } from './src/bootstrap/files';
+import { createFileStorage } from './src/bootstrap/bindings';
 
 const { files } = await createFileStorage({
     directory: '/absolute/path/to/data/blobs',
@@ -117,7 +121,7 @@ const fixed = await files.put(new Uint8Array([1, 2, 3]));
 宿主需提供 Git 可执行程序、可信本地目录及明确的来源允许列表：
 
 ```ts
-import { createMethods } from './src/bootstrap/methods';
+import { createMethods } from './src/bootstrap/bindings';
 
 const { methods } = await createMethods({
     directory: '/absolute/path/to/data/methods',

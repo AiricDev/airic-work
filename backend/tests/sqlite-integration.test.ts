@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createPersistence } from '../src/bootstrap/persistence';
+import { createPersistence } from '../src/bootstrap/bindings';
 import { SqliteControlStore } from '../src/adapters/driven/sqlite/store';
 import { openControlDatabase } from '../src/adapters/driven/sqlite/database';
 import { answer, beginStop, endRun, recordStopped } from '../src/domain/model';

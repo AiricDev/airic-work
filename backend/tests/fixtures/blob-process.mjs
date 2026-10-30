@@ -1,5 +1,5 @@
 import './load-typescript.mjs';
-const { createFileStorage } = await import('../../src/bootstrap/files.ts');
+const { createFileStorage } = await import('../../src/bootstrap/bindings.ts');
 
 process.once('message', async ({ bytes }) => {
     try {

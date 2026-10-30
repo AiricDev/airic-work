@@ -1,11 +1,9 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 import { BACKGROUND_CONTEXT as context } from '@earendil-works/chord/context';
 import { Type, type Models } from '@earendil-works/pi-ai';
 import { Harness, createRegistry, defineDoc, defineExtension, defineTool, defineTask, section, configure, type ConversationId, type EntryId, type TaskId, type Cursor, type Tx, type ToolRegistration } from '@earendil-works/pi-durable';
-import { openNodeSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/node';
 import type { Execution, Input, Context, Option, Json } from '../../../domain/model';
 import { canonical, requireRule } from '../../../domain/model';
 import type { Runtime } from '../../../application/ports';
@@ -44,6 +42,8 @@ export class PiRuntime implements Runtime {
         await mkdir(dir, { recursive: true, mode: 0o700 });
         // A separate SQLite exclusive transaction is an OS-backed lifetime lock.
         // Process death releases it automatically; never unlink another process's lock file.
+        const { DatabaseSync } = await import('node:sqlite');
+        const { openNodeSqliteStorage } = await import('@earendil-works/pi-durable/storage/sqlite/node');
         const lock = new DatabaseSync(resolve(dir, 'ownership.sqlite'));
         try { lock.exec('PRAGMA busy_timeout=0; BEGIN EXCLUSIVE'); }
         catch (error) { lock.close(); throw error; }

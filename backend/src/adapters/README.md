@@ -21,7 +21,7 @@ Pi Runtime、History/Session 索引、Workspace/Docker、模型工具入口、�
 
 * `../../tests/contracts/control-store.ts`：生产 SQLite 与 MemoryStore 共用的端口行为。
 * `../../tests/sqlite-integration.test.ts`：真实数据库、独立连接/进程并发、写入点故障和 SIGKILL 恢复；不等同于物理断电验证。
-* `../bootstrap/persistence.ts`：明确的资源创建/关闭，不自动启动应用或派发。
+* `../bootstrap/bindings.ts`：明确的资源创建/关闭，不自动启动应用或派发。
 
 后续仍须验证 SDK 丢确认查回、容器停止和在途业务写入窗口。SQLite 合同通过不证明这些 Agent 机制成立。
 
@@ -30,7 +30,7 @@ Pi Runtime、History/Session 索引、Workspace/Docker、模型工具入口、�
 * `driven/files/local-blob-files.ts`：只实现 `Files.put`，不读写数据库，不接受宿主文件名或用户指定路径。
 * `../../tests/files-blob.test.ts`、`files-blob-failure.test.ts`、`files-blob-process.test.ts`：真实字节、去重、并发、故障、受管路径检查。
 * `../../tests/files-upload-integration.test.ts`：真实 SQLite 上传边界，先固定内容再提交描述；失败不伪造正式绑定。
-* `../bootstrap/files.ts`：独立 Blob 初始化工厂；没有长驻句柄，不提供无意义的 close。
+* `../bootstrap/bindings.ts`：独立 Blob 初始化工厂；没有长驻句柄，不提供无意义的 close。
 
 Blob 根目录必须由可信宿主管理，不暴露给 Agent 或不可信 writer；本批不承诺抵御同 UID 恶意进程并发替换目录。后续 Workspace 的读取/物化仍需在独立任务内兑现校验、权限和真实字节交付，不能凭 contentRef 推定可读。
 
@@ -44,16 +44,16 @@ Blob 根目录必须由可信宿主管理，不暴露给 Agent 或不可信 writ
 * `../../tests/methods-process.test.ts`：独立进程同步与离线索引初始化；Git 锁竞争允许明确阻塞，不能返回部分快照。
 * `../../tests/methods-application.test.ts`：真实 SQLite 与执行准备合同；配置变化不得固定过期 Method，准备本身不调用 Agent。
 * `../../tests/methods-local.test.ts`、`methods-usecases.test.ts`：无 remote 本地运行、状态/提示、来源权限、配置分支与 upstream、脏工作区/分叉/worktree/作者目录保护；Git 检查失败不伪装成已知禁用原因。
-* `../bootstrap/methods.ts`：显式来源、目录、资源上限和声明版本；无常驻句柄或后台任务。
+* `../bootstrap/bindings.ts`：显式来源、目录、资源上限和声明版本；无常驻句柄或后台任务。
 
 SHA-1/SHA-256 仓库在本地验证；HTTPS/SSH、生产凭据、Git 缓存维护、SIGKILL/断电及部署文件系统未在本批验证。Runtime/Skill 版本声明不能替代真实 Agent 装配证明。
 
 ## Identity 与账户维护验证入口
 
 * `driven/identity/https-user-info.ts`：固定可信 HTTPS 端点的 Bearer 用户信息验证；不缓存/重试/重定向、不持久化 token。
-* `../bootstrap/identity.ts`：仅创建 Identity；普通用户接入仍经 AccountUseCases 与 Store，保留本地资料/资格/权限。
+* `../bootstrap/bindings.ts`：仅创建 Identity；普通用户接入仍经 AccountUseCases 与 Store，保留本地资料/资格/权限。
 * `../application/account-maintenance.ts`、`driven/sqlite/account-maintenance.ts`：用户明确要求的独立 OS 操作员维护路径，原子提升已有启用用户；不修改普通 `manageUser` 的管理员约束。
-* `../../scripts/grant-admin.ts`、`../bootstrap/account-maintenance.ts`：本机 CLI 与资源关闭，不接入 HTTP/MCP/普通容器，不初始化或迁移数据库。
+* `../../scripts/grant-admin.ts`、`../bootstrap/bindings.ts`：本机 CLI 与资源关闭，不接入 HTTP/MCP/普通容器，不初始化或迁移数据库。
 * `../../tests/identity-https.test.ts`、`identity-application.test.ts`：真实 TLS、失效/重定向/限量/超时拒绝、SQLite 建人与本地停用保护。
 * `../../tests/account-maintenance.test.ts`：真实独立 CLI 进程、权限/版本原子性、重复及并发、错误数据库/迁移拒绝、故障回滚。
 

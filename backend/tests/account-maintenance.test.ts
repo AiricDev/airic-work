@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createPersistence } from '../src/bootstrap/persistence';
+import { createPersistence } from '../src/bootstrap/bindings';
 import { settings, user } from './contracts/control-store';
 
 const runner = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));

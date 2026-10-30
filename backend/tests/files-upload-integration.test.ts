@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InputUseCases } from '../src/application/input';
 import { ApplicationPolicy } from '../src/application/policy';
 import type { Runtime, Workspace } from '../src/application/ports';
-import { createFileStorage } from '../src/bootstrap/files';
-import { createPersistence } from '../src/bootstrap/persistence';
+import { createFileStorage } from '../src/bootstrap/bindings';
+import { createPersistence } from '../src/bootstrap/bindings';
 import { create, settings, user } from './contracts/control-store';
 
 describe('real Files and SQLite upload boundary', () => {

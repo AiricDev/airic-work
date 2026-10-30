@@ -72,7 +72,7 @@ it('surfaces failed model slices instead of treating terminal tasks as success',
 
 it('runs existing application use cases through worker bootstrap and resumes an ended execution on UserDecision', async () => {
     const { harness } = await import('./support/harness');
-    const { createWorker } = await import('../src/bootstrap/worker');
+    const { createWorker } = await import('../src/bootstrap/bindings');
     const { createBackend } = await import('../src/bootstrap/container');
     const h = harness();
     const dir = await mkdtemp(join(tmpdir(), 'airic-worker-app-')); directories.push(dir);

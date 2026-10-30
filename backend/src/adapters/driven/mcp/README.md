@@ -1,6 +1,6 @@
 # Business MCP authentication and transport
 
-`bootstrap/mcp.ts` creates a gateway, a credential application service, and Worker tools. It implements a custom business-issued background credential contract, not a complete OAuth authorization server/client flow.
+`bootstrap/bindings.ts` creates a gateway, a credential application service, and Worker tools. It implements a custom business-issued background credential contract, not a complete OAuth authorization server/client flow.
 
 Configuration is trusted host configuration:
 

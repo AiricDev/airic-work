@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
-import { createMethods } from '../src/bootstrap/methods';
+import { createMethods } from '../src/bootstrap/bindings';
 import { configuration, file, commit, options, repository } from './support/git-methods';
 import type { Method } from '../src/domain/model';
 

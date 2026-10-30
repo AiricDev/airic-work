@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFileStorage } from '../src/bootstrap/files';
+import { createFileStorage } from '../src/bootstrap/bindings';
 
 vi.mock('node:fs/promises', async original => {
     const actual = await original<typeof fs>();

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createMethods } from '../src/bootstrap/methods';
+import { createMethods } from '../src/bootstrap/bindings';
 import { configuration, options, repository } from './support/git-methods';
 import type { Method } from '../src/domain/model';
 

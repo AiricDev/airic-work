@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createIdentity } from '../src/bootstrap/identity';
+import { createIdentity } from '../src/bootstrap/bindings';
 import { httpsIdentityFixture } from './support/https-identity';
 
 describe('HTTPS user information identity', () => {

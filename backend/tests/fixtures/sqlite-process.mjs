@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 
 const { SqliteControlStore } = await import('../../src/adapters/driven/sqlite/store.ts');
 const resources = process.argv[3] === 'bootstrap'
-    ? (await import('../../src/bootstrap/persistence.ts')).createPersistence({
+    ? (await import('../../src/bootstrap/bindings.ts')).createPersistence({
         filename: process.argv[2],
         initialSettings: { version: 0, omSource: 'repo', branch: 'main', root: 'om.md', connections: ['business'] },
     })

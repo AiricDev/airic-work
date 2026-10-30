@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { httpsIdentityFixture } from './support/https-identity';
 import { harness } from './support/harness';
-import { createMcpIntegration } from '../src/bootstrap/mcp';
+import { createMcpIntegration } from '../src/bootstrap/bindings';
 
 let fixture: Awaited<ReturnType<typeof httpsIdentityFixture>>;
 let directory: string;
@@ -110,7 +110,7 @@ it('revokes locally before remote acknowledgement and never retries a rejected w
 
 it('connects a real Pi Worker through discovery and the gateway without exposing credentials to its Session', async () => {
     const { createModels, fauxProvider, fauxAssistantMessage, fauxToolCall, fauxText } = await import('@earendil-works/pi-ai');
-    const { createWorker } = await import('../src/bootstrap/worker');
+    const { createWorker } = await import('../src/bootstrap/bindings');
     const { createBackend } = await import('../src/bootstrap/container');
     const { h, u, e, connection, integration } = await setup();
     await integration.credentials.connect(u.id, e.id, connection, 'web-access');

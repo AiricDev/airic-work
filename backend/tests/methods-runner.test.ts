@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { repositoryValid, runGit } from '../src/adapters/driven/methods/git';
-import { createMethods } from '../src/bootstrap/methods';
+import { createMethods } from '../src/bootstrap/bindings';
 
 describe('Git process boundary', () => {
     it.each(['ext::sh -c unwanted', 'http://host/repo', 'relative/path', '--upload-pack=unwanted', 'file:///somewhere', 'https://token@host/repo', 'ssh://git:secret@host/repo', 'https://host/repo?token=private', 'ssh://git@host/repo#fragment'])('rejects unsupported source %j', source => {

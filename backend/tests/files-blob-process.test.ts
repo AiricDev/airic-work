@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createFileStorage } from '../src/bootstrap/files';
+import { createFileStorage } from '../src/bootstrap/bindings';
 
 type Result = { ok: boolean; result: { hash: string; size: number; contentRef: string } };
 async function writer(root: string) {

@@ -1,5 +1,5 @@
 import './load-typescript.mjs';
-const { createMethods } = await import('../../src/bootstrap/methods.ts');
+const { createMethods } = await import('../../src/bootstrap/bindings.ts');
 
 process.once('message', async ({ options, configuration, method, query }) => {
     try {

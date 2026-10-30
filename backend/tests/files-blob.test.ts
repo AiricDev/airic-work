@@ -4,7 +4,7 @@ import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, wri
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createFileStorage } from '../src/bootstrap/files';
+import { createFileStorage } from '../src/bootstrap/bindings';
 
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
