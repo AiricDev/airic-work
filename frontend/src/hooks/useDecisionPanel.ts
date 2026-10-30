@@ -7,7 +7,7 @@ import { formatTime, nowIso } from '../utils/time';
 export type BriefStatus = 'loading' | 'ready' | 'error';
 
 export function useDecisionPanel(request: DecisionRequest) {
-  const { state, drafts, currentUser, saveDraft, discardDraft, markViewed, submitResolution, lookupSubmission } = useWorkbench();
+  const { state, drafts, currentUser, saveDraft, discardDraft, markViewed, submitUserDecision, lookupSubmission } = useWorkbench();
   const [step, setStep] = useState<'edit' | 'confirm'>('edit');
   const [showErrors, setShowErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -41,10 +41,10 @@ export function useDecisionPanel(request: DecisionRequest) {
   const value: Draft = draft ?? emptyDraft;
 
   useEffect(() => {
-    if (request.resolution && draft && request.resolution.idempotencyKey === draft.idempotencyKey) {
+    if (request.userDecision && draft && request.userDecision.idempotencyKey === draft.idempotencyKey) {
       discardDraft(request.id);
     }
-  }, [request.resolution, draft, discardDraft, request.id]);
+  }, [request.userDecision, draft, discardDraft, request.id]);
 
   const canResolve = canResolveRequest(request, currentUser);
   const viewedVersion = state.viewed[request.id] ?? request.version;
@@ -56,15 +56,15 @@ export function useDecisionPanel(request: DecisionRequest) {
   const errors = validateDraft(value, request);
   const hasErrors = Object.keys(errors).length > 0;
   const conflictDraft =
-  request.status === 'resolved' &&
+  request.status === 'answered' &&
   Boolean(draft && draftHasContent(draft)) &&
-  request.resolution?.idempotencyKey !== draft?.idempotencyKey;
+  request.userDecision?.idempotencyKey !== draft?.idempotencyKey;
 
   const update = (patch: Partial<Draft>) => saveDraft({ ...value, ...patch, updatedAt: nowIso() });
 
   const goConfirm = () => {
     setShowErrors(true);
-    if (!hasErrors && !draftStale) {
+    if (!hasErrors) {
       setStep('confirm');
       setOutcome(null);
       setLookupMessage(null);
@@ -88,7 +88,7 @@ export function useDecisionPanel(request: DecisionRequest) {
     setSubmitting(true);
     setOutcome(null);
     setLookupMessage(null);
-    const res = await submitResolution(request.id, value);
+    const res = await submitUserDecision(request.id, value);
     setSubmitting(false);
     setOutcome(res);
     if (res.kind === 'unknown') setPendingKey(value.idempotencyKey);
@@ -101,11 +101,11 @@ export function useDecisionPanel(request: DecisionRequest) {
   const checkAcceptance = () => {
     const r = lookupSubmission(request.id, pendingKey ?? value.idempotencyKey);
     if (r.status === 'found') {
-      setOutcome({ kind: 'accepted', resolution: r.resolution });
+      setOutcome({ kind: 'accepted', userDecision: r.userDecision });
       discardDraft(request.id);
       setStep('edit');
     } else if (r.status === 'other') {
-      setOutcome({ kind: 'conflict', resolution: r.resolution });
+      setOutcome({ kind: 'conflict', userDecision: r.userDecision });
     } else {
       setLookupMessage(`${formatTime(nowIso())} 查询：尚未查到接受记录。请稍后再次查询，不要重复提交。`);
     }
@@ -130,7 +130,7 @@ export function useDecisionPanel(request: DecisionRequest) {
     errors,
     canResolve,
     contextChanged,
-    draftStale,
+    draftStale: false,
     unseenChanges,
     conflictDraft,
     update,

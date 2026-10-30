@@ -17,7 +17,7 @@ import { actionLabels } from '../../utils/labels';
 import { formatTime } from '../../utils/time';
 import { DecisionBrief } from './DecisionBrief';
 
-interface ResolutionRecordProps {
+interface UserDecisionRecordProps {
   request: DecisionRequest;
   conflictDraft: boolean;
   justSubmitted: boolean;
@@ -25,8 +25,8 @@ interface ResolutionRecordProps {
   onOpenEvidence: (id: string) => void;
 }
 
-export function ResolutionRecord({ request, conflictDraft, justSubmitted, onDiscardDraft, onOpenEvidence }: ResolutionRecordProps) {
-  const r = request.resolution;
+export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDiscardDraft, onOpenEvidence }: UserDecisionRecordProps) {
+  const r = request.userDecision;
   if (!r) return null;
   const f = request.followUp;
   const rows: {label: string;value: string;}[] = [
@@ -50,11 +50,12 @@ export function ResolutionRecord({ request, conflictDraft, justSubmitted, onDisc
           {r.actorName} 已通过{r.channel}处理。你的草稿未提交，也不会覆盖下方的正式记录。
         </Alert>
       }
-      {justSubmitted && !conflictDraft && <Alert severity="success">处理结果已记录。下方可查看处理记录与后续执行情况。</Alert>}
+      {justSubmitted && !conflictDraft && <Alert severity="success">已回答。UserDecision 已保存，消息交付及 Agent 继续情况分别显示。</Alert>}
 
       <Box>
+        {r.files?.map((f, i) => <Typography key={i}><a href={f.content} download={f.name}>{f.name}</a> · 已交付 Workspace（模拟）</Typography>)}
         <Typography variant="overline" color="text.secondary" component="h3">
-          正式处理记录
+          UserDecision
         </Typography>
         <Typography variant="subtitle1" sx={{ mb: 1 }}>
           {request.question}

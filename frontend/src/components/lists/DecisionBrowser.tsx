@@ -43,7 +43,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
   const { state, currentUser } = useWorkbench();
 
   const scopeAll = params.get('scope') === 'all';
-  const status = params.get('status') === 'resolved' ? 'resolved' : 'pending';
+  const status = params.get('status') === 'answered' ? 'answered' : 'pending';
   const sort = params.get('sort') === 'impact' ? 'impact' : 'wait';
   const page = Number(params.get('dpage') ?? '0') || 0;
 
@@ -58,7 +58,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
   const rows = useMemo(() => {
     const filtered = requests.filter((r) => r.status === status && (scopeAll || r.ownerId === currentUser.id));
     return filtered.sort((a, b) => {
-      if (status === 'resolved') return (b.resolution?.at ?? '').localeCompare(a.resolution?.at ?? '');
+      if (status === 'answered') return (b.userDecision?.at ?? '').localeCompare(a.userDecision?.at ?? '');
       if (sort === 'impact' && b.brief.affected.length !== a.brief.affected.length) return b.brief.affected.length - a.brief.affected.length;
       return a.createdAt.localeCompare(b.createdAt);
     });
@@ -75,16 +75,16 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
           size="small"
           exclusive
           value={status}
-          onChange={(_, v: string | null) => v && setParam('status', v === 'resolved' ? 'resolved' : '')}
+          onChange={(_, v: string | null) => v && setParam('status', v === 'answered' ? 'answered' : '')}
           aria-label="处理状态">
-          
+
           <ToggleButton value="pending">待处理</ToggleButton>
           <ToggleButton value="resolved">已处理</ToggleButton>
         </ToggleButtonGroup>
         <FormControlLabel
           control={<Switch checked={!scopeAll} onChange={(e) => setParam('scope', e.target.checked ? '' : 'all')} />}
           label="仅看我可处理" />
-        
+
         {status === 'pending' &&
         <FormControl size="small" sx={{ minWidth: 170 }}>
             <InputLabel id="decision-sort">排序</InputLabel>
@@ -132,7 +132,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
                     onKeyDown={(ev) => {
                       if (ev.key === 'Enter') open(r);
                     }}>
-                    
+
                       <TableCell>
                         <Typography variant="body2" fontWeight={600}>
                           {r.question}
@@ -142,9 +142,9 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
                             {r.id}
                           </Typography>
                           {r.ownerId !== currentUser.id && <Chip variant="outlined" label={`归属 ${userName(r.ownerId)} · 只读`} />}
-                          {r.resolution &&
+                          {r.userDecision &&
                         <Typography variant="caption" color="text.secondary">
-                              {r.resolution.actorName}（{r.resolution.channel}）
+                              {r.userDecision.actorName}（{r.userDecision.channel}）
                             </Typography>
                         }
                         </Stack>
@@ -174,7 +174,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
                             {duration(r.createdAt)}
                           </Typography> :
 
-                      <Typography variant="body2">{r.resolution ? formatTime(r.resolution.at) : '—'}</Typography>
+                      <Typography variant="body2">{r.userDecision ? formatTime(r.userDecision.at) : '—'}</Typography>
                       }
                       </TableCell>
                     </TableRow>);
@@ -191,7 +191,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
           rowsPerPageOptions={[ROWS_PER_PAGE]}
           onPageChange={(_, p) => setParam('dpage', p ? String(p) : '')}
           labelDisplayedRows={({ from: f, to, count }) => `${f}–${to} / 共 ${count} 条`} />
-        
+
         </>
       }
     </Paper>);

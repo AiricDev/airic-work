@@ -14,7 +14,7 @@ export function getVisibleProjects(user: DemoUser): Project[] {
 }
 
 export function getVisibleExecutions(executions: Execution[], user: DemoUser): Execution[] {
-  return executions.filter((e) => user.visibleProjectIds.includes(e.projectId));
+  return executions.filter((e) => e.ownerId === user.id);
 }
 
 export function getVisibleRequests(requests: DecisionRequest[], executions: Execution[], user: DemoUser): DecisionRequest[] {

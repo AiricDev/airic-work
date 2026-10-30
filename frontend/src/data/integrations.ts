@@ -45,10 +45,10 @@ export const apiCallers: ApiCaller[] = [
   system: 'CertLab（模拟）',
   identityNote:
   '调用方身份代表集成系统本身；实际发起用户与执行归属人需来自可信身份来源并可验证，不能由请求自由填写 userId 冒用（协议 TBD）。',
-  operations: ['创建执行', '查询执行', '请求取消执行', '查询 Decision Request', '提交决策处理结果'],
+  operations: ['创建执行', '查询执行', '请求取消执行', '查询 DecisionRequest', '提交决策处理结果'],
   recentAccess: [
   { at: minutesAgo(130), operation: '创建执行 EX-7F3A21', result: '已接受' },
-  { at: minutesAgo(95), operation: '查询 Decision Request', result: '成功' },
+  { at: minutesAgo(95), operation: '查询 DecisionRequest', result: '成功' },
   { at: minutesAgo(50), operation: '创建执行 EX-2C9E04', result: '已接受' }]
 
 }];
@@ -59,7 +59,7 @@ export const runtimeCapabilities: RuntimeCapability[] = [
 { name: 'Shell / 代码执行', category: '通用', status: '未验证', note: '目标 Runtime 能力说明未发布' },
 { name: '结构化数据处理', category: '通用', status: '已验证', note: '演示环境验证记录 RV-02' },
 { name: '常见文档处理（PDF / Office）', category: '通用', status: '未验证', note: '不能以本地 Agent 可用推定后台可用' },
-{ name: 'Decision Request 与执行记录', category: '平台', status: '已验证', note: '本原型模拟' },
+{ name: 'DecisionRequest 与执行记录', category: '平台', status: '已验证', note: '本原型模拟' },
 { name: '登记机关记录查询', category: '领域（MCP）', status: '不可用', note: 'OM 文件中记录的领域依赖缺口，需由业务能力承接' }];
 
 

@@ -1,6 +1,7 @@
+export interface PrototypeFile { name: string; size: number; content: string }
 export type ActionType = 'fact' | 'judgment' | 'authorization' | 'investigation';
 export type RequestKind = 'judgment' | 'fact' | 'authorization';
-export type ResolutionChannel = '工作台' | '业务系统';
+export type UserDecisionChannel = '工作台' | '业务系统';
 
 export interface DemoUser {
   id: string;
@@ -97,6 +98,7 @@ export interface Execution {
   events: ExecEvent[];
   results: ResultItem[];
   logs: LogEntry[];
+  uploads?: PrototypeFile[];
   cancellation: Cancellation | null;
 }
 
@@ -161,7 +163,8 @@ export interface PendingContextUpdate {
   removeGaps: string[];
 }
 
-export interface Resolution {
+export interface UserDecision {
+  files?: PrototypeFile[];
   id: string;
   requestId: string;
   action: ActionType;
@@ -172,7 +175,7 @@ export interface Resolution {
   source?: string;
   actorId: string;
   actorName: string;
-  channel: ResolutionChannel;
+  channel: UserDecisionChannel;
   at: string;
   basisVersion: number;
   idempotencyKey: string;
@@ -197,8 +200,9 @@ export interface DecisionRequest {
   version: number;
   allowedActions: ActionType[];
   brief: DecisionBriefData;
-  status: 'pending' | 'resolved';
-  resolution: Resolution | null;
+  status: 'pending' | 'answered';
+  userDecision: UserDecision | null;
+  decisionHistory?: UserDecision[];
   followUp: FollowUp | null;
   changes: ContextChange[];
   contextUpdate: PendingContextUpdate | null;
@@ -216,6 +220,7 @@ export interface Evidence {
 }
 
 export interface Draft {
+  files?: PrototypeFile[];
   requestId: string;
   action: ActionType | null;
   choiceId: string;
@@ -250,17 +255,17 @@ export interface WorkbenchState {
 }
 
 export type SubmitOutcome =
-{kind: 'accepted';resolution: Resolution;} |
-{kind: 'duplicate';resolution: Resolution;} |
-{kind: 'conflict';resolution: Resolution;} |
+{kind: 'accepted';userDecision: UserDecision;} |
+{kind: 'duplicate';userDecision: UserDecision;} |
+{kind: 'conflict';userDecision: UserDecision;} |
 {kind: 'stale';changes: ContextChange[];} |
 {kind: 'forbidden';reason: string;} |
 {kind: 'failed';message: string;} |
 {kind: 'unknown';};
 
 export type LookupResult =
-{status: 'found';resolution: Resolution;} |
-{status: 'other';resolution: Resolution;} |
+{status: 'found';userDecision: UserDecision;} |
+{status: 'other';userDecision: UserDecision;} |
 {status: 'notFound';};
 
 export interface ChatMessage {

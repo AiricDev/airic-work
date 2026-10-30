@@ -55,7 +55,7 @@ export function ProfileSettings() {
               disableClearable
               onChange={(_, v) => v && pref.set({ timezone: v })}
               renderInput={(params) => <TextField {...params} label="时区（IANA）" helperText="演示中时间仍按浏览器本地时区显示" />} />
-            
+
             <Box>
               <Typography variant="subtitle2">站内通知</Typography>
               {(Object.keys(notifyLabels) as NotificationKind[]).map((k) =>
@@ -73,7 +73,7 @@ export function ProfileSettings() {
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <BusinessAccounts />
+          <Alert severity="info">身份来自集成方 token，本地 User 自动接入；无需单独绑定账号或授权客户端。</Alert>
         </Paper>
       </Stack>
       <UnsavedChangesDialog
@@ -83,7 +83,7 @@ export function ProfileSettings() {
           profile.revert();
           pref.revert();
         }} />
-      
+
     </Box>);
 
 }

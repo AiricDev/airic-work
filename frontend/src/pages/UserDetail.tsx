@@ -60,8 +60,8 @@ export function UserDetail() {
 
       <Tabs value={tab} onChange={(_, v: string) => setTab(v)} sx={{ mb: 1.5 }}>
         <Tab value="overview" label="概览" />
-        <Tab value="identity" label="业务身份" />
-        <Tab value="audit" label="管理记录" />
+
+
       </Tabs>
       <Paper variant="outlined" sx={{ p: 2 }}>
         {tab === 'overview' &&
@@ -86,8 +86,8 @@ export function UserDetail() {
             </Box>
           </Stack>
         }
-        {tab === 'identity' && <IdentityMappings userId={user.id} />}
-        {tab === 'audit' && <AuditSection target={user.name} />}
+
+
       </Paper>
       <UserActionDialog user={action ? user : null} action={action} onClose={() => setAction(null)} onDone={setResult} />
     </Box>);

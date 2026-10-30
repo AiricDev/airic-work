@@ -3,10 +3,10 @@
 | 项 | 内容 |
 | --- | --- |
 | 日期 | 2026-10-30 |
-| 状态 | 按已确认 Ontology 重写的目标设计；本轮仅修改文档，尚未完成新版合同的实现与集成验证 |
+| 状态 | 目标设计；第一阶段 Domain/Application 已完成内层实现与测试，真实适配器及集成仍未交付 |
 | 产品依据 | [PRD](prd.md) 中的 Ontology、Functional Requirements、User Experience 和核心验收 |
 | 设计范围 | 架构、用例与端口、身份接入、运行与消息交付、Session、Workspace、MCP、接口与 UI 技术约束、存储与恢复 |
-| 实现证据 | 实现状态另行核验；历史 M1/fake-port 或 spike 结论仅适用于当时合同，不代表本设计已交付 |
+| 实现证据 | 当前证据见 [第一阶段报告](backend-phase1-report.md)；历史 M1/fake-port 或 spike 结论仅适用于当时合同，不代表真实适配器已交付 |
 
 产品语义由 PRD 定义。本文说明怎样实现，不重新增加用户角色、业务实体或专业采纳流程。原型与现有代码用于识别差异，不自动成为新合同。文中的端口名、技术字段和 HTTP 路径是目标设计，不声明当前 SDK 已支持或当前服务已提供。
 
@@ -45,7 +45,8 @@
 | --- | --- | --- |
 | 后端 | TypeScript 模块化单体；单控制面进程 | Domain、Application 可独立测试 |
 | HTTP | Fastify | 协议解析、身份接入、DTO 与错误映射 |
-| 接口定义 | Zod；共享 transport contracts | 不进入 Domain 或 Application |
+| 接口定义 | Zod；入口 Schema 与 transport contracts | 不进入 Domain 或 Application；当前入口校验位于 adapters/driving/validation |
+| 依赖装配 | Awilix；组合根 CLASSIC + strict | 服务通过构造函数显式注入所需端口；容器不进入内层，不注册可变 currentUser |
 | 应用存储 | SQLite WAL、Drizzle、better-sqlite3 | 控制记录、本地事务、Outbox、可重建读取索引 |
 | 异步交付 | 同库 Outbox、进程内 worker | 持久意图、认领、重试、对账，不引入外部队列 |
 | Agent Runtime | Pi Durable；模型调用采用其兼容生态（含 pi-ai） | 每 Execution 一个逻辑 Session 和独立 Pi 存储；SDK 能力需锁版验证 |
@@ -265,6 +266,15 @@ $AIRIC_DATA/
 ## 10. HTTP、MCP、SSE 与界面适配
 
 ### 10.1 入口和错误
+
+入口结构校验采用 Zod，运行时依赖装配采用 Awilix。当前锁定版本见 `backend/package.json` 及 `backend/package-lock.json`，不与业务 Schema 或领域类型混为一体。
+
+* `adapters/driving/validation/schemas.ts` 定义严格输入形状，`commands.ts` 映射为普通应用命令。外部正文中的额外身份字段拒绝，不静默采用或扩权；`task` 保留调用方自定义 JSON。
+* Zod 错误在入口转换为不含输入值的字段问题；Domain 的 RuleError、资格/归属、状态、CAS 和业务约束继续由内层负责。校验通过不等于操作获准。
+* `bootstrap/container.ts` 使用 Awilix 注册适配器和应用服务类，使用 asClass 注册服务类并进行构造函数注入。使用 CLASSIC + strict 和根级单例；CLASSIC 按构造参数名解析依赖，后端构建不得混淆这些参数名。不使用反射装饰器，不让业务用例调用 resolve/cradle。
+* 当前传入适配器由调用方创建并负责关闭，容器 dispose 只释放其拥有的注册实例；将来增加生产资源工厂时应显式登记 disposer。HTTP 请求的用户身份逐次传入，不能被根级单例捕获。
+* 此接入尚不提供真实 HTTP/认证/数据库/Runtime；入口 Schema 与配置形状可独立测试，不能将库安装视作生产适配已完成。
+
 
 Fastify、运行时工具、worker 和只读 MCP handler 调用同一组应用用例。入口建立可信用户及 Execution 调用来源，不信任模型填写的 userId；DTO 在边缘映射，Schema 留在 transport-contracts。
 

@@ -29,8 +29,8 @@ export const decisionRequests: DecisionRequest[] = [
     omCommit: 'demo-3f9a2c1',
     origin: 'Agent 在执行 EX-7F3A21 中发起'
   },
-  status: 'resolved',
-  resolution: {
+  status: 'answered',
+  userDecision: {
     id: 'RS-0907',
     requestId: 'DR-1031',
     action: 'fact',
@@ -103,7 +103,7 @@ export const decisionRequests: DecisionRequest[] = [
     origin: 'Agent 在执行 EX-7F3A21 中发起'
   },
   status: 'pending',
-  resolution: null,
+  userDecision: null,
   followUp: null,
   changes: [],
   contextUpdate: {
@@ -149,7 +149,7 @@ export const decisionRequests: DecisionRequest[] = [
     }
   },
   status: 'pending',
-  resolution: null,
+  userDecision: null,
   followUp: null,
   changes: [],
   contextUpdate: null
@@ -182,7 +182,7 @@ export const decisionRequests: DecisionRequest[] = [
     origin: 'Agent 在执行 EX-5E12C8 中发起'
   },
   status: 'pending',
-  resolution: null,
+  userDecision: null,
   followUp: null,
   changes: [],
   contextUpdate: null
@@ -222,7 +222,7 @@ export const decisionRequests: DecisionRequest[] = [
     origin: 'Agent 在执行 EX-5E12C8 中发起'
   },
   status: 'pending',
-  resolution: null,
+  userDecision: null,
   followUp: null,
   changes: [],
   contextUpdate: null

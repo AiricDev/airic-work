@@ -70,9 +70,9 @@ export function MockBusinessSystem() {
                   <Typography variant="body2" fontWeight={600} sx={{ mt: 0.75 }}>
                     {r.question}
                   </Typography>
-                  {r.resolution &&
+                  {r.userDecision &&
                 <Typography variant="body2" color="text.secondary">
-                      {r.resolution.actorName}（{r.resolution.channel}，{formatTime(r.resolution.at)}）：{r.resolution.content}
+                      {r.userDecision.actorName}（{r.userDecision.channel}，{formatTime(r.userDecision.at)}）：{r.userDecision.content}
                     </Typography>
                 }
                   <Stack direction="row" spacing={1} sx={{ mt: 1 }}>

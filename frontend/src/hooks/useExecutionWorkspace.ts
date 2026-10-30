@@ -14,7 +14,7 @@ export function useExecutionWorkspace(executionId: string | undefined) {
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const found = state.executions.find((e) => e.id === executionId);
-  const execution = found && currentUser.visibleProjectIds.includes(found.projectId) ? found : undefined;
+  const execution = found && found.ownerId === currentUser.id ? found : undefined;
   const project = execution ? projectById(execution.projectId) : undefined;
   const requests = state.requests.
   filter((r) => r.executionId === executionId).

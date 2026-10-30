@@ -8,7 +8,7 @@ import { formatTime, fromNow } from '../utils/time';
 export function ProjectList() {
   const navigate = useNavigate();
   const { state, currentUser } = useWorkbench();
-  const projects = getVisibleProjects(currentUser);
+  const projects = getVisibleProjects(currentUser).filter(p => state.executions.some(e => e.projectId === p.id && e.ownerId === currentUser.id));
   const executions = getVisibleExecutions(state.executions, currentUser);
   const requests = getVisibleRequests(state.requests, state.executions, currentUser);
 
@@ -57,7 +57,7 @@ export function ProjectList() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') open();
                     }}>
-                    
+
                       <TableCell>
                         <Typography variant="body2" fontWeight={600}>
                           {p.name}

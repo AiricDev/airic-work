@@ -2,11 +2,11 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { DemoSettings, DemoUser, Draft, LookupResult, SubmitOutcome, WorkbenchState } from '../types/workbench';
 import { demoUsers } from '../data/users';
 import { createInitialState, defaultSettings, workbenchReducer } from '../utils/workbenchReducer';
-import { buildResolution, createId, validateSubmission } from '../utils/decisionService';
+import { buildUserDecision, createId, validateSubmission } from '../utils/decisionService';
 import { nowIso } from '../utils/time';
 
-const STATE_KEY = 'airic-work-demo-state-v3';
-const DRAFTS_KEY = 'airic-work-demo-drafts-v3';
+const STATE_KEY = 'airic-work-demo-state-v4';
+const DRAFTS_KEY = 'airic-work-demo-drafts-v4';
 
 interface WorkbenchContextValue {
   state: WorkbenchState;
@@ -18,12 +18,13 @@ interface WorkbenchContextValue {
   saveDraft: (draft: Draft) => void;
   discardDraft: (requestId: string) => void;
   markViewed: (requestId: string) => void;
-  submitResolution: (requestId: string, draft: Draft) => Promise<SubmitOutcome>;
+  submitUserDecision: (requestId: string, draft: Draft) => Promise<SubmitOutcome>;
   lookupSubmission: (requestId: string, key: string) => LookupResult;
   simulateExternalResolve: (requestId: string) => void;
   simulateContextUpdate: (requestId: string) => void;
   requestCancel: (executionId: string) => void;
   queryCancel: (executionId: string) => void;
+  sendSteering: (executionId: string, text: string, files?: import("../types/workbench").PrototypeFile[]) => void;
 }
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
@@ -86,7 +87,7 @@ export function WorkbenchProvider({ children }: {children: React.ReactNode;}) {
   );
   const markViewed = useCallback((requestId: string) => dispatch({ type: 'MARK_VIEWED', requestId }), []);
 
-  const submitResolution = useCallback(async (requestId: string, draft: Draft): Promise<SubmitOutcome> => {
+  const submitUserDecision = useCallback(async (requestId: string, draft: Draft): Promise<SubmitOutcome> => {
     await new Promise((resolve) => window.setTimeout(resolve, 900));
     const s = stateRef.current;
     const req = s.requests.find((r) => r.id === requestId);
@@ -97,26 +98,26 @@ export function WorkbenchProvider({ children }: {children: React.ReactNode;}) {
     if (s.settings.submitMode === 'failed') {
       return { kind: 'failed', message: '服务暂时不可用（模拟），本次提交未被接受。' };
     }
-    const resolution = buildResolution(req, draft, user, '工作台');
+    const userDecision = buildUserDecision(req, draft, user, '工作台');
     if (s.settings.submitMode === 'unknown') {
-      window.setTimeout(() => dispatch({ type: 'RECORD_RESOLUTION', resolution }), 4000);
+      window.setTimeout(() => dispatch({ type: 'RECORD_USER_DECISION', userDecision }), 4000);
       return { kind: 'unknown' };
     }
-    dispatch({ type: 'RECORD_RESOLUTION', resolution });
-    return { kind: 'accepted', resolution };
+    dispatch({ type: 'RECORD_USER_DECISION', userDecision });
+    return { kind: 'accepted', userDecision };
   }, []);
 
   const lookupSubmission = useCallback((requestId: string, key: string): LookupResult => {
     const req = stateRef.current.requests.find((r) => r.id === requestId);
-    if (!req?.resolution) return { status: 'notFound' };
-    return req.resolution.idempotencyKey === key ?
-    { status: 'found', resolution: req.resolution } :
-    { status: 'other', resolution: req.resolution };
+    if (!req?.userDecision) return { status: 'notFound' };
+    return req.userDecision.idempotencyKey === key ?
+    { status: 'found', userDecision: req.userDecision } :
+    { status: 'other', userDecision: req.userDecision };
   }, []);
 
   const simulateExternalResolve = useCallback((requestId: string) => {
     const req = stateRef.current.requests.find((r) => r.id === requestId);
-    if (!req || req.status === 'resolved') return;
+    if (!req || req.status === 'answered') return;
     const option = req.brief.options.find((o) => o.id === req.brief.recommendation?.optionId) ?? req.brief.options[0];
     const content =
     req.kind === 'judgment' ?
@@ -125,8 +126,8 @@ export function WorkbenchProvider({ children }: {children: React.ReactNode;}) {
     '业务人员已在业务系统补充相关事实（模拟）' :
     `授权：${req.brief.authorization?.action ?? '指定操作'}（业务系统内授权，模拟）`;
     dispatch({
-      type: 'RECORD_RESOLUTION',
-      resolution: {
+      type: 'RECORD_USER_DECISION',
+      userDecision: {
         id: createId('RS'),
         requestId: req.id,
         action: req.kind,
@@ -135,8 +136,8 @@ export function WorkbenchProvider({ children }: {children: React.ReactNode;}) {
         content,
         reason: req.kind === 'judgment' ? '在业务系统中依据同一 Brief 作出（模拟）' : undefined,
         source: req.kind === 'fact' ? 'CertLab（模拟）业务记录' : undefined,
-        actorId: 'u-wang',
-        actorName: '王芳',
+        actorId: req.ownerId,
+        actorName: demoUsers.find((u) => u.id === req.ownerId)?.name ?? req.ownerId,
         channel: '业务系统',
         at: nowIso(),
         basisVersion: req.version,
@@ -175,14 +176,15 @@ export function WorkbenchProvider({ children }: {children: React.ReactNode;}) {
       saveDraft,
       discardDraft,
       markViewed,
-      submitResolution,
+      submitUserDecision,
       lookupSubmission,
       simulateExternalResolve,
       simulateContextUpdate,
       requestCancel,
-      queryCancel
+      queryCancel,
+      sendSteering: (executionId, text, files) => dispatch({ type: 'STEERING', executionId, text, files, userId: stateRef.current.userId })
     }),
-    [state, drafts, currentUser, setUser, updateSettings, resetDemo, saveDraft, discardDraft, markViewed, submitResolution, lookupSubmission, simulateExternalResolve, simulateContextUpdate, requestCancel, queryCancel]
+    [state, drafts, currentUser, setUser, updateSettings, resetDemo, saveDraft, discardDraft, markViewed, submitUserDecision, lookupSubmission, simulateExternalResolve, simulateContextUpdate, requestCancel, queryCancel]
   );
 
   return <WorkbenchContext.Provider value={value}>{children}</WorkbenchContext.Provider>;

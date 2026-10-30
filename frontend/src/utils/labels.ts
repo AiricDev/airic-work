@@ -11,7 +11,7 @@ export const actionDescriptions: Record<ActionType, string> = {
   fact: '提供缺失的事实及其来源',
   judgment: '在候选方案中作出选择并说明理由',
   authorization: '在列明的对象、动作与范围内授权',
-  investigation: '说明需要 Agent 继续调查的问题；不视为原事项已解决'
+  investigation: '说明需要 Agent 继续调查的问题；提交即已回答，Agent 可进一步调查'
 };
 
 export const submitLabels: Record<ActionType, string> = {

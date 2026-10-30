@@ -7,7 +7,7 @@ import { PageHeader } from '../components/PageHeader';
 import { McpReadPanel } from '../components/mcp/McpReadPanel';
 
 const interfaces = [
-{ name: '标准任务 / 决策 API', direction: '业务系统 → Airic Work', scope: '创建、查询、取消执行；查询、处理 Decision Request。创建幂等，接受不等于已执行，取消不等于已停止。', boundary: '调用方与实际用户需可信关联；路径与认证协议 TBD' },
+{ name: '标准任务 / 决策 API', direction: '业务系统 → Airic Work', scope: '创建、查询、取消执行；查询、处理 DecisionRequest。创建幂等，接受不等于已执行，取消不等于已停止。', boundary: '调用方与实际用户需可信关联；路径与认证协议 TBD' },
 { name: '出站业务 MCP', direction: '后台 Agent → 业务系统', scope: '以执行归属人本人经验证且有效的业务身份读取、取证与操作。', boundary: '不回退到管理员、共享服务账号或其他用户' },
 { name: 'Git 获取', direction: 'Airic Work → GitHub/GitLab', scope: '同步本实例唯一 OM 仓库的文件、提交与差异；新执行启动前确认来源分支最新提交。', boundary: '变更管理、Review 与合并完全在 Git 平台' },
 { name: '入站轨迹只读 MCP', direction: '外部 Agent → Airic Work', scope: '在本人授权范围内定位执行记录、分页读取 Trajectory、读取 Episode 及必要版本与 Context 引用。', boundary: '不创建/取消执行、不提交决定、不修改 OM、不读取令牌' }];

@@ -42,7 +42,7 @@ export function Trajectory() {
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
 
   const found = state.executions.find((e) => e.id === executionId);
-  const execution = found && currentUser.visibleProjectIds.includes(found.projectId) ? found : undefined;
+  const execution = found && found.ownerId === currentUser.id ? found : undefined;
   const { events, gapNote } = useMemo(
     () => execution ? trajectoryFor(execution, platform.state.demo.trajectoryMissing) : { events: [], gapNote: null },
     [execution, platform.state.demo.trajectoryMissing]
@@ -164,7 +164,7 @@ export function Trajectory() {
           rowsPerPageOptions={[ROWS]}
           onPageChange={(_, p) => setParam('page', p ? String(p) : '')}
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} / 共 ${count} 条`} />
-        
+
       </Paper>
 
       <TrajectoryEventDrawer
@@ -175,7 +175,7 @@ export function Trajectory() {
         onNavigate={(id) => setParam('event', id)}
         onOpenEvidence={setEvidenceId}
         onClose={() => setParam('event', '')} />
-      
+
       <EvidenceDrawer evidenceId={evidenceId} onClose={() => setEvidenceId(null)} />
     </Box>);
 

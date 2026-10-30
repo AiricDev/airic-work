@@ -18,13 +18,13 @@ interface DecisionQueueProps {
 export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueueProps) {
   const { currentUser, drafts } = useWorkbench();
   const pending = requests.filter((r) => r.status === 'pending');
-  const resolved = requests.filter((r) => r.status === 'resolved');
+  const resolved = requests.filter((r) => r.status === 'answered');
   const active = requests.find((r) => r.id === activeId);
-  const [tab, setTab] = useState<'pending' | 'resolved'>(active?.status === 'resolved' ? 'resolved' : 'pending');
+  const [tab, setTab] = useState<'pending' | 'answered'>(active?.status === 'answered' ? 'answered' : 'pending');
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    if (active) setTab(active.status === 'resolved' && !pending.some((r) => r.id === active.id) ? 'resolved' : 'pending');
+    if (active) setTab(active.status === 'answered' && !pending.some((r) => r.id === active.id) ? 'answered' : 'pending');
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const list = tab === 'pending' ? pending : resolved;
@@ -48,7 +48,7 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
         </Typography> :
 
       <>
-          <Tabs value={tab} onChange={(_, v: 'pending' | 'resolved') => setTab(v)} sx={{ px: 1, minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5 } }}>
+          <Tabs value={tab} onChange={(_, v: 'pending' | 'answered') => setTab(v)} sx={{ px: 1, minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5 } }}>
             <Tab value="pending" label={`待处理 (${pending.length})`} />
             <Tab value="resolved" label={`已处理 (${resolved.length})`} />
           </Tabs>
@@ -73,12 +73,12 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
                 aria-current={selected ? 'true' : undefined}
                 onClick={() => onSelect(r.id)}
                 sx={{ borderRadius: 1, mb: 0.5, border: 1, borderColor: selected ? 'primary.main' : 'divider', display: 'block', py: 1 }}>
-                
+
                     <Typography
                   variant="body2"
                   fontWeight={selected ? 600 : 500}
                   sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  
+
                       {r.question}
                     </Typography>
                     <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
@@ -86,7 +86,7 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
                       {r.ownerId !== currentUser.id && <Chip variant="outlined" label={`归属 ${userName(r.ownerId)}`} />}
                       {hasDraft && <Chip variant="outlined" color="info" icon={<EditNoteOutlinedIcon />} label="有草稿" />}
                       <Typography variant="caption" color="text.secondary">
-                        {r.status === 'pending' ? `已等待 ${duration(r.createdAt)}` : `${r.resolution?.actorName} · ${r.resolution ? formatTime(r.resolution.at) : ''}`}
+                        {r.status === 'pending' ? `已等待 ${duration(r.createdAt)}` : `${r.userDecision?.actorName} · ${r.userDecision ? formatTime(r.userDecision.at) : ''}`}
                       </Typography>
                     </Stack>
                   </ListItemButton>);

@@ -61,9 +61,9 @@ export function UserManagement() {
     <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
       <PageHeader
         title="用户管理"
-        description="单组织；角色仅有管理员与成员。管理员角色不扩展业务对象权限。"
-        actions={<Button variant="contained" startIcon={<PersonAddAltIcon />} onClick={() => setCreateOpen(true)}>新增用户</Button>} />
-      
+        description="集成方用户首次有效请求自动创建并获得使用资格；在此管理启用状态与管理员权限。"
+         />
+
       {result && <Alert severity={result.ok ? 'success' : 'error'} sx={{ mb: 2 }} onClose={() => setResult(null)}>{result.message}</Alert>}
       <Paper variant="outlined">
         <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
@@ -74,7 +74,7 @@ export function UserManagement() {
             sx={{ width: { xs: '100%', sm: 280 } }}
             inputProps={{ 'aria-label': '搜索用户' }}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
-          
+
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel id="u-role">角色</InputLabel>
             <Select labelId="u-role" label="角色" value={role} onChange={(e) => setRole(e.target.value)}>

@@ -46,8 +46,8 @@ export function ContextDependencyDrawer({ dependency, request, onClose }: Contex
     }
     if (dependency.kind === '既往决定' && dependency.priorRequestId) {
       const prior = state.requests.find((r) => r.id === dependency.priorRequestId);
-      if (!prior?.resolution) return <Alert severity="info">尚无正式处理记录。</Alert>;
-      const r = prior.resolution;
+      if (!prior?.userDecision) return <Alert severity="info">尚无UserDecision。</Alert>;
+      const r = prior.userDecision;
       return (
         <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.75, '& dd': { m: 0 } }}>
           <Typography component="dt" variant="body2" color="text.secondary">请求</Typography>
@@ -80,7 +80,7 @@ export function ContextDependencyDrawer({ dependency, request, onClose }: Contex
             <Typography component="dt" variant="body2" color="text.secondary">最近校验</Typography>
             <Typography component="dd" variant="body2">{formatTime(dg.lastVerifiedAt)}</Typography>
           </Box>
-          <Typography variant="caption" color="text.secondary">Decision 中的同意不会创建业务委托；委托有效也不等于目标业务操作有权。</Typography>
+          <Typography variant="caption" color="text.secondary">Decision 中的同意不会创建业务身份映射；委托有效也不等于目标业务操作有权。</Typography>
         </Stack>);
 
     }

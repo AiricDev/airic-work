@@ -1,4 +1,4 @@
-import type { DemoSettings, Execution, ExecEvent, DecisionRequest, Resolution, WorkbenchState } from '../types/workbench';
+import type { DemoSettings, Execution, ExecEvent, DecisionRequest, UserDecision, WorkbenchState } from '../types/workbench';
 import { executions as seedExecutions } from '../data/executions';
 import { decisionRequests as seedRequests } from '../data/decisionRequests';
 import { actionLabels } from './labels';
@@ -9,12 +9,13 @@ export type WorkbenchAction =
 {type: 'SET_USER';userId: string;} |
 {type: 'UPDATE_SETTINGS';patch: Partial<DemoSettings>;} |
 {type: 'MARK_VIEWED';requestId: string;} |
-{type: 'RECORD_RESOLUTION';resolution: Resolution;} |
+{type: 'RECORD_USER_DECISION';userDecision: UserDecision;} |
 {type: 'FOLLOW_UP_CONFIRMED';requestId: string;} |
 {type: 'CONTEXT_UPDATE';requestId: string;} |
 {type: 'REQUEST_CANCEL';executionId: string;userName: string;} |
 {type: 'CANCEL_RESOLVED';executionId: string;delayed: boolean;} |
 {type: 'CANCEL_CHECKED';executionId: string;} |
+{type: 'STEERING'; executionId: string; text: string; userId: string; files?: import("../types/workbench").PrototypeFile[];} |
 {type: 'RESET';};
 
 export const defaultSettings: DemoSettings = {
@@ -59,41 +60,36 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         if (!req) return state;
         return { ...state, viewed: { ...state.viewed, [req.id]: req.version } };
       }
-    case 'RECORD_RESOLUTION':{
-        const { resolution } = action;
-        const req = state.requests.find((r) => r.id === resolution.requestId);
-        if (!req || req.status === 'resolved') return state;
+    case 'RECORD_USER_DECISION':{
+        const { userDecision } = action;
+        const req = state.requests.find((r) => r.id === userDecision.requestId);
+        if (!req || req.decisionHistory?.some(d => d.idempotencyKey === userDecision.idempotencyKey) || req.userDecision?.idempotencyKey === userDecision.idempotencyKey) return state;
         const next = mapRequest(state, req.id, (r) => ({
           ...r,
-          status: 'resolved',
-          resolution,
-          updatedAt: resolution.at,
-          followUp: { status: 'confirming', message: '处理结果已记录；正在确认后续执行', remaining: [], updatedAt: resolution.at }
+          status: 'answered',
+          userDecision,
+          decisionHistory: [...(r.decisionHistory ?? (r.userDecision ? [r.userDecision] : [])), userDecision],
+          updatedAt: userDecision.at,
+          followUp: { status: 'confirming', message: '处理结果已记录；正在确认后续执行', remaining: [], updatedAt: userDecision.at }
         }));
         return mapExecution(next, req.executionId, (e) =>
         appendEvent(e, {
-          at: resolution.at,
+          at: userDecision.at,
           kind: 'human',
-          title: `${resolution.actorName} ${actionLabels[resolution.action]}（${resolution.channel}）`,
-          detail: resolution.choiceLabel ?? resolution.content,
+          title: `${userDecision.actorName} ${actionLabels[userDecision.action]}（${userDecision.channel}）`,
+          detail: userDecision.choiceLabel ?? userDecision.content,
           requestId: req.id
         })
         );
       }
     case 'FOLLOW_UP_CONFIRMED':{
         const req = state.requests.find((r) => r.id === action.requestId);
-        if (!req || req.followUp?.status !== 'confirming' || !req.resolution) return state;
+        if (!req || req.followUp?.status !== 'confirming' || !req.userDecision) return state;
         const exec = state.executions.find((e) => e.id === req.executionId);
-        if (!exec) return state;
+        if (!exec || (exec.cancellation && exec.cancellation.status !== 'confirmed')) return state;
         const at = nowIso();
-        const resolution = req.resolution;
-        if (exec.cancellation?.status === 'confirmed') {
-          return mapRequest(state, req.id, (r) => ({
-            ...r,
-            followUp: { status: 'recorded', message: '执行已停止：处理结果已记录，但不会据此继续相关工作。', remaining: [], updatedAt: at }
-          }));
-        }
-        if (resolution.action === 'investigation') {
+        const userDecision = req.userDecision;
+        if (userDecision.action === 'investigation') {
           const next = mapRequest(state, req.id, (r) => ({
             ...r,
             followUp: {
@@ -105,8 +101,8 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
           }));
           return mapExecution(next, exec.id, (e) =>
           appendEvent(
-            { ...e, summary: { ...e.summary, doing: [...e.summary.doing, `补充调查：${req.waitingItem}`] } },
-            { at, kind: 'agent', title: '已开始补充调查', detail: resolution.content, requestId: req.id }
+            { ...e, ended: false, cancellation: null, summary: { ...e.summary, doing: [...e.summary.doing, `补充调查：${req.waitingItem}`] } },
+            { at, kind: 'agent', title: '已开始补充调查', detail: userDecision.content, requestId: req.id }
           )
           );
         }
@@ -121,19 +117,20 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         appendEvent(
           {
             ...e,
+            ended: false, cancellation: null,
             summary: {
               doing: [...e.summary.doing, `继续：${req.waitingItem}`],
               waiting: e.summary.waiting.filter((w) => w !== req.waitingItem),
               canContinue: e.summary.canContinue
             }
           },
-          { at, kind: 'resume', title: `相关工作已继续：${req.waitingItem}`, detail: `依据 ${req.id} 的处理结果（${resolution.actorName}）`, requestId: req.id }
+          { at, kind: 'resume', title: `相关工作已继续：${req.waitingItem}`, detail: `依据 ${req.id} 的处理结果（${userDecision.actorName}）`, requestId: req.id }
         )
         );
       }
     case 'CONTEXT_UPDATE':{
         const req = state.requests.find((r) => r.id === action.requestId);
-        if (!req || req.status === 'resolved') return state;
+        if (!req || req.status === 'answered') return state;
         const u = req.contextUpdate ?? {
           source: '业务系统（模拟）',
           summary: '相关业务资料已更新',
@@ -208,6 +205,13 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
       return mapExecution(state, action.executionId, (e) =>
       e.cancellation ? { ...e, cancellation: { ...e.cancellation, lastCheckedAt: nowIso() } } : e
       );
+    case 'STEERING': {
+      const execution = state.executions.find(e => e.id === action.executionId);
+      if (!execution || execution.ownerId !== action.userId) return state;
+      return mapExecution(state, execution.id, e => appendEvent({ ...e, ended: e.cancellation && e.cancellation.status !== 'confirmed' ? e.ended : false, cancellation: e.cancellation && e.cancellation.status !== 'confirmed' ? e.cancellation : null, uploads: [...(e.uploads ?? []), ...(action.files ?? [])] }, {
+        at: nowIso(), kind: 'human', title: 'Steering Input 已交付（模拟）', detail: action.text
+      }));
+    }
     case 'RESET':
       return createInitialState();
     default:

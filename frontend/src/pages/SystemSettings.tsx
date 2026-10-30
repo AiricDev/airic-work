@@ -15,8 +15,7 @@ const sections = [
 { id: 'business', label: '业务连接与 API' },
 { id: 'trajectory-mcp', label: '只读轨迹 MCP' },
 { id: 'runtime', label: 'Runtime 与 Skills' },
-{ id: 'data', label: '数据与安全' },
-{ id: 'audit', label: '管理审计' }];
+{ id: 'data', label: '数据与安全' }];
 
 
 export function SystemSettings() {
@@ -43,7 +42,7 @@ export function SystemSettings() {
           {section === 'trajectory-mcp' && <TrajectoryMcpSection />}
           {section === 'runtime' && <RuntimeSection mode="runtime" />}
           {section === 'data' && <RuntimeSection mode="data" />}
-          {section === 'audit' && <AuditSection />}
+
         </Paper>
       </Box>
     </Box>);

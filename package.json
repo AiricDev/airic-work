@@ -1,0 +1,15 @@
+{
+  "name": "airic-work",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run backend/tests",
+    "typecheck": "tsc -p backend/tsconfig.json",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "@types/node": "24.10.1"
+  }
+}

@@ -51,11 +51,11 @@ export function Login() {
           <Chip label="演示数据" color="warning" variant="outlined" />
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {state.general.orgName} · 演示登录页。这里不进行真实身份认证，生产认证与 SSO 机制 TBD。
+          {state.general.orgName} · 模拟业务系统 token 接入：选择映射后的用户，不进行真实认证；正式接入沿用集成方身份。
         </Typography>
 
         <FormControl sx={{ mt: 3, width: '100%' }}>
-          <FormLabel id="login-account">选择演示账户</FormLabel>
+          <FormLabel id="login-account">模拟集成方身份</FormLabel>
           <RadioGroup
             aria-labelledby="login-account"
             value={selected}
@@ -63,7 +63,7 @@ export function Login() {
               setSelected(e.target.value);
               setError(null);
             }}>
-            
+
             {accounts.map((u) =>
             <FormControlLabel
               key={u.id}

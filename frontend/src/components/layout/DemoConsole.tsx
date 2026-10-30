@@ -96,15 +96,15 @@ export function DemoConsole({ open, onClose }: DemoConsoleProps) {
             <FormControlLabel
               control={<Switch checked={platform.state.demo.gitSyncFail} onChange={(e) => platform.updateDemo({ gitSyncFail: e.target.checked })} />}
               label="Git 同步 / 索引失败" />
-            
+
             <FormControlLabel
               control={<Switch checked={platform.state.demo.trajectoryMissing} onChange={(e) => platform.updateDemo({ trajectoryMissing: e.target.checked })} />}
               label="轨迹记录缺失" />
-            
+
             <FormControlLabel
               control={<Switch checked={platform.state.demo.mcpReadDenied} onChange={(e) => platform.updateDemo({ mcpReadDenied: e.target.checked })} />}
               label="外部 MCP 读取被拒绝" />
-            
+
             <Button size="small" variant="outlined" sx={{ alignSelf: 'flex-start', mt: 0.5 }} onClick={() => platform.expireDelegation('DG-01')}>
               使张敏 CertLab 授权失效
             </Button>
@@ -116,7 +116,7 @@ export function DemoConsole({ open, onClose }: DemoConsoleProps) {
               label="连接测试结果"
               value={platform.state.demo.connectionTestFailure}
               onChange={(e) => platform.updateDemo({ connectionTestFailure: e.target.value as PlatformDemoSettings['connectionTestFailure'] })}>
-              
+
               <MenuItem value="none">成功</MenuItem>
               <MenuItem value="auth">失败：认证</MenuItem>
               <MenuItem value="network">失败：网络</MenuItem>
@@ -148,11 +148,11 @@ export function DemoConsole({ open, onClose }: DemoConsoleProps) {
             <FormControlLabel
               control={<Switch checked={settings.evidenceUnavailable} onChange={(e) => updateSettings({ evidenceUnavailable: e.target.checked })} />}
               label="证据不可访问" />
-            
+
             <FormControlLabel
               control={<Switch checked={settings.cancelDelayed} onChange={(e) => updateSettings({ cancelDelayed: e.target.checked })} />}
               label="取消延迟（运行时暂不能确认）" />
-            
+
             <FormControlLabel
               control={
               <Switch
@@ -161,15 +161,15 @@ export function DemoConsole({ open, onClose }: DemoConsoleProps) {
 
               }
               label="连接中断" />
-            
+
             <FormControlLabel
               control={<Switch checked={settings.briefLoadFail} onChange={(e) => updateSettings({ briefLoadFail: e.target.checked })} />}
               label="Decision Brief 加载失败" />
-            
+
             <FormControlLabel
               control={<Switch checked={settings.sessionExpired} onChange={(e) => updateSettings({ sessionExpired: e.target.checked })} />}
               label="会话失效" />
-            
+
           </Stack>
         </Box>
 
@@ -222,14 +222,14 @@ export function DemoConsole({ open, onClose }: DemoConsoleProps) {
                   variant="outlined"
                   color={r.status === 'pending' ? 'warning' : 'success'}
                   label={r.status === 'pending' ? '待处理' : '已处理'} />
-                
+
                   <Typography variant="caption" color="text.secondary">
                     v{r.version} · 归属 {userName(r.ownerId)}
                   </Typography>
                 </Stack>
-                {r.resolution &&
+                {r.userDecision &&
               <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
-                    {r.resolution.actorName}（{r.resolution.channel}）：{r.resolution.content}
+                    {r.userDecision.actorName}（{r.userDecision.channel}）：{r.userDecision.content}
                   </Typography>
               }
               </Box>
@@ -267,7 +267,7 @@ export function DemoConsole({ open, onClose }: DemoConsoleProps) {
               platform.resetPlatform();
               setConfirmReset(false);
             }}>
-            
+
             重置
           </Button>
         </DialogActions>

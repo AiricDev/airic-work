@@ -1,3 +1,4 @@
+import { FileInput } from '../FileInput';
 import React from 'react';
 import {
   Box,
@@ -15,7 +16,7 @@ import {
 import type { ActionType, DecisionRequest, Draft } from '../../types/workbench';
 import { actionDescriptions, actionLabels } from '../../utils/labels';
 
-interface ResolutionFormProps {
+interface UserDecisionFormProps {
   request: DecisionRequest;
   value: Draft;
   errors: Record<string, string>;
@@ -23,12 +24,13 @@ interface ResolutionFormProps {
   onChange: (patch: Partial<Draft>) => void;
 }
 
-export function ResolutionForm({ request, value, errors, showErrors, onChange }: ResolutionFormProps) {
+export function UserDecisionForm({ request, value, errors, showErrors, onChange }: UserDecisionFormProps) {
   const err = (key: string) => showErrors ? errors[key] : undefined;
   const auth = request.brief.authorization;
 
   return (
     <Stack spacing={2} component="form" onSubmit={(e) => e.preventDefault()} aria-label="处理表单">
+      <FileInput files={value.files ?? []} onChange={files => onChange({ files })} />
       <FormControl error={Boolean(err('action'))}>
         <FormLabel id="action-label" sx={{ fontWeight: 600, color: 'text.primary' }}>
           选择处理方式
@@ -137,7 +139,7 @@ export function ResolutionForm({ request, value, errors, showErrors, onChange }:
         value={value.investigation}
         onChange={(e) => onChange({ investigation: e.target.value })}
         error={Boolean(err('investigation'))}
-        helperText={err('investigation') ?? '提交后原事项不视为已解决，是否仍待处理由后续反馈决定。'} />
+        helperText={err('investigation') ?? '提交后即已回答，Agent 可继续调查或另行提问。'} />
 
       }
     </Stack>);

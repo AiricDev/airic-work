@@ -59,7 +59,7 @@ export const contextDependencies: ContextDependency[] = [
   requestId: 'DR-1047',
   name: '申请人资质核对（既往决定）',
   kind: '既往决定',
-  source: 'DR-1031 正式处理记录',
+  source: 'DR-1031 UserDecision',
   status: '就绪',
   impact: '确认申请人资质有效，不影响本项判断',
   priorRequestId: 'DR-1031'
@@ -79,11 +79,11 @@ export const contextDependencies: ContextDependency[] = [
 {
   id: 'CD-1052-2',
   requestId: 'DR-1052',
-  name: '张敏的 CertLab 业务委托',
+  name: '张敏的 CertLab 业务身份映射',
   kind: '授权',
-  source: 'CertLab（模拟）委托记录',
+  source: 'CertLab（模拟）身份信息',
   status: '就绪',
-  impact: '写入须以归属人本人有效委托执行；失效时写入被阻止',
+  impact: '写入须以归属人用户有效身份执行；失效时写入被阻止',
   delegationSystem: 'CertLab（模拟）'
 },
 {
