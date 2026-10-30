@@ -3,10 +3,10 @@
 | 项 | 内容 |
 | --- | --- |
 | 日期 | 2026-10-30 |
-| 状态 | 目标设计；第一阶段 Domain/Application 已完成内层实现与测试，真实适配器及集成仍未交付 |
+| 状态 | Domain/Application、Validation/DI、SQLite ControlStore/Support 与 Files Blob 已实现；其他生产适配器及完整集成仍未交付 |
 | 产品依据 | [PRD](prd.md) 中的 Ontology、Functional Requirements、User Experience 和核心验收 |
 | 设计范围 | 架构、用例与端口、身份接入、运行与消息交付、Session、Workspace、MCP、接口与 UI 技术约束、存储与恢复 |
-| 实现证据 | 当前证据见 [第一阶段报告](backend-phase1-report.md)；历史 M1/fake-port 或 spike 结论仅适用于当时合同，不代表真实适配器已交付 |
+| 实现证据 | 内层见 [第一阶段报告](backend-phase1-report.md)，控制记录见 [SQLite/Support 报告](sqlite-adapter-report.md)，文件内容见 [Files Blob 报告](files-blob-report.md)；fake-port 或 spike 结论不代表其他生产适配器已交付 |
 | Worker 与环境细化 | [Worker Skill 与 Pi Durable Agent 工作环境](worker-runtime-design.md)：常驻 Skill、能力映射、输入信封、容器与待验证合同 |
 
 产品语义由 PRD 定义。本文说明怎样实现，不重新增加用户角色、业务实体或专业采纳流程。原型与现有代码用于识别差异，不自动成为新合同。文中的端口名、技术字段和 HTTP 路径是目标设计，不声明当前 SDK 已支持或当前服务已提供。
@@ -282,7 +282,7 @@ $AIRIC_DATA/
 * Zod 错误在入口转换为不含输入值的字段问题；Domain 的 RuleError、资格/归属、状态、CAS 和业务约束继续由内层负责。校验通过不等于操作获准。
 * `bootstrap/container.ts` 使用 Awilix 注册适配器和应用服务类，使用 asClass 注册服务类并进行构造函数注入。使用 CLASSIC + strict 和根级单例；CLASSIC 按构造参数名解析依赖，后端构建不得混淆这些参数名。不使用反射装饰器，不让业务用例调用 resolve/cradle。
 * 当前传入适配器由调用方创建并负责关闭，容器 dispose 只释放其拥有的注册实例；将来增加生产资源工厂时应显式登记 disposer。HTTP 请求的用户身份逐次传入，不能被根级单例捕获。
-* 此接入尚不提供真实 HTTP/认证/数据库/Runtime；入口 Schema 与配置形状可独立测试，不能将库安装视作生产适配已完成。
+* Validation/DI 本身不提供 HTTP、认证或 Runtime；SQLite/Support 由独立生产工厂接入，证据见 SQLite/Support 报告。入口 Schema 或库安装通过不代表完整服务可用。
 
 
 Fastify、运行时工具、worker 和只读 MCP handler 调用同一组应用用例。入口建立可信用户及 Execution 调用来源，不信任模型填写的 userId；DTO 在边缘映射，Schema 留在 transport-contracts。

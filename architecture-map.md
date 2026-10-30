@@ -16,7 +16,12 @@
 | 输入结构校验与命令映射 | backend/src/adapters/driving/validation/commands.ts | schemas.ts 使用 Zod；validation-di.test.ts |
 | DI 装配 | backend/src/bootstrap/container.ts | Awilix 只在组合根，实例与身份隔离测试 |
 | 组合应用能力 | backend/src/bootstrap/container.ts | Awilix 分别注册能力；bindings.ts 仅为组合根适配器类型 |
-| 实现 HOW | backend/src/adapters/README.md | 应用拥有端口，bootstrap 装配；当前无生产适配器 |
+| 控制记录持久化、事务与幂等 | backend/src/adapters/driven/sqlite/store.ts | application/ports.ts；schema.ts 与 migrations.ts 同步；共享合同及 sqlite-integration.test.ts |
+| 数据库连接、迁移与资源关闭 | backend/src/bootstrap/persistence.ts | driven/sqlite/database.ts、migrations.ts；调用方拥有 close，不启动派发 worker |
+| 生产 ID 与时间 | backend/src/adapters/driven/support/system-support.ts | Support；UUIDv7 与 UTC，support.test.ts |
+| 上传字节固定、Blob 去重与原子发布 | backend/src/adapters/driven/files/local-blob-files.ts | application/ports.ts 的 Files；files-blob*.test.ts、files-upload-integration.test.ts；不负责 Workspace |
+| Blob 目录配置与初始化 | backend/src/bootstrap/files.ts | 仅向外提供 Files；绝对可信目录，每次操作关闭句柄，不需要常驻资源 disposer |
+| 实现 HOW 与后续批次 | backend/src/adapters/README.md | SQLite/Support、Files Blob 已实现；其余非 Agent 适配器分批接入，Agent 环境单独开发 |
 | Worker 执行方式与运行环境 | backend/skills/airic-work-worker/SKILL.md | docs/worker-runtime-design.md；常驻装配、能力映射、输入/停止恢复与待验证场景 |
 
 依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端当前为独立模拟原型，不能作为后端事实来源或反向依赖。
