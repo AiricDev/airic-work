@@ -21,7 +21,13 @@
 | 生产 ID 与时间 | backend/src/adapters/driven/support/system-support.ts | Support；UUIDv7 与 UTC，support.test.ts |
 | 上传字节固定、Blob 去重与原子发布 | backend/src/adapters/driven/files/local-blob-files.ts | application/ports.ts 的 Files；files-blob*.test.ts、files-upload-integration.test.ts；不负责 Workspace |
 | Blob 目录配置与初始化 | backend/src/bootstrap/files.ts | 仅向外提供 Files；绝对可信目录，每次操作关闭句柄，不需要常驻资源 disposer |
-| 实现 HOW 与后续批次 | backend/src/adapters/README.md | SQLite/Support、Files Blob 已实现；其余非 Agent 适配器分批接入，Agent 环境单独开发 |
+| Git 方法确认、固定版本读取与来源历史 | backend/src/adapters/driven/methods/git-methods.ts | application/ports.ts 的 Methods；methods-git.test.ts、methods-application.test.ts；不负责 Agent 装配 |
+| OM 本地目录/URL、remote 识别及安全同步机制 | backend/src/adapters/driven/methods/repositories.ts | Methods.status/sync；methods-local.test.ts；本地无 remote 仍可运行，不自动拉取 |
+| OM 同步能力提示与显式同步权限 | backend/src/application/method.ts | methodStatus/syncMethod；methods-usecases.test.ts；命令入口不接受任意目录/URL，外部只读 MCP 不增加同步命令 |
+| 固定方法的中文/短词/路径搜索 | backend/src/adapters/driven/methods/index.ts | methods-search.test.ts、methods-process.test.ts；独立可重建 FTS5 索引，不写控制记录 |
+| SQLite 通用连接、事务与错误映射 | backend/src/adapters/driven/sqlite/database.ts | operations.ts；ControlStore 和 Methods 索引共享机制，领域提交仍由各自 adapter 拥有 |
+| Methods 允许来源、目录及版本配置 | backend/src/bootstrap/methods.ts | 显式宿主配置；docs/methods-adapter-report.md；版本声明不证明 Runtime/Skill 已装配 |
+| 实现 HOW 与后续批次 | backend/src/adapters/README.md | SQLite/Support、Files Blob、Methods 已实现；其余非 Agent 适配器分批接入，Agent 环境单独开发 |
 | Worker 执行方式与运行环境 | backend/skills/airic-work-worker/SKILL.md | docs/worker-runtime-design.md；常驻装配、能力映射、输入/停止恢复与待验证场景 |
 
 依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端当前为独立模拟原型，不能作为后端事实来源或反向依赖。

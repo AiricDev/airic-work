@@ -5,6 +5,7 @@ import { active, answer, beginRun, beginStop, canonical, creationValid, endRun, 
 import type { DecisionRequest, Execution, Input, Preferences, Project, Settings, SteeringInput, Upload, User, UserDecision } from '../../../domain/model';
 import type { ControlStore, Key } from '../../../application/ports';
 import * as t from './schema';
+import { databaseAccess, databaseCommit } from './operations';
 
 /** 移除 SQL NULL；内层仍使用可选属性，不泄漏数据库行类型。 */
 function snapshot<T>(row: unknown): T {
@@ -21,23 +22,10 @@ export class SqliteControlStore implements ControlStore {
     }
 
     private access<T>(work: () => T): T {
-        try {
-            return work();
-        } catch (error) {
-            // Drizzle 包装驱动错误；不把 SQL、绑定参数或原始异常带出存储边界。
-            let cause: unknown = error;
-            while (cause instanceof Error) {
-                if (cause instanceof RuleError) throw cause;
-                const code = 'code' in cause ? String(cause.code) : '';
-                if (code.startsWith('SQLITE_CONSTRAINT')) throw new RuleError('conflict');
-                if (code.startsWith('SQLITE_BUSY') || code.startsWith('SQLITE_LOCKED')) throw new RuleError('blocked', 'database busy');
-                cause = cause.cause;
-            }
-            throw new RuleError('blocked', 'database unavailable');
-        }
+        return databaseAccess(work);
     }
     private commit<T>(work: () => T): T {
-        return this.access(() => this.connection.transaction(work).immediate());
+        return databaseCommit(this.connection, work);
     }
     private userNow(id: string): User { return snapshot(this.db.select().from(t.users).where(eq(t.users.id, id)).get()); }
     private executionNow(id: string): Execution { return snapshot(this.db.select().from(t.executions).where(eq(t.executions.id, id)).get()); }

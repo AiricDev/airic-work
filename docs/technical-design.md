@@ -3,10 +3,10 @@
 | 项 | 内容 |
 | --- | --- |
 | 日期 | 2026-10-30 |
-| 状态 | Domain/Application、Validation/DI、SQLite ControlStore/Support 与 Files Blob 已实现；其他生产适配器及完整集成仍未交付 |
+| 状态 | Domain/Application、Validation/DI、SQLite ControlStore/Support、Files Blob 与 Methods Git/快照/搜索已实现；其他生产适配器及完整集成仍未交付 |
 | 产品依据 | [PRD](prd.md) 中的 Ontology、Functional Requirements、User Experience 和核心验收 |
 | 设计范围 | 架构、用例与端口、身份接入、运行与消息交付、Session、Workspace、MCP、接口与 UI 技术约束、存储与恢复 |
-| 实现证据 | 内层见 [第一阶段报告](backend-phase1-report.md)，控制记录见 [SQLite/Support 报告](sqlite-adapter-report.md)，文件内容见 [Files Blob 报告](files-blob-report.md)；fake-port 或 spike 结论不代表其他生产适配器已交付 |
+| 实现证据 | 内层见 [第一阶段报告](backend-phase1-report.md)，控制记录见 [SQLite/Support 报告](sqlite-adapter-report.md)，文件内容见 [Files Blob 报告](files-blob-report.md)，方法见 [Methods 报告](methods-adapter-report.md)；fake-port 或 spike 结论不代表其他生产适配器已交付 |
 | Worker 与环境细化 | [Worker Skill 与 Pi Durable Agent 工作环境](worker-runtime-design.md)：常驻 Skill、能力映射、输入信封、容器与待验证合同 |
 
 产品语义由 PRD 定义。本文说明怎样实现，不重新增加用户角色、业务实体或专业采纳流程。原型与现有代码用于识别差异，不自动成为新合同。文中的端口名、技术字段和 HTTP 路径是目标设计，不声明当前 SDK 已支持或当前服务已提供。
@@ -265,7 +265,10 @@ $AIRIC_DATA/
 
 ## 9. Git、OM 与搜索
 
-* Git mirror 与快照按来源和 SHA 隔离。PrepareExecution 在网络确认后，提交固定版本前再次检查来源配置版本；源变更期间不能混合仓库与 SHA。
+* 来源配置支持 URL/SCP 风格 SSH 地址或绝对本地 Git 仓库目录。URL 首次使用时 clone 到受管 mirror；本地直接解析仓库根与 Git directory，支持普通仓库、linked worktree 和 bare 仓库，不再 clone 一份；无 Git 目录不隐式初始化。
+* 快照按来源和 SHA 隔离。URL 方式 fetch 并最终网络确认；本地方式只读配置分支已提交版本并最终复查本地 ref，不 fetch、不读脏工作区。PrepareExecution 提交固定版本前仍检查配置版本，不能混合来源与 SHA。
+* Methods.status 提供同步能力、禁用原因及脱敏提示，不联网。remote 选择依次为显式配置、分支 upstream、origin、唯一 remote；缺失、歧义或不支持则禁用同步，本地读取和准备仍可用。状态不是网络健康证明。
+* Methods.sync 经 MethodUseCases 的用户资格检查显式调用。本地只允许快进，检查当前分支、已跟踪/暂存修改及其他 worktree；验证候选 Root 后再次核查再更新。禁止 reset/stash/自动 checkout，不写入作者目录、不执行 Git hooks。失败可能已更新对象库/tracking ref，不宣称整个 Git 操作可事务回滚；同步期间宿主应避免其他 writer 修改该仓库。
 * Root `om.md` 或已配置入口常驻，其他知识按需加载。记录实际文件路径、SHA、内容摘要及 Runtime/Skill 版本，不能用仓库已同步代替已装配。
 * `.ome/` 不属于交付内容；快照构建、索引及链接扩读都排除该路径，不提供人工作者目录浏览。运行依赖缺失时报告而非回退。
 * 人工文件浏览和检索固定选定快照，默认当前同步版本；后台始终使用 Execution 固定 SHA。相对链接限定同仓库同提交，不跨来源或版本读取。

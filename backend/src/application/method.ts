@@ -31,4 +31,8 @@ export class MethodUseCases {
      * 读取当前配置 OM 来源的 Git 历史，不修改任何执行的固定 Method。
      */
     async methodHistory(userId: string) { requireRule((await this.store.user(userId)).enabled, 'forbidden'); return this.methods.history((await this.store.settings()).omSource); }
+    /** 查询当前来源的同步能力及提示，供入口禁用不可用操作；不探测网络。 */
+    async methodStatus(userId: string) { requireRule((await this.store.user(userId)).enabled, 'forbidden'); return this.methods.status(await this.store.settings()); }
+    /** 按当前配置显式同步 OM，不改变任何已有执行的固定版本；适配器必须保护本地工作区。 */
+    async syncMethod(userId: string) { requireRule((await this.store.user(userId)).enabled, 'forbidden'); return this.methods.sync(await this.store.settings()); }
 }

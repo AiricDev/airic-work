@@ -62,4 +62,6 @@ export class ValidatedCommands {
         const { expected, ...settings } = parseInput(configureSchema, body);
         return this.app.settings.configure(actor.userId, expected, { ...settings, version: expected });
     }
+    /** 来源仅取受控配置，不接收外部 URL、目录或 remote 参数。 */
+    syncMethod(actor: VerifiedActor) { return this.app.method.syncMethod(actor.userId); }
 }

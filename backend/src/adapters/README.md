@@ -1,10 +1,10 @@
 # 适配器交接边界
 
-按 `../application/ports.ts` 实现外部机制。当前已实现 `driven/sqlite/`（ControlStore）、`driven/support/`（UUIDv7/UTC）与 `driven/files/`（本地 Files Blob）；其余生产适配器尚未实现。
+按 `../application/ports.ts` 实现外部机制。当前已实现 `driven/sqlite/`（ControlStore）、`driven/support/`（UUIDv7/UTC）、`driven/files/`（本地 Files Blob）与 `driven/methods/`（Git/固定快照/搜索）；其余生产适配器尚未实现。
 
 ## 分批路线与任务边界
 
-非 Agent 任务依次交付：SQLite/Support → Files Blob → Methods Git/搜索 → Identity → 业务 Mcp 网关 → HTTP/外部只读 MCP 与资源装配。当前前两批完成；证据见 `../../../docs/sqlite-adapter-report.md`、`../../../docs/files-blob-report.md`。
+非 Agent 任务依次交付：SQLite/Support → Files Blob → Methods Git/搜索 → Identity → 业务 Mcp 网关 → HTTP/外部只读 MCP 与资源装配。当前前三批完成；证据见 `../../../docs/sqlite-adapter-report.md`、`../../../docs/files-blob-report.md`、`../../../docs/methods-adapter-report.md`。
 
 Pi Runtime、History/Session 索引、Workspace/Docker、模型工具入口、输入信封装配、派发 worker、停止与恢复由独立 Agent 任务设计开发。业务 Mcp 网关不另外建立调用账本，仍通过 McpUseCases 与 Agent 任务提供的 History 协作。缺少的能力不能用生产测试替身或空历史伪装可用。
 
@@ -33,3 +33,17 @@ Pi Runtime、History/Session 索引、Workspace/Docker、模型工具入口、�
 * `../bootstrap/files.ts`：独立 Blob 初始化工厂；没有长驻句柄，不提供无意义的 close。
 
 Blob 根目录必须由可信宿主管理，不暴露给 Agent 或不可信 writer；本批不承诺抵御同 UID 恶意进程并发替换目录。后续 Workspace 的读取/物化仍需在独立任务内兑现校验、权限和真实字节交付，不能凭 contentRef 推定可读。
+
+## Methods 验证入口
+
+* `driven/methods/git-methods.ts`：来源允许列表、实际分支确认、固定 SHA 快照、文本读取与分支历史；不是 Runtime 或 Git 编辑/发布工具。
+* `driven/methods/repositories.ts`：URL 受管 clone / 本地仓库直接复用、remote/upstream 识别、同步禁用状态及显式安全快进；无 remote 不阻止本地运行。
+* `driven/methods/git.ts`、`storage.ts`：受控 Git 进程与路径/普通文件机制。私有空模板避免导入 Git hooks，仓库里的链接和子模块不展开。
+* `driven/methods/index.ts`：每个来源/SHA 的可重建 FTS5 索引；复用 `driven/sqlite/database.ts`、`operations.ts`，不接触控制记录表。
+* `../../tests/methods-git.test.ts`、`methods-search.test.ts`、`methods-runner.test.ts`：真实仓库、固定读取、中文/短词/字面搜索、回滚与进程失败。
+* `../../tests/methods-process.test.ts`：独立进程同步与离线索引初始化；Git 锁竞争允许明确阻塞，不能返回部分快照。
+* `../../tests/methods-application.test.ts`：真实 SQLite 与执行准备合同；配置变化不得固定过期 Method，准备本身不调用 Agent。
+* `../../tests/methods-local.test.ts`、`methods-usecases.test.ts`：无 remote 本地运行、状态/提示、来源权限、配置分支与 upstream、脏工作区/分叉/worktree/作者目录保护；Git 检查失败不伪装成已知禁用原因。
+* `../bootstrap/methods.ts`：显式来源、目录、资源上限和声明版本；无常驻句柄或后台任务。
+
+SHA-1/SHA-256 仓库在本地验证；HTTPS/SSH、生产凭据、Git 缓存维护、SIGKILL/断电及部署文件系统未在本批验证。Runtime/Skill 版本声明不能替代真实 Agent 装配证明。

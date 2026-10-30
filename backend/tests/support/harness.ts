@@ -35,7 +35,7 @@ export function harness() {
                     throw Error('file unavailable');
             }, stopped: async () => flags.stopped },
         files: { put: async (bytes) => ({ hash: `hash-${bytes.length}`, size: bytes.length, contentRef: 'blob' }) },
-        methods: { latest: async (s) => {
+        methods: { status: async (s) => ({ source: s.omSource, kind: 'managed', sync: { enabled: true } }), sync: async s => d.methods.latest(s), latest: async (s) => {
                 if (flags.gitFail)
                     throw Error('git unavailable');
                 return { source: s.omSource, sha: 'fixed-sha', root: s.root, runtimeVersion: 'test-runtime', skillVersion: 'test-skill' };

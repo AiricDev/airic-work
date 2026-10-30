@@ -226,13 +226,25 @@ export interface Files {
     }>;
 }
 /**
- * 固定版本 OM 的 Git/文件/搜索出口。latest 必须真实确认来源分支，其他操作固定指定快照；不能把缓存冒充最新或访问作者本地材料。
+ * 当前来源能力及不含秘密的禁用原因；UI 可以据此提示，但服务端仍必须拒绝禁用操作。
  */
+export interface MethodSourceStatus {
+    source: string;
+    kind: 'managed' | 'local';
+    /** 能力是否可用，不表示当前网络可达；提示不含仓库 URL、凭据或宿主路径。 */
+    sync: { enabled: boolean; remote?: string; branch?: string; reason?: 'no-remote' | 'ambiguous-remote' | 'unsupported-remote'; message?: string };
+}
+
+/** 固定版本 OM 出口；受管来源确认远端，本地来源确认本地配置分支，不把缓存冒充最新或访问作者材料。 */
 export interface Methods {
     /**
-     * 确认配置分支的实际最新提交及 Root 可用性，返回固定版本描述；无法确认时拒绝，不静默回退缓存。
+     * 确认配置分支的提交及 Root。受管来源须联网确认最新，本地来源只读本地已提交版本、不自动 fetch；无法确认时拒绝。
      */
     latest(settings: Settings): Promise<Method>;
+    /** 查询同步能力与禁用提示；不联网，不把没有 remote 当作本地 OM 无法使用。 */
+    status(settings: Settings): Promise<MethodSourceStatus>;
+    /** 显式同步并返回固定版本；禁用时拒绝。本地仅安全快进，不覆盖修改、不自动 checkout/stash/reset，不发布或推送。 */
+    sync(settings: Settings): Promise<Method>;
     /**
      * 读取指定来源/SHA 内允许文件，校验来源快照及路径，禁止 .ome/、越界和符号链接逃逸。
      */
