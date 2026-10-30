@@ -75,3 +75,19 @@ it('profile updates cannot elevate administrator or reset disable state', async 
     await expect(h.app.account.listUsers(u.id)).rejects.toMatchObject({ code: 'forbidden' });
 });
 it('invalid input fingerprints do not silently drop non-JSON values', () => { expect(() => canonical({ a: undefined })).toThrow(); });
+
+it('lets an independent answer bypass a failed earlier answer, while preserving control input barriers', async () => {
+    const h = harness(); const { u, e } = await h.running();
+    const a = await h.app.decision.createDecisionRequest(u.id, e.id, e.generation, 'a', 'A?', [], { revision: 1, content: {}, sources: [] });
+    const b = await h.app.decision.createDecisionRequest(u.id, e.id, e.generation, 'b', 'B?', [], { revision: 1, content: {}, sources: [] });
+    await h.app.decision.submitUserDecision(u.id, a.id, 'answer-a', { text: 'A', contextRevision: 1, files: [] });
+    await h.app.decision.submitUserDecision(u.id, b.id, 'answer-b', { text: 'B', contextRevision: 1, files: [] });
+    h.d.runtime.independentAnswers = async () => true;
+    const inputs = (await h.store.inputs(e.id)).filter(i => i.kind === 'user-decision');
+    await h.app.input.dispatchInput(u.id, inputs[1].id);
+    expect((await h.store.input(inputs[0].id)).status).toBe('pending');
+    expect((await h.store.input(inputs[1].id)).status).toBe('delivered');
+    await h.app.input.submitSteering(u.id, e.id, 'control', 'Change scope');
+    const control = (await h.store.inputs(e.id)).find(i => i.kind === 'steering')!;
+    await expect(h.app.input.dispatchInput(u.id, control.id)).rejects.toMatchObject({ code: 'blocked' });
+});

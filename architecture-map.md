@@ -33,3 +33,5 @@
 | Worker 执行方式与运行环境 | backend/skills/airic-work-worker/SKILL.md | docs/worker-runtime-design.md；常驻装配、能力映射、输入/停止恢复与待验证场景 |
 
 依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端当前为独立模拟原型，不能作为后端事实来源或反向依赖。
+
+Worker 运行入口：`backend/src/bootstrap/worker.ts`；Pi 机制、历史和 MCP 工具桥接在 `backend/src/adapters/driven/runtime/`，宿主派发入口为 `adapters/driving/worker/execution-runner.ts`；行为证据见 `backend/tests/pi-runtime.test.ts`。隔离 Workspace 和业务网关仍由各自端口接入。

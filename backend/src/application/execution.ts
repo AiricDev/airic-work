@@ -43,6 +43,13 @@ export class ExecutionUseCases {
         active(e, generation);
         return this.store.transition(userId, e.version, endRun(e, generation), true);
     }
+    /** Record a failed running generation only after runtime and workspace exit; business effects remain unchanged. */
+    async failExecution(userId: string, id: string, generation: number) {
+        const e = await this.policy.owned(userId, id);
+        active(e, generation);
+        requireRule(await this.runtime.stopped(e) && await this.workspace.stopped(e), 'blocked');
+        return this.store.transition(userId, e.version, { ...e, phase: 'failed', version: e.version + 1 });
+    }
     /**
      * 先持久设置停止栅栏，再调用可重试 stop。stop 失败保留 stopping 供恢复；请求被接受不等于停止完成，也不回滚已有业务效果。
      */

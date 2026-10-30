@@ -8,6 +8,9 @@
     "typecheck": "../node_modules/.bin/tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@earendil-works/chord": "1.4.0",
+    "@earendil-works/pi-ai": "1.4.0",
+    "@earendil-works/pi-durable": "1.4.0",
     "awilix": "13.0.5",
     "better-sqlite3": "13.0.3",
     "drizzle-orm": "0.45.4",

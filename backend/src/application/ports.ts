@@ -175,6 +175,8 @@ export interface LocalAccountAdministration {
  * SDK 的实际能力必须通过合同测试，不因此接口存在就宣称具备恢复或 exactly-once 业务效果。
  */
 export interface Runtime {
+    /** 仅判断两个回答是否路由到独立局部工作；无法证明时返回 false。控制消息仍由用例保持全局顺序。 */
+    independentAnswers?(e: Execution, earlier: Input, later: Input): Promise<boolean>;
     /**
      * 按已持久稳定 Session 标识分配或查回同一会话；本地确认前不可激活孤立候选，不通过新会话替代无法恢复的历史。
      */

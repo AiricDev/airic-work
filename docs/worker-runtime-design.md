@@ -2,11 +2,13 @@
 
 | 项 | 内容 |
 | --- | --- |
-| 日期 / 状态 | 2026-10-30；目标设计与 Skill v0.1.0 初稿，尚未完成真实 Runtime 验证 |
+| 日期 / 状态 | 2026-10-30；Skill v0.2.0 与目标设计；Pi 固定源码机制实验已通过，完整 Runtime/业务环境集成未交付 |
 | 产品依据 | [PRD](prd.md) 的 Ontology 与 Skill 体系；不新增产品实体或业务状态 |
 | 行为入口 | [airic-work-worker](../backend/skills/airic-work-worker/SKILL.md) |
 | 架构依据 | [技术设计](technical-design.md)；本文细化其 Pi、Workspace 与装配合同 |
-| 当前实现 | Domain/Application 与 fake-port 测试；无生产 Pi、Docker、History 或 MCP 适配器 |
+| 当前实现 | PiRuntime、PiHistory、ApplicationWorkerHost、McpWorkerTools 和 ExecutionRunner 已实现，见 [模块说明](../backend/src/adapters/driven/runtime/README.md)；Docker Workspace、附件物化和真实业务 MCP 网关仍待接入 |
+| 分支执行细化 | [DecisionRequest 驱动的局部续行与分支调度](decision-continuation-design.md)；替代早期“单 Conversation”限制，内部策略为待评审提案 |
+| Pi 实际依据 | [能力核实与具体接入](pi-durable-capability-review.md)；commit 固定、API 映射、原生 Task/ownership、258 项上游测试及 6 项实验 |
 
 ## 1. 从 Skill 推导环境
 
@@ -32,7 +34,7 @@ flowchart TB
     UI[业务应用 / Airic Work 界面] --> APP[Application 用例与控制库]
     APP --> INPUT[持久输入交付 worker]
     INPUT --> HOST[可信 Pi Host / 每 Execution 独占绑定]
-    HOST --> PI[Pi Durable / 唯一 Root Conversation]
+    HOST --> PI[Pi Durable / 协调与局部 Conversation]
     PI --> TOOLS[Runtime Tool 入口]
     TOOLS --> APP
     APP --> MCP[用户身份下的业务 MCP]
@@ -42,10 +44,10 @@ flowchart TB
     BOX --> FS[Workspace / 只读 inputs / 只读 OM]
 ```
 
-* 可信宿主运行模型客户端、Pi 调度、平台工具、MCP 客户端、凭据管理和 Session 存储；一个 Execution 一个 Pi 存储、一条 Root Conversation。Pi 内部 Task、Run、Submission 不映射成新的产品对象。
+* 可信宿主运行模型客户端、Pi 调度、平台工具、MCP 客户端、凭据管理和 Session 存储；一个 Execution 一个 Pi 存储，其中可以包含协调与局部 Conversation。Session 统一保存各分支来源和进展，不能等同于一条线性模型上下文。Pi 内部 Task、Run、Submission 不映射成新的产品对象。
 * 容器只执行文件操作和命令。模型与 MCP 不在容器中；容器不持有用户 token、模型 key、控制库、Pi 库或 Docker socket。
 * 同一个 Execution 只允许一个持有存储与 Workspace 的活动宿主绑定。进程重启先取得独占锁并确认旧容器停止，再打开原存储；不靠“通常只有一个进程”代替约束。
-* 首版不安装 fork、subagent、任意 host eval 或可绕过统一 MCP 入口的扩展。Pi 的内部持久任务仍可工作，但不形成产品层委派树，也不留下无人管理的后台工作。
+* 分支由受控续行能力管理，不开放任意 fork/subagent、host eval 或绕过统一 MCP 入口的扩展。宿主负责全部 Conversation 的枚举、停止、回收与续行；不形成用户可分配的产品任务树，也不留下无人管理的后台工作。
 
 ## 3. 常驻指令与启动合同
 
@@ -92,9 +94,11 @@ flowchart TB
 
 ### 4.2 持久交付与忙时输入
 
-沿用技术设计的应用 Outbox 与 `InputUseCases.dispatchInput`：物化文件 → 确认原环境 → 启动当前代次 → 查原 inputId 的接收状态 → 必要时投递 → 本地确认。Pi submission 的去重键固定使用原 inputId，scope 还需包含固定 Conversation 绑定。
+沿用技术设计的应用 Outbox 与 `InputUseCases.dispatchInput`：物化文件 → 确认原环境 → 启动当前代次 → 查原 inputId 的接收状态 → 必要时投递 → 本地确认。Session receipt 将原 inputId 固定映射到目标 Conversation 和原生 run-slice Task；Pi submission 使用该片段稳定 requestId，不能重试时重建 Task 或切换 Conversation。内部自动继续有独立稳定身份，不伪装成新的用户输入。
 
-首版忙时采用有序 follow-up 队列，在本轮回复结束后处理下一条；平台术语 Steering Input 不自动映射为 Pi 的 `whenBusy: steer`。不默认中断在途工具来插话。只有取消入口触发立即停止协议；这项选择不保证用户消息会中断已在执行的业务动作。后续若增加安全边界插入，须保留相同 sequence 和去重语义并单独验证。
+首版通过原生 run-slice Task 的活动槽控制片段准入；目标本应空闲时用 `whenBusy: reject` 检出重复运行。输入按局部流有序安排，而不是把所有工作提前塞进 root 的 follow-up 队列。平台术语 Steering Input 不自动映射为 Pi 的 steer；不默认中断在途业务动作来插话。需要使用原生 followUp 的内部通知也保留稳定身份与来源。
+
+上述队列约束应用于明确路由后的局部输入流，不能把所有回答追加到 root。Session 级先固定 inputId 的目标续行与分支绑定，再提交到固定 Conversation；原生 requestId 的分支内去重不代替全局接收去重。附件失败与无关输入的隔离、Steering 的控制边界及调度公平性见局部续行提案；当前全局顺序前置检查需要评审后调整。
 
 已接收只证明 Runtime 持久接收。Agent 是否看见、是否完成该轮处理用 Session / submission 事实说明，不增加专业采纳流程。
 
@@ -104,15 +108,17 @@ flowchart TB
 
 相同工具调用重放查回同一 DecisionRequest。补充 Context 走 `refreshContext` 并检查修订。UserDecision 由界面提交并原子记录“已回答 + 待投递输入”，Worker 不通过工具替用户回答。部分回应只处理其覆盖范围；未覆盖问题如仍需回应，另发 DecisionRequest，不重新打开已回答请求。
 
+提出请求时同时固定局部工作范围和来源位置；安全上下文锚点在该工具轮真实终结后固化。请求保存、锚点就绪、用户回答和分支调度是不同事实；回答先到不影响 answered。一个局部工作可依赖多条请求，其回答累计进入同一续行，不反复 fork 相同工作。锚点、交接和恢复细节以配套提案为准。
+
 不建立第二个 Decision Episode 存储；查询组合请求生命周期、UserDecision 与显式关联 Session 记录。
 
 ### 4.4 让出执行、结束与取消
 
 Worker 在完成当前可做部分或需要等待时结束当轮回复，说明工作进展与阻碍。首版不要求模型调用“业务已完成”工具，也不解析自然语言回复来判定业务完成。
 
-Pi Host 观察到所有已接收输入本轮处理终结、Conversation 空闲且工具退出后，才由宿主显式调用 `finishExecution`。Store 原子检查当前版本、代次与无未交付输入；竞争到达的新消息使收尾失效，继续处理原队列。结束可以仍有待回答请求；这表示当前没有运行中的工作，不增加 `waiting` 产品状态。正常让出、工具失败和宿主故障分别记录真实原因，不能把 Pi 错误当成正常完成。
+Pi Host 观察到所有分支无 ready/running 工作、没有已接收的就绪输入且工具退出后，才由宿主显式调用 `finishExecution`。不能以 root 空闲或应用输入 delivered 判断整个 Execution 已无工作。Store 的版本/代次/输入检查还须与 Session 整体活动事实协调，具体合同见提案。竞争到达的新消息使收尾失效，继续处理原队列。结束可以仍有待回答请求；不增加 `waiting` 产品状态。正常让出、局部失败和宿主故障分别记录真实原因，不能把 Pi 错误当成正常完成。
 
-取消：先持久化停止栅栏 → 停止 Pi 当前工作与容器进程 → 查明队列撤回与工具退出 → `confirmStopped`。Pi 接收过但被撤回的 submission 保留在原 Session，不能误报为已处理，也不能仅因本地 delivered 就忽略它。新输入续行时提供停止边界和未处理输入定位；不自动重投被取消的旧动作或换键重投。用户明确要求继续旧工作时，由新输入驱动 Agent 结合历史重新判断。
+取消：先持久化 Execution 级停止栅栏 → 对 background anchor ownership 树调用 `root.abort(context, { background: true })` 并停止容器进程 → 查明各分支队列撤回与工具退出 → `confirmStopped`。普通 root.abort 不覆盖后台边界。已接收但被撤回的 submission 保留原事实，不误报为已处理；新输入不自动重投已取消动作。SDK 取消接纳之后新建工作仍须由全局栅栏禁止。
 
 新输入到达 ended / failed / stopped 后，仍由既有用例确认旧运行已退出并递增 generation，再恢复原 Session 与 Workspace。宿主必须阻止 Pi 在旧代次自行恢复工具派发；取得新代次后才允许调度。停止不是业务回滚，在途 MCP 的结果需按原调用核验。
 
@@ -128,6 +134,7 @@ Pi Host 观察到所有已接收输入本轮处理终结、Conversation 空闲�
 | `work_read_session` | 当前 Session 游标与范围；含覆盖限制 | QueryUseCases → History；不开放任意用户 Session |
 | `work_request_decision` | question、options、context → 完整 DecisionRequest ID | DecisionUseCases；命令键由 Runtime 调用身份注入 |
 | `work_refresh_decision_context` | 当前执行请求 ID、下一修订内容 | DecisionUseCases；不覆盖旧阅读修订 |
+| 局部续行与 `work_yield`（提案） | 工作范围、依赖、恢复指示、结构化让出结果；不接受任意 Session/fork 身份 | 新应用合同待评审，宿主落实提问锚点、路由和调度 |
 | `work_discover_tools` | 已配置连接、查询 → 动态工具 Schema 与分类来源 | McpUseCases；模型不能添加连接或凭据 |
 | 发现后的业务工具 | 按具体 MCP Schema 入参；返回 callId、确认状态与脱敏结果 | 所有调用统一走 McpUseCases，不直连客户端 |
 | `read` / `list` / `search` | 仅容器可见目录，明确截断与读取错误 | ExecutionEnv；OM、inputs 只读 |
@@ -177,13 +184,15 @@ Session 保存消息、装配事实、输入关联、调用发起及返回。查
 
 ## 8. Pi 版本与验证依据
 
-候选基线为上游 **v1.4.0**；当前未安装 Pi，也未形成可发布 lockfile。正式接入要核对实际发布的包版本、依赖兼容性、tag 对应 commit 和锁文件完整性，并记录验证环境；本文的源码阅读不构成 SDK 测试证据。
+实际核实基线为上游 **v1.4.0 / 4a080252f06caf63a525d7873c5d94d3c23887e0**。临时官方 checkout 已通过选定的 258 项上游测试及 6 项场景实验，包含真实 Pi Harness 与 SQLite reopen；见[证据和复现步骤](pi-durable-capability-review.md)。项目仍未安装生产 Pi 包或形成生产锁文件；真实模型、业务 MCP、Docker 和 kill -9 未验证。
 
 上游 [Durable README（v1.4.0）](https://raw.githubusercontent.com/earendil-works/pi/v1.4.0/packages/durable/README.md) 标为 experimental，并描述持久提交、重开、区段式提示词、忙时队列与取消接口。这些为适配提供候选机制；平台的身份、输入顺序、停止确认及业务效果仍由本设计的合同约束。
 
 [Durable spec（同一 tag）](https://raw.githubusercontent.com/earendil-works/pi/v1.4.0/packages/durable/docs/spec.md) 区分 Session、Conversation、Submission，提供 requestId、游标历史与运行状态等接口定义。首次适配需证明 `Runtime.accepted` 的持久查回、单写者存储、队列撤回、可扩展历史和取消覆盖范围；不得把文档中存在类型当成产品保证已兑现。
 
 [pi-env README（同一 tag）](https://raw.githubusercontent.com/earendil-works/pi/v1.4.0/packages/env/README.md) 给出 daemon 与 Connection 的远程文件/命令模型及 SSH 示例。Docker 标准流接入、资源隔离和容器停止确认属于 Airic Work 待验证内容，不将其视为上游现成部署方案。
+
+具体实现采用 `AiricWorkExtension` 注册 sections、受控工具、后台 lifetime anchor 和 run-slice/report tasks；执行与 checkpoint 交给 Pi。正常工具轮经统一 wrapper 的 `control.terminate` 形成边界，run-slice.finalize 再固化锚点、释放槽并安排后续原生 Task。不用 fail-open 的 afterTools observer 保证可靠提交，也不另建通用任务执行器。异常工具轮的终止限制和模型/工具预算见能力核实第 5—6 节。
 
 ## 9. 实现分工与当前合同缺口
 
@@ -199,12 +208,13 @@ Session 保存消息、装配事实、输入关联、调用发起及返回。查
 | 调用身份与历史扩展 | Runtime/History 合同：SDK 调用 ID 到平台 callId 的稳定映射，DecisionRequest/输入关联、派发前发起记录与分页补读 |
 | 原生记录脱敏 | Runtime 适配合同：模型调用参数、默认工具记录和错误首次持久化前的处理；不能只处理 History.appendCall |
 | 取消与恢复观察 | Runtime 合同：区分已接收、已处理、被撤回；失败/空闲/已停止可查证，原 Session 续行不隐式重投旧动作 |
+| 局部续行与整体活动 | DecisionOrigin、Continuation、Session 级路由和安全锚点；全分支空闲/取消、局部输入顺序与让出合同，见[详细提案](decision-continuation-design.md) |
 
 不在本轮编造生产端口实现或改写第一阶段测试证据。上述缺口不表示已有 Domain 概念需要扩张；它们是让当前用例通过真实环境兑现所需的接口细化。
 
 ## 10. 验收场景与交付门槛
 
-以下是待执行的行为场景，不是已通过的用例。Skill 初稿目前只完成作者静态检查；真实 Agent 行为、Pi/Docker 机制和独立业务验证分别提供证据，不能相互替代。
+以下完整环境场景仍待执行。已有 Pi 机制实验只覆盖其中一部分；Skill 的真实 Agent 行为、Docker 隔离和独立业务验证分别提供证据，不能相互替代。
 
 | 场景 | 可观察的通过依据 | 验证层 |
 | --- | --- | --- |
@@ -222,3 +232,5 @@ Session 保存消息、装配事实、输入关联、调用发起及返回。查
 | W12 上下文压缩与版本缺失 | 压缩后 Skill/Root 保留、原历史可补读；旧环境无法恢复时阻塞，不换版重建 | Pi 合同 + Agent |
 
 下一步先完成第 9 节合同细化，并对候选 Pi 版本做 W01、W06—W10、W12 的最小集成验证。机制成立后实现生产适配器，再让真实 Agent 用隔离 MCP 跑 W02—W05、W11；只有走完委托、判断、补充、核查操作、结束后继续的闭环，才将本设计标为已验证。
+
+分支与多请求还须覆盖[局部续行提案的 C01—C13](decision-continuation-design.md#12-需要证明的场景)。早期单 Conversation 场景不再足以证明完整执行模型。

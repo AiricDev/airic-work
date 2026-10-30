@@ -13,13 +13,14 @@ export class McpUseCases {
      * @param callId 由可信 Runtime 调用身份提供；重放沿用，只有明确的新尝试才分配新 ID。
      * @param parameters 工具输入；用于执行的原数据与可记录的脱敏数据分开，适配器不得将凭据返回给模型。
      */
-    async callMcp(userId: string, id: string, generation: number, connection: string, tool: string, parameters: import('../domain/model').Json, callId: string) {
+    async callMcp(userId: string, id: string, generation: number, connection: string, tool: string, parameters: import('../domain/model').Json, callId: string, expectedSchemaRevision?: string) {
         requireRule(!!callId, 'invalid');
         const e = await this.policy.owned(userId, id);
         active(e, generation);
         requireRule((await this.store.settings()).connections.includes(connection), 'forbidden');
         const definition = (await this.mcp.tools(userId, connection)).find(t => t.name === tool);
         requireRule(definition, 'invalid');
+        requireRule(expectedSchemaRevision === undefined || definition.schemaRevision === expectedSchemaRevision, 'conflict', 'MCP schema changed');
         const existing = await this.history.call(e.sessionId, callId);
         if (existing) {
             requireRule(existing.connection === connection && existing.tool === tool && canonical(existing.parameters) === canonical(this.mcp.sanitize(connection, parameters)), 'conflict');

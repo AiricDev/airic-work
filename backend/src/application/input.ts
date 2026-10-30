@@ -41,7 +41,11 @@ export class InputUseCases {
             return input;
         requireRule(e.method && e.phase !== 'stopping', 'blocked');
         const queue = await this.store.inputs(e.id);
-        requireRule(!queue.some(i => i.sequence < input.sequence && i.status !== 'delivered'), 'blocked', 'earlier input pending');
+        for (const earlier of queue.filter(i => i.sequence < input.sequence && i.status !== 'delivered')) {
+            const independent = earlier.kind === 'user-decision' && input.kind === 'user-decision'
+                && await this.runtime.independentAnswers?.(e, earlier, input);
+            requireRule(independent, 'blocked', 'earlier related or control input pending');
+        }
         await this.workspace.ensure(e);
         await this.workspace.materialize(e, await this.policy.files(userId, e, input.files));
         await this.runtime.ensure(e);
