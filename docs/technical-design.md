@@ -159,7 +159,7 @@ Decision Context 是 DecisionRequest 的版本化内容，来源引用在其中�
 * `FinishExecution` 记录本轮结束，并与新输入提交通过执行版本协调。新消息已经提交时，不能结束后把它遗失；先结束后收消息时，由待投递意图重新调度原执行。
 * `ContinueExecution` 是输入派发触发的内部行为，不要求用户额外创建 Execution。检查本地用户资格、固定 OM、原 Session/Workspace 和旧运行是否已退出，再取得新的运行代次与租约。
 * 取消先原子设置当前代次的停止栅栏并提交停止意图，再等待 Runtime 和容器确认停止；在途外部操作不能宣称撤回或回滚。
-* 取消过程中收到新消息，保存并明确显示等待停止后继续，不使旧运行恢复动作资格。只有旧进程确认退出后，才允许新代次清除旧栅栏继续。用户停用或 token 失效则保持阻塞，不绕过检查。
+* 取消过程中收到新消息，保存并明确显示等待停止后继续，不使旧运行恢复动作资格。只有旧进程确认退出后，才允许新代次清除旧栅栏继续。用户停用或后台业务凭据失效则保持阻塞，不绕过检查。
 * 已结束、失败或已确认停止的 Execution 收到有效新输入，均按同一续行机制处理；失败原因仍未解除时明确阻塞，不静默建新 Session。
 * 空闲 Harness 或容器可释放，但 Session 存储、Workspace 和版本关系保留。恢复不重放全部模型工作来猜测控制状态。
 
@@ -418,3 +418,12 @@ Outbox 具备认领、租约、失败原因、重试及确认；worker 只调用
 * Project 名称更新、跨 Project 迁移等 PRD 未定义行为仍需产品决定；不是实现时可自行补出的规则。
 
 Execution 结束后是否继续、UserDecision 何时已回答、Decision Episode 覆盖什么、Trajectory 是否独立等已经确定，不再列为待决定事项。旧 airic-forge 的资产迁移或归档放在开发/迁移计划，不由本设计宣布完成。
+
+
+## 业务 MCP 后台认证的已实现合同
+
+业务系统的现有用户 access token 仅用于调用该系统的后台 MCP 凭据签发 API。Airic Work 的 `McpCredentialUseCases` 校验 Execution 归属和连接资格，适配器校验签发响应的用户/Execution，再将专用凭据按用户、Execution、身份来源及完整连接配置加密保存；不写入普通 Execution JSON、Session、Workspace 或模型上下文。
+
+`bootstrap/mcp.ts` 与 `adapters/driven/mcp/` 已实现 HTTPS 签发、撤销、逐请求凭据注入、Schema 发现与调用；原业务用例仍控制权限、发起记录与未知结果。普通网页登录过期/退出不会自动撤销单独的后台凭据；后台凭据过期、撤销或用户停用时阻塞相应访问。CertLab 首版签发固定七天、无滑动续期的专用 token，重新连接使用新的有效登录凭据。凭据撤销先禁止本地使用，再确认业务系统返回的撤销身份。
+
+该协议是可部署在 MCP 旁边的自定义业务接口，不宣称完整 OAuth/OIDC 自动发现或通用 Token Exchange。OIDC 集成方可在其接口内验证允许的用户 access token 并签发 MCP 凭据，不能接受任意 audience 或将 ID token 当作通用 API token。配置、接入顺序及测试范围见[业务 MCP 模块说明](../backend/src/adapters/driven/mcp/README.md)。

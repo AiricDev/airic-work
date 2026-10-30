@@ -369,9 +369,11 @@ export interface Mcp {
     /**
      * 以执行用户发现配置连接的工具。Schema/分类来源来自服务或显式配置，缺少分类保留未知。
      */
-    tools(userId: string, connection: string): Promise<{
+    tools(userId: string, connection: string, scope?: { executionId: string; sessionId: string; generation: number }): Promise<{
         name: string;
         schemaRevision: string;
+        description?: string;
+        inputSchema?: Json;
         classification?: 'read' | 'write';
         classificationSource?: string;
     }[]>;
@@ -395,3 +397,9 @@ export interface Mcp {
     }>;
 }
 export type { Creation };
+
+/** 后台凭据只由宿主签发/保存，应用只返回可显示元数据，不向 Agent 暴露秘密。 */
+export interface McpCredentials {
+    connect(scope: { userId: string; executionId: string; connection: string; issuer: string; subject: string }, loginToken: string): Promise<{ tokenId: string; expiresAt: string }>;
+    revoke(scope: { userId: string; executionId: string; connection: string; issuer: string; subject: string }, loginToken: string): Promise<void>;
+}

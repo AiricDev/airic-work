@@ -6,7 +6,7 @@
 | 产品依据 | [PRD](prd.md) 的 Ontology 与 Skill 体系；不新增产品实体或业务状态 |
 | 行为入口 | [airic-work-worker](../backend/skills/airic-work-worker/SKILL.md) |
 | 架构依据 | [技术设计](technical-design.md)；本文细化其 Pi、Workspace 与装配合同 |
-| 当前实现 | PiRuntime、PiHistory、ApplicationWorkerHost、McpWorkerTools 和 ExecutionRunner 已实现，见 [模块说明](../backend/src/adapters/driven/runtime/README.md)；Docker Workspace、附件物化和真实业务 MCP 网关仍待接入 |
+| 当前实现 | PiRuntime、PiHistory、ApplicationWorkerHost、McpWorkerTools 和 ExecutionRunner 已实现，见 [模块说明](../backend/src/adapters/driven/runtime/README.md)；业务 MCP 凭据/HTTP 网关已通过真实 HTTPS 测试，见[接入说明](../backend/src/adapters/driven/mcp/README.md)；Docker Workspace 和附件物化仍待接入 |
 | 分支执行细化 | [DecisionRequest 驱动的局部续行与分支调度](decision-continuation-design.md)；替代早期“单 Conversation”限制，内部策略为待评审提案 |
 | Pi 实际依据 | [能力核实与具体接入](pi-durable-capability-review.md)；commit 固定、API 映射、原生 Task/ownership、258 项上游测试及 6 项实验 |
 

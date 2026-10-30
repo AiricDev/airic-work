@@ -18,7 +18,7 @@ export class McpUseCases {
         const e = await this.policy.owned(userId, id);
         active(e, generation);
         requireRule((await this.store.settings()).connections.includes(connection), 'forbidden');
-        const definition = (await this.mcp.tools(userId, connection)).find(t => t.name === tool);
+        const definition = (await this.mcp.tools(userId, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).find(t => t.name === tool);
         requireRule(definition, 'invalid');
         requireRule(expectedSchemaRevision === undefined || definition.schemaRevision === expectedSchemaRevision, 'conflict', 'MCP schema changed');
         const existing = await this.history.call(e.sessionId, callId);
@@ -42,5 +42,5 @@ export class McpUseCases {
     /**
      * 只在当前归属/运行代次及已配置连接下发现工具，使用服务声明的 Schema 和分类，不凭工具名推断读写。
      */
-    async discoverMcpTools(userId: string, id: string, generation: number, connection: string) { const e = await this.policy.owned(userId, id); active(e, generation); requireRule((await this.store.settings()).connections.includes(connection), 'forbidden'); return this.mcp.tools(userId, connection); }
+    async discoverMcpTools(userId: string, id: string, generation: number, connection: string) { const e = await this.policy.owned(userId, id); active(e, generation); requireRule((await this.store.settings()).connections.includes(connection), 'forbidden'); return this.mcp.tools(userId, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation }); }
 }

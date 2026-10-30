@@ -35,3 +35,5 @@
 依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端当前为独立模拟原型，不能作为后端事实来源或反向依赖。
 
 Worker 运行入口：`backend/src/bootstrap/worker.ts`；Pi 机制、历史和 MCP 工具桥接在 `backend/src/adapters/driven/runtime/`，宿主派发入口为 `adapters/driving/worker/execution-runner.ts`；行为证据见 `backend/tests/pi-runtime.test.ts`。隔离 Workspace 和业务网关仍由各自端口接入。
+
+业务 MCP 凭据与 HTTP：`application/mcp-credentials.ts` 负责归属与配置资格，`adapters/driven/mcp/` 负责凭据签发/加密/撤销及逐请求认证；`bootstrap/mcp.ts` 提供组合入口与 Agent 工具。验证为 `tests/mcp-integration.test.ts`，协议见模块 README 与 CertLab 的 assistant-protocol.md。
