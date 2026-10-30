@@ -1,6 +1,6 @@
 # Airic Work 后端
 
-已交付 Domain/Application、入口校验与 DI，以及 SQLite ControlStore / Support、Files Blob、Methods Git/快照/搜索。尚无 HTTP 服务或真实 Agent。
+已交付 Domain/Application、入口校验与 DI，以及 SQLite ControlStore / Support、Files Blob、Methods Git/快照/搜索、HTTPS Identity 和本机管理员提升命令。尚无 HTTP 服务或真实 Agent。
 
 在仓库根运行：
 
@@ -24,8 +24,41 @@ npm run check
 8. `src/adapters/driven/sqlite/`、`src/bootstrap/persistence.ts`：SQLite 实现、迁移和生命周期。
 9. `src/adapters/driven/files/`、`src/bootstrap/files.ts`：本地 Blob；行为与证据见 `docs/behavior/files-blob.md`、`docs/files-blob-report.md`。
 10. `src/adapters/driven/methods/`、`src/bootstrap/methods.ts`：Git 方法、固定快照与独立 FTS5 索引；见 `docs/behavior/methods-adapter.md`、`docs/methods-adapter-report.md`。
+11. `src/adapters/driven/identity/`、`src/bootstrap/identity.ts`、`scripts/grant-admin.ts`：HTTPS 身份验证与独立管理员运维入口；见 `docs/behavior/identity-adapter.md`、`docs/identity-adapter-report.md`。
 
-`tests/support` 是测试替身或真实测试仓库构造器，不可接到生产运行。`adapters/driving/validation` 使用 Zod，`bootstrap/container.ts` 使用 Awilix；Identity、业务 MCP 和 HTTP 等生产适配器留待后续实现，不伪造 API、真实认证或 MCP。
+`tests/support` 是测试替身或集成 fixture，不可接到生产运行。`adapters/driving/validation` 使用 Zod，`bootstrap/container.ts` 使用 Awilix；业务 MCP 和 HTTP 等生产适配器留待后续实现，不伪造 API、真实认证结果或 MCP。
+
+## HTTPS Identity 与管理员命令
+
+```ts
+import { createIdentity } from './src/bootstrap/identity';
+
+const { identity } = createIdentity({
+    issuer: 'trusted-integration',
+    endpoint: 'https://identity.example.com/userinfo',
+    fields: { subject: 'sub', name: 'name' },
+    limits: { timeoutMs: 10000, maxResponseBytes: 65536, maxTokenBytes: 16384 },
+});
+// 将 identity 注入 createBackend；account.ensureUser(token) 验证后查找/创建本地用户。
+```
+
+- 配置来自可信宿主，不从请求接收 endpoint/issuer/字段映射。接口合同为 GET + `Authorization: Bearer <token>`，只有当前有效 token 才能返回 200；401/403 表示拒绝。支持不透明 token，不自行解析 JWT、不实现登录/签发/续期。
+- 返回 UTF-8 JSON，映射两个必需的顶层字符串字段（稳定用户 ID、显示名）。不回退到 email/name 合并身份，不接受返回正文中的 issuer/admin/enabled 作为本地权限。
+- TLS 证书/主机名验证开启；可通过可信配置 `ca` 提供企业 CA，不能关闭验证。不接受 HTTP、URL 凭据、查询或片段，不跟随重定向。超时覆盖 DNS/TLS/完整正文；不重试、不缓存成功认证。
+- 本地 User 首次启用但非管理员；重复认证保留本地显示名、资格、管理员权限和偏好。停用用户即使外部验证成功仍被拒绝。
+- token 仅用于本次验证，不写入数据库、日志、Session 或 Workspace，也不自动转发到业务 MCP。业务 MCP 凭据取得/托管/续期尚未交付，必须按目标服务合同处理。
+
+已有用户先通过有效身份接入，再由持有数据库 OS 权限的操作员运行：
+
+```sh
+npm --prefix backend run admin:grant -- --database /absolute/path/control.sqlite --user <local-user-id>
+```
+
+- 只提升指定的已有启用用户，原子更新 admin/version；重复执行幂等，不修改名称、偏好或身份。不自动选择首个用户，不创建或启用账户。
+- 只打开现存普通数据库文件，拒绝链接；校验当前迁移版本/摘要，不执行迁移、不初始化 Settings、不创建空库或目录。
+- 命令走独立 `LocalAccountAdministration` 端口，不注册到普通 Application、HTTP、只读 MCP 或普通 AdapterBindings。不要把这项 OS 运维权限暴露给网络客户端。
+- CLI 使用锁定的 `tsx` 运行实际 TypeScript 源码，不复用测试转译 loader；安装依赖后可用 `npm --prefix backend run admin:grant -- --help` 查看用法。
+- 当前使用本地 HTTPS 服务与临时测试 CA 验证；专项测试需要 OpenSSL。真实集成方协议、生产 CA/DNS/代理和部署认证仍须验证。
 
 ## SQLite 资源
 

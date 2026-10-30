@@ -94,21 +94,29 @@ BEGIN SELECT RAISE(ABORT, 'immutable upload'); END;
 
 const migrations = [initial];
 
+function appliedMigrations(connection: Database.Database): number {
+    const applied = connection.prepare('SELECT version, hash FROM schema_migrations ORDER BY version').all() as { version: number; hash: string }[];
+    requireRule(applied.length <= migrations.length, 'blocked', 'unsupported database version');
+    for (let index = 0; index < applied.length; index++)
+        requireRule(applied[index].version === index + 1 && applied[index].hash === createHash('sha256').update(migrations[index]).digest('hex'), 'blocked', 'migration mismatch');
+    return applied.length;
+}
+
+/** 运维命令只验证已初始化的当前数据库，不创建表或执行迁移。 */
+export function verifyMigrations(connection: Database.Database): void {
+    requireRule(appliedMigrations(connection) === migrations.length, 'blocked', 'database migration required');
+}
+
 /** 带摘要的顺序迁移；未知或被改写的迁移必须阻塞，不能重置现有数据库。 */
 export function migrate(connection: Database.Database): void {
     connection.transaction(() => {
         connection.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, hash TEXT NOT NULL) STRICT');
-        const applied = connection.prepare('SELECT version, hash FROM schema_migrations ORDER BY version').all() as { version: number; hash: string }[];
-        requireRule(applied.length <= migrations.length, 'blocked', 'unsupported database version');
-        for (let index = 0; index < migrations.length; index++) {
+        const applied = appliedMigrations(connection);
+        for (let index = applied; index < migrations.length; index++) {
             const version = index + 1;
             const hash = createHash('sha256').update(migrations[index]).digest('hex');
-            if (index < applied.length) {
-                requireRule(applied[index].version === version && applied[index].hash === hash, 'blocked', 'migration mismatch');
-            } else {
-                connection.exec(migrations[index]);
-                connection.prepare('INSERT INTO schema_migrations(version, hash) VALUES (?, ?)').run(version, hash);
-            }
+            connection.exec(migrations[index]);
+            connection.prepare('INSERT INTO schema_migrations(version, hash) VALUES (?, ?)').run(version, hash);
         }
     }).immediate();
 }

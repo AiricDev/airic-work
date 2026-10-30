@@ -207,6 +207,7 @@ Airic Work 保存每个 Execution 对应的 Agent Session 历史，用于查看�
 记录规则：
 
 * Session 保留消息和操作的来源、时间及必要关联，能够区分用户输入、Agent 操作和工具返回。
+* 一个 Session 可以容纳多条有来源关联的内部上下文分支；一个 Execution 的工作路径不要求线性。继续局部工作时能定位原提问上下文，同时保留其他部分已经发生的进展，不另建 Execution 或独立轨迹。
 * DecisionRequest、UserDecision 和 Steering Input 与对应的 Session 消息关联；Decision Episode 引用相关历史记录，不重复保存一套执行过程。
 * 工具调用发起与返回结果分别保留；尚未确认的业务效果不能记录为成功。
 * 历史记录缺失、压缩、清理或不可访问时，明确说明覆盖限制。
@@ -271,7 +272,7 @@ OME Skill 和 Worker Skill 是产品交付与演进的一部分，不只是文�
 | 主要输入 | 工作目标、业务能力合同、专家经验、代表案例、已有 OM；改进时可读取获准的 Session 和 Decision Episode | 当前 Execution 的 `task`、`instruction`、固定版 OM、UserDecision、Steering Input、Workspace 文件和工具能力 |
 | 主要产出 | Root OM、Decision Model 等运行时知识，以及作者侧候选、案例和验证记录；采纳的方法变更经 Git Review 合并 | Agent 消息、DecisionRequest、业务 MCP 调用及其结果，保留在原 Execution 的 Session 与 Workspace 中 |
 | 与平台的关系 | 平台提供 OM 文件浏览及实践记录读取；方法设计与反思在外部完成，不增加内部学习中心 | 平台装配执行方法并提供受控能力，维护用户身份、输入提交与交付、执行控制及历史 |
-| 当前状态 | 已有 [operating-model-design 初稿](../.agents/skills/operating-model-design/SKILL.md)，作为后续维护基础；存在初稿不等于所有业务场景已经验证 | 已有 [Worker Skill v0.1.0 初稿](../backend/skills/airic-work-worker/SKILL.md) 及配套[运行环境设计](worker-runtime-design.md)；真实 Agent 行为、装配与恢复能力仍待验证 |
+| 当前状态 | 已有 [operating-model-design 初稿](../.agents/skills/operating-model-design/SKILL.md)，作为后续维护基础；存在初稿不等于所有业务场景已经验证 | 已有 [Worker Skill v0.2.0 初稿](../backend/skills/airic-work-worker/SKILL.md) 及配套[运行环境设计](worker-runtime-design.md)、[局部续行提案](decision-continuation-design.md)；真实 Agent 行为、装配与恢复能力仍待验证 |
 
 关键关系与边界：
 
@@ -340,6 +341,7 @@ token 与创建幂等键由接入合同承载，不放入自定义业务属性�
 
 * **启动准备**：为 Execution 关联唯一 Session 和独立 Workspace；首次实际启动前确认实例 OM 来源分支的最新提交，记录仓库来源与 Commit SHA。无法确认时明确阻碍，不静默用旧缓存启动。
 * **后台执行**：Agent 结合 `instruction`、`task` 和固定版 OM 推进工作，页面关闭不停止后台执行。Pi Durable 为目标 Runtime，具体能力以实际接入验证为准。
+* **局部等待与分别继续**：提出 DecisionRequest 只暂停依赖该判断的部分，Agent 继续不受影响的工作，一次运行可积累多个待回答请求。UserDecision 到达后带着相关提问上下文继续对应工作，不要求无关请求全部回答，也不从任务开头重做。内部上下文分支、工作划分与调度方式由技术设计落实。
 * **业务操作**：业务服务通过可配置 MCP 提供工具。Agent 根据工具合同和 OM 查找信息、处理文件、实施操作；不要求平台内置某个业务系统的对象、工具名或专属适配器。
 * **增量推进**：已有信息足以开展的工作先执行，不统一要求全部资料齐全。缺少信息或需要用户判断时提出 DecisionRequest，等待期间可继续无依赖工作。
 * **进展呈现**：用户可查看当前进展、阻碍、待回答 DecisionRequest、执行说明及 Session 中的业务操作和链接。平台不另建 Execution Result 或业务产出实体；执行结束不宣称业务任务正式完成。

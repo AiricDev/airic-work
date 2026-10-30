@@ -1,10 +1,10 @@
 # 适配器交接边界
 
-按 `../application/ports.ts` 实现外部机制。当前已实现 `driven/sqlite/`（ControlStore）、`driven/support/`（UUIDv7/UTC）、`driven/files/`（本地 Files Blob）与 `driven/methods/`（Git/固定快照/搜索）；其余生产适配器尚未实现。
+按 `../application/ports.ts` 实现外部机制。当前已实现 `driven/sqlite/`（ControlStore/本机账户维护）、`driven/support/`（UUIDv7/UTC）、`driven/files/`（本地 Files Blob）、`driven/methods/`（Git/固定快照/搜索）与 `driven/identity/`（HTTPS 用户信息验证）；其余生产适配器尚未实现。
 
 ## 分批路线与任务边界
 
-非 Agent 任务依次交付：SQLite/Support → Files Blob → Methods Git/搜索 → Identity → 业务 Mcp 网关 → HTTP/外部只读 MCP 与资源装配。当前前三批完成；证据见 `../../../docs/sqlite-adapter-report.md`、`../../../docs/files-blob-report.md`、`../../../docs/methods-adapter-report.md`。
+非 Agent 任务依次交付：SQLite/Support → Files Blob → Methods Git/搜索 → Identity → 业务 Mcp 网关 → HTTP/外部只读 MCP 与资源装配。当前前四批完成；证据见 `../../../docs/sqlite-adapter-report.md`、`../../../docs/files-blob-report.md`、`../../../docs/methods-adapter-report.md`、`../../../docs/identity-adapter-report.md`。
 
 Pi Runtime、History/Session 索引、Workspace/Docker、模型工具入口、输入信封装配、派发 worker、停止与恢复由独立 Agent 任务设计开发。业务 Mcp 网关不另外建立调用账本，仍通过 McpUseCases 与 Agent 任务提供的 History 协作。缺少的能力不能用生产测试替身或空历史伪装可用。
 
@@ -47,3 +47,14 @@ Blob 根目录必须由可信宿主管理，不暴露给 Agent 或不可信 writ
 * `../bootstrap/methods.ts`：显式来源、目录、资源上限和声明版本；无常驻句柄或后台任务。
 
 SHA-1/SHA-256 仓库在本地验证；HTTPS/SSH、生产凭据、Git 缓存维护、SIGKILL/断电及部署文件系统未在本批验证。Runtime/Skill 版本声明不能替代真实 Agent 装配证明。
+
+## Identity 与账户维护验证入口
+
+* `driven/identity/https-user-info.ts`：固定可信 HTTPS 端点的 Bearer 用户信息验证；不缓存/重试/重定向、不持久化 token。
+* `../bootstrap/identity.ts`：仅创建 Identity；普通用户接入仍经 AccountUseCases 与 Store，保留本地资料/资格/权限。
+* `../application/account-maintenance.ts`、`driven/sqlite/account-maintenance.ts`：用户明确要求的独立 OS 操作员维护路径，原子提升已有启用用户；不修改普通 `manageUser` 的管理员约束。
+* `../../scripts/grant-admin.ts`、`../bootstrap/account-maintenance.ts`：本机 CLI 与资源关闭，不接入 HTTP/MCP/普通容器，不初始化或迁移数据库。
+* `../../tests/identity-https.test.ts`、`identity-application.test.ts`：真实 TLS、失效/重定向/限量/超时拒绝、SQLite 建人与本地停用保护。
+* `../../tests/account-maintenance.test.ts`：真实独立 CLI 进程、权限/版本原子性、重复及并发、错误数据库/迁移拒绝、故障回滚。
+
+业务 MCP 不能默认复用入站 token。按归属用户和目标连接取得有效凭据的托管、续期或交换合同留待业务 MCP 批次；本批不伪造可用凭据，也不把 token 塞入输入信封或 Session。

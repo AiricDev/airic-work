@@ -165,6 +165,11 @@ export interface Identity {
         name: string;
     }>;
 }
+/** 独立本机运维能力，仅供持有数据库 OS 权限的命令使用；不得注册到应用 HTTP/MCP 或普通 AdapterBindings。 */
+export interface LocalAccountAdministration {
+    /** 原子提升已有启用用户；重复提升幂等，不创建用户、不解除停用、不修改其他资料。 */
+    grantAdministrator(userId: string): Promise<void>;
+}
 /**
  * 同一 Execution/Session 的运行与持久输入接收端口。适配器负责会话分配查回、单运行持有者、代次隔离、接收去重及停止确认。
  * SDK 的实际能力必须通过合同测试，不因此接口存在就宣称具备恢复或 exactly-once 业务效果。

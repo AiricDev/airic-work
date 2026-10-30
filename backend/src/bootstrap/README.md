@@ -11,3 +11,7 @@
 来源字符串为 URL/SCP 地址时使用受管 clone，为绝对目录时直接复用本地 Git 仓库；显式 `{ kind: 'local', directory, remote? }` 可选定 remote，`{ kind: 'managed', repository }` 可指定受管 Git transport。本地运行不自动 fetch；无 remote 的禁用原因与提示经 Methods.status/MethodUseCases 返回，显式同步走既有应用能力，不在工厂执行 pull、修改工作区或创建空仓库。
 
 当前没有生产服务入口；传入适配器的创建/关闭由调用方负责。组合使用时先调用 Backend 的 `dispose()`，再调用持久化资源的 `close()`；初始化失败会关闭已打开连接。未来由容器创建资源时再显式登记 disposer。不把请求级 actor 放入根级单例，不从 Domain/Application 导入此目录。
+
+`identity.ts` 的 `createIdentity` 创建 HTTPS 用户信息验证 adapter，返回 `{ identity }`。固定 issuer/endpoint、字段映射、资源界限与可选企业 CA 来自可信宿主；不在初始化时联网，不保存 token、不创建用户、不提供空的 close。
+
+`account-maintenance.ts` 只供 `backend/scripts/grant-admin.ts` 本机运维命令使用。打开现存数据库并返回独立维护用例及 `close()`，不迁移/初始化，不注册到普通容器；实际提升在 IMMEDIATE 事务中验证迁移、用户存在和启用状态。与需要已有管理员 actor 的普通 `manageUser` 不同，授权来源是操作员的数据库 OS 权限，不能暴露成 HTTP/MCP 能力。

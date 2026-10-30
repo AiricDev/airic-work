@@ -3,10 +3,10 @@
 | 项 | 内容 |
 | --- | --- |
 | 日期 | 2026-10-30 |
-| 状态 | Domain/Application、Validation/DI、SQLite ControlStore/Support、Files Blob 与 Methods Git/快照/搜索已实现；其他生产适配器及完整集成仍未交付 |
+| 状态 | Domain/Application、Validation/DI、SQLite ControlStore/Support、Files Blob、Methods Git/快照/搜索、HTTPS Identity 与本机管理员命令已实现；其他生产适配器及完整集成仍未交付 |
 | 产品依据 | [PRD](prd.md) 中的 Ontology、Functional Requirements、User Experience 和核心验收 |
 | 设计范围 | 架构、用例与端口、身份接入、运行与消息交付、Session、Workspace、MCP、接口与 UI 技术约束、存储与恢复 |
-| 实现证据 | 内层见 [第一阶段报告](backend-phase1-report.md)，控制记录见 [SQLite/Support 报告](sqlite-adapter-report.md)，文件内容见 [Files Blob 报告](files-blob-report.md)，方法见 [Methods 报告](methods-adapter-report.md)；fake-port 或 spike 结论不代表其他生产适配器已交付 |
+| 实现证据 | 内层见 [第一阶段报告](backend-phase1-report.md)，控制记录见 [SQLite/Support 报告](sqlite-adapter-report.md)，文件内容见 [Files Blob 报告](files-blob-report.md)，方法见 [Methods 报告](methods-adapter-report.md)，身份见 [Identity 报告](identity-adapter-report.md)；fake-port 或 spike 结论不代表其他生产适配器已交付 |
 | Worker 与环境细化 | [Worker Skill 与 Pi Durable Agent 工作环境](worker-runtime-design.md)：常驻 Skill、能力映射、输入信封、容器与待验证合同 |
 
 产品语义由 PRD 定义。本文说明怎样实现，不重新增加用户角色、业务实体或专业采纳流程。原型与现有代码用于识别差异，不自动成为新合同。文中的端口名、技术字段和 HTTP 路径是目标设计，不声明当前 SDK 已支持或当前服务已提供。
@@ -189,13 +189,17 @@ Decision Context 是 DecisionRequest 的版本化内容，来源引用在其中�
 
 输入去重、历史扩展字段、MCP 发起记录、稳定游标、停止及重启后续行均是硬性验证项。SDK 若缺少接口，需要适配层补足并证明；不能靠“重放安全”声明替代业务幂等，也不能先写本地已交付再假定 SDK 已接收。
 
+Pi 已按 v1.4.0 / `4a080252f06caf63a525d7873c5d94d3c23887e0` 下载官方源码并验证：10 个上游测试文件共 258 项、6 项针对本系统的机制实验通过。实际 API、background ownership、原生 Task、工具轮终止与 SQLite reopen 的证据见[能力核实与具体接入](pi-durable-capability-review.md)。这不等于生产适配、真实模型/MCP 或 Docker 已验证。
+
 Runtime/模型/Skill 升级需要代表性回归。既有 Execution 保留实际版本，不能静默升级或因镜像缺失改用新环境。
 
 ### 6.2 Worker Skill 与宿主装配
 
-[Worker Skill v0.1.0](../backend/skills/airic-work-worker/SKILL.md) 是产品运行时资产，随构建发布；不从 `.agents/skills/` 自动扫描开发或 OME Skill。每次请求实际装配固定 Worker 正文、Root OM 和可信运行快照，其他领域知识按需读取。宿主负责身份、持久输入、工具 Schema、停止与恢复，Skill 不承担这些机制保证。
+[Worker Skill v0.2.0](../backend/skills/airic-work-worker/SKILL.md) 是产品运行时资产，随构建发布；不从 `.agents/skills/` 自动扫描开发或 OME Skill。每次请求实际装配固定 Worker 正文、Root OM 和可信运行快照，其他领域知识按需读取。宿主负责身份、持久输入、工具 Schema、停止与恢复，Skill 不承担这些机制保证。
 
-首版使用一条 Root Conversation，忙时输入有序 follow-up；产品 Steering Input 不直接等于 Pi 的 steer 模式。DecisionRequest 工具保存后立即返回，UserDecision 通过新输入交付。正常让出执行后，宿主核验队列、空闲与工具退出事实，再显式结束当前运行；一次模型回复不代表业务完成。取消需处理已接收但被撤回的输入，不能把持久接收当作已处理。
+一个 Session 可以包含协调 Conversation 与多个局部上下文分支；不再限制为一条线性对话。DecisionRequest 工具保存后立即返回，未受影响的工作继续；UserDecision 按原请求路由到相关工作，保留提出问题时的上下文和后续更新。产品 Steering Input 不直接等于 Pi 的 steer 模式。
+
+[局部续行与分支调度提案](decision-continuation-design.md)按需建立续行记录，首次回答时 fork，后续相关回答复用当前分支。具体采用 Pi `defineTask` 的 run-slice phases/checkpoints 与原生 waiting 控制串行准入；统一工具 wrapper 的 `control.terminate` 建立正常工具轮边界，终结后固化锚点并安排后续原生 Task，不另造通用执行器。分支挂在 background anchor 下，全局取消使用 `root.abort(context, { background: true })` 并核验容器退出。相关机制已有实验，应用政策与生产合同仍需落实；结束检查覆盖全部分支，不能把接收当作处理。
 
 详细输入、工具、隔离和验收合同以[配套设计](worker-runtime-design.md)为准。该设计同时列出了当前内层合同仍需补齐的实际装配记录、完整输入映射、动态 MCP Schema、调用身份与取消观察；这些能力尚未由生产适配器兑现。
 
@@ -407,10 +411,10 @@ Outbox 具备认领、租约、失败原因、重试及确认；worker 只调用
 
 ### 12.3 仍需落实的机制与真实未决项
 
-* 集成方 token 的可信验证、用户信息接口、目标服务接受范围、后台安全保存及过期/续期协议；不能假定任意服务都接受同一 token。
+* 入站 Identity 已选定固定可信 HTTPS 用户信息接口，GET + Bearer，映射配置的稳定 ID/名称字段；只有接口确认当前有效才接入，见 Identity 报告。目标业务 MCP 的 token 接受范围、后台安全保存及过期/续期/交换协议仍待按集成合同落实，不能默认转发创建任务时的 token。
 * Pi 锁版后的 inputId 持久查回/去重、单 Session 重开、发起记录追加、历史扩展、游标及停止确认；以真实合同测试证明。
 * SSE 重连、HTTP/MCP 正式 Schema、分页稳定性、大内容限制、文件解析工具、保留/清理策略和容量配置。
-* 集成方用户字段与本地可编辑资料的同步优先级，以及首次管理员的部署引导方式，需要在身份接入实现前明确；不重新引入密码或注册产品流程。
+* 已明确：外部用户字段仅用于首次创建，本地名称/资格/权限/偏好不被再次认证覆盖；操作员通过本机 `admin:grant --database ... --user ...` 提升已有启用用户，不自动提升首个登录用户。该独立维护入口不接入普通 HTTP/MCP，不创建/启用用户，不重新引入密码或注册流程。
 * Project 名称更新、跨 Project 迁移等 PRD 未定义行为仍需产品决定；不是实现时可自行补出的规则。
 
 Execution 结束后是否继续、UserDecision 何时已回答、Decision Episode 覆盖什么、Trajectory 是否独立等已经确定，不再列为待决定事项。旧 airic-forge 的资产迁移或归档放在开发/迁移计划，不由本设计宣布完成。

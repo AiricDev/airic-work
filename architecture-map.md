@@ -5,6 +5,8 @@
 | 修改意图 | 行为负责人 | 相关合同与验证 |
 | --- | --- | --- |
 | 自动用户接入、管理与偏好 | backend/src/application/account.ts | domain/model.ts、ports.ts、management.test.ts |
+| 集成方 Bearer token 验证与用户信息映射 | backend/src/adapters/driven/identity/https-user-info.ts | Identity；bootstrap/identity.ts、identity-https.test.ts、identity-application.test.ts；不托管或透传业务 MCP token |
+| 本机提升已有用户管理员权限 | backend/src/application/account-maintenance.ts | LocalAccountAdministration；driven/sqlite/account-maintenance.ts、bootstrap/account-maintenance.ts、backend/scripts/grant-admin.ts；不注册普通 HTTP/MCP/容器 |
 | 分组/创建/准备/结束/取消 | backend/src/application/execution.ts | domain/model.ts、core.test.ts、recovery.test.ts |
 | 请求、回答、更正和 Context | backend/src/application/decision.ts | core.test.ts，提交合同在 ports.ts |
 | Steering Input、文件、原执行消息续行 | backend/src/application/input.ts | recovery.test.ts、Runtime/Workspace 合同 |

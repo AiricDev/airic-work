@@ -1,5 +1,5 @@
 import { dirname, isAbsolute } from 'node:path';
-import { closeSync, constants, mkdirSync, openSync } from 'node:fs';
+import { closeSync, constants, lstatSync, mkdirSync, openSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { requireRule, RuleError } from '../../../domain/model';
 
@@ -25,16 +25,20 @@ function configureJournal(connection: Database.Database, memory: boolean): void 
 }
 
 /** 每条生产连接使用同一安全/持久性配置；仅 :memory: 例外，不承诺重启恢复。 */
-export function openSqliteDatabase(filename: string): Database.Database {
+export function openSqliteDatabase(filename: string, options: { fileMustExist?: boolean } = {}): Database.Database {
     requireRule(filename === ':memory:' || isAbsolute(filename), 'invalid', 'absolute database path required');
     let connection: Database.Database | undefined;
     try {
-        if (filename !== ':memory:') {
+        if (options.fileMustExist) {
+            requireRule(filename !== ':memory:', 'invalid');
+            const info = lstatSync(filename);
+            requireRule(info.isFile() && !info.isSymbolicLink(), 'blocked');
+        } else if (filename !== ':memory:') {
             mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
             // 不截断、不改已有文件权限；新建数据库从第一字节起仅供当前用户读写。
             closeSync(openSync(filename, constants.O_CREAT | constants.O_RDWR, 0o600));
         }
-        connection = new Database(filename);
+        connection = new Database(filename, { fileMustExist: options.fileMustExist ?? false });
         connection.pragma(`busy_timeout = ${busyTimeoutMs}`);
         connection.pragma('foreign_keys = ON');
         configureJournal(connection, filename === ':memory:');
