@@ -33,6 +33,7 @@ export function createBackend(dependencies: AdapterBindings) {
         policy: asClass(ApplicationPolicy).singleton(),
         application: asClass(Application).singleton(),
         store: asValue(dependencies.store),
+        configurationCatalog: asValue(dependencies.configurationCatalog),
         support: asValue(dependencies.support),
         identity: asValue(dependencies.identity),
         runtime: asValue(dependencies.runtime),

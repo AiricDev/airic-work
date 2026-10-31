@@ -1,35 +1,36 @@
-import React, { useMemo, useState } from 'react';
-import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Alert,
-  Box,
-  Breadcrumbs,
-  Button,
-  Chip,
-  FormControl,
-  InputLabel,
-  Link,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  Typography } from
-'@mui/material';
+Alert,
+Box,
+Breadcrumbs,
+Button,
+Chip,
+FormControl,
+InputLabel,
+Link,
+MenuItem,
+Paper,
+Select,
+Stack,
+Table,
+TableBody,
+TableCell,
+TableContainer,
+TableHead,
+TablePagination,
+TableRow,
+Typography
+} from '@mui/material';
+import { useMemo,useState } from 'react';
+import { Link as RouterLink,useParams,useSearchParams } from 'react-router-dom';
+import { loadHistory } from '../api/history';
+import { useApiQuery } from '../api/useApiQuery';
+import { EvidenceDrawer } from '../components/decision/EvidenceDrawer';
+import { TrajectoryEventDrawer } from '../components/trajectory/TrajectoryEventDrawer';
 import { useWorkbench } from '../contexts/WorkbenchContext';
-import { usePlatform } from '../contexts/PlatformContext';
 import type { TrajectoryType } from '../types/platform';
 import { projectById } from '../utils/selectors';
-import { trajectoryFor, trajectoryTypeLabels } from '../utils/trajectory';
 import { formatTime } from '../utils/time';
-import { TrajectoryEventDrawer } from '../components/trajectory/TrajectoryEventDrawer';
-import { EvidenceDrawer } from '../components/decision/EvidenceDrawer';
+import { trajectoryFor,trajectoryTypeLabels } from '../utils/trajectory';
 
 const ROWS = 10;
 const ranges: Record<string, number> = { all: 0, '60': 60, '180': 180 };
@@ -37,15 +38,15 @@ const ranges: Record<string, number> = { all: 0, '60': 60, '180': 180 };
 export function Trajectory() {
   const { executionId } = useParams();
   const [params, setParams] = useSearchParams();
-  const { state, currentUser } = useWorkbench();
-  const platform = usePlatform();
+  const { state, projects, currentUser } = useWorkbench();
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
 
   const found = state.executions.find((e) => e.id === executionId);
   const execution = found && found.ownerId === currentUser.id ? found : undefined;
+  const history = useApiQuery(['session',executionId],()=>loadHistory(executionId!),!!execution);
   const { events, gapNote } = useMemo(
-    () => execution ? trajectoryFor(execution, platform.state.demo.trajectoryMissing) : { events: [], gapNote: null },
-    [execution, platform.state.demo.trajectoryMissing]
+    () => execution ? trajectoryFor({...execution,events:history.data?.events??[]}, false) : { events: [], gapNote: null },
+    [execution, history.data]
   );
 
   if (!execution) {
@@ -69,7 +70,7 @@ export function Trajectory() {
   const pageRows = filtered.slice(page * ROWS, page * ROWS + ROWS);
   const current = events.find((e) => e.id === eventId) ?? null;
   const ci = current ? events.indexOf(current) : -1;
-  const project = projectById(execution.projectId);
+  const project = projectById(execution.projectId, projects);
 
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(params);
@@ -91,7 +92,7 @@ export function Trajectory() {
         <Typography variant="h6" component="h1">执行轨迹 · {execution.goal}</Typography>
         <Typography variant="caption" color="text.secondary" component="p" sx={{ fontFamily: 'monospace' }}>
           {execution.id} · OM {execution.omRepo} @{' '}
-          <Link component={RouterLink} to={`/om?commit=${execution.omCommit}&path=root.md`}>{execution.omCommit}</Link> · {execution.runtimeVersion} · {execution.skillVersion}
+          <Link component={RouterLink} to={`/om?commit=${execution.omCommit}&executionId=${execution.id}`}>{execution.omCommit}</Link> · {execution.runtimeVersion} · {execution.skillVersion}
         </Typography>
         <Typography variant="caption" color="text.secondary">
           记录覆盖：{formatTime(execution.startedAt)} 至 {formatTime(execution.lastSyncedAt)}。授权证据视图，不包含隐藏思考链；原始事件只读。
@@ -99,6 +100,7 @@ export function Trajectory() {
         {gapNote && <Alert severity="warning" sx={{ mt: 1.5 }}>轨迹不完整：{gapNote}。外部只读读取会返回同等的缺失说明。</Alert>}
       </Paper>
 
+      {history.error && <Alert severity="error">{history.error}</Alert>}{history.data?.limitations.map((s,i)=><Alert key={i} severity="warning">{s}</Alert>)}
       <Paper variant="outlined">
         <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="center" sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
           <FormControl size="small" sx={{ minWidth: 140 }}>

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Box, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import type { DecisionRequest } from '../../types/workbench';
-import type { ContextDependency } from '../../types/platform';
+import { Box,Chip,Link,Table,TableBody,TableCell,TableHead,TableRow,Typography } from '@mui/material';
+import { useState } from 'react';
 import { usePlatform } from '../../contexts/PlatformContext';
-import { dependenciesFor, dependencyStatusColor } from '../../utils/contextDependencies';
+import type { ContextDependency } from '../../types/platform';
+import type { DecisionRequest } from '../../types/workbench';
+import { dependenciesFor,dependencyStatusColor } from '../../utils/contextDependencies';
 import { ContextDependencyDrawer } from './ContextDependencyDrawer';
 
 interface ContextDependencyListProps {
@@ -41,7 +41,7 @@ export function ContextDependencyList({ request, onOpenEvidence }: ContextDepend
                   variant="body2"
                   sx={{ textAlign: 'left' }}
                   onClick={() => d.evidenceId ? onOpenEvidence(d.evidenceId) : setOpen(d)}>
-                  
+
                     {d.name}
                   </Link>
                   <Typography variant="caption" color="text.secondary" component="div">{d.kind}</Typography>

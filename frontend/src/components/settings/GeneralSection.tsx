@@ -1,9 +1,8 @@
-import React from 'react';
-import { Autocomplete, Stack, TextField, Typography } from '@mui/material';
+import { Alert,Autocomplete,Stack,TextField,Typography } from '@mui/material';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
-import { SettingsActions } from './SettingsActions';
 import { UnsavedChangesDialog } from '../UnsavedChangesDialog';
+import { SettingsActions } from './SettingsActions';
 
 export const timezones = ['Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Singapore', 'Europe/Berlin', 'America/Los_Angeles', 'UTC'];
 
@@ -16,23 +15,24 @@ export function GeneralSection() {
     <Stack spacing={2}>
       <Typography variant="subtitle1" component="h2">基本信息</Typography>
       <Typography variant="body2" color="text.secondary">单组织部署，不提供组织切换、租户或计费。</Typography>
+      <Alert severity="info">组织显示名称与默认时区暂无保存接口；个人偏好可在个人设置保存。</Alert>
       <TextField
         label="组织显示名称"
-        required
+        disabled
         value={form.value.orgName}
         onChange={(e) => form.set({ orgName: e.target.value })}
         error={nameError}
         helperText={nameError ? '请填写组织显示名称' : '仅用于显示，不改变任何业务标识'} />
-      
-      <Autocomplete
+
+      <Autocomplete disabled
         options={timezones}
         value={form.value.timezone}
         disableClearable
         onChange={(_, v) => v && form.set({ timezone: v })}
         renderInput={(params) => <TextField {...params} label="默认时区（IANA）" />} />
-      
-      <SettingsActions dirty={form.dirty} result={form.result} onSave={() => !nameError && form.save()} onRevert={form.revert} />
-      <UnsavedChangesDialog blocker={form.blocker} onSave={() => !nameError && form.save().ok} onDiscard={form.revert} />
+
+      <SettingsActions dirty={form.dirty} result={form.result} onSave={async () => !nameError && form.save()} onRevert={form.revert} />
+      <UnsavedChangesDialog blocker={form.blocker} onSave={async () => !nameError && (await form.save()).ok} onDiscard={form.revert} />
     </Stack>);
 
 }

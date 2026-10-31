@@ -1,20 +1,19 @@
-import { FileInput } from '../FileInput';
-import React from 'react';
 import {
-  Box,
-  Checkbox,
-  FormControl,
-  FormControlLabel,
-  FormHelperText,
-  FormLabel,
-  Radio,
-  RadioGroup,
-  Stack,
-  TextField,
-  Typography } from
-'@mui/material';
-import type { ActionType, DecisionRequest, Draft } from '../../types/workbench';
-import { actionDescriptions, actionLabels } from '../../utils/labels';
+Box,
+Checkbox,
+FormControl,
+FormControlLabel,
+FormHelperText,
+FormLabel,
+Radio,
+RadioGroup,
+Stack,
+TextField,
+Typography
+} from '@mui/material';
+import type { ActionType,DecisionRequest,Draft } from '../../types/workbench';
+import { actionDescriptions,actionLabels } from '../../utils/labels';
+import { FileInput } from '../FileInput';
 
 interface UserDecisionFormProps {
   request: DecisionRequest;
@@ -30,7 +29,7 @@ export function UserDecisionForm({ request, value, errors, showErrors, onChange 
 
   return (
     <Stack spacing={2} component="form" onSubmit={(e) => e.preventDefault()} aria-label="处理表单">
-      <FileInput files={value.files ?? []} onChange={files => onChange({ files })} />
+      <FileInput executionId={request.executionId} files={value.files ?? []} onChange={files => onChange({ files })} />
       <FormControl error={Boolean(err('action'))}>
         <FormLabel id="action-label" sx={{ fontWeight: 600, color: 'text.primary' }}>
           选择处理方式
@@ -71,22 +70,21 @@ export function UserDecisionForm({ request, value, errors, showErrors, onChange 
             {err('choiceId') && <FormHelperText>{err('choiceId')}</FormHelperText>}
           </FormControl>
           <TextField
-          label="判断理由"
-          required
+          label="判断理由（可选）"
           multiline
           minRows={3}
           value={value.reason}
           onChange={(e) => onChange({ reason: e.target.value })}
           error={Boolean(err('reason'))}
           helperText={err('reason') ?? '将作为处理依据记录，供后续追溯。'} />
-        
+
         </>
       }
 
       {value.action === 'fact' &&
       <>
           <TextField
-          label="补充的事实"
+          label="回答或补充内容"
           required
           multiline
           minRows={3}
@@ -94,15 +92,14 @@ export function UserDecisionForm({ request, value, errors, showErrors, onChange 
           onChange={(e) => onChange({ fact: e.target.value })}
           error={Boolean(err('fact'))}
           helperText={err('fact')} />
-        
+
           <TextField
-          label="事实来源"
-          required
+          label="事实来源（可选）"
           value={value.factSource}
           onChange={(e) => onChange({ factSource: e.target.value })}
           error={Boolean(err('factSource'))}
           helperText={err('factSource') ?? '例如：业务记录编号、文件名与版本'} />
-        
+
         </>
       }
 
@@ -123,7 +120,7 @@ export function UserDecisionForm({ request, value, errors, showErrors, onChange 
             <FormControlLabel
             control={<Checkbox size="small" checked={value.authorizeConfirm} onChange={(e) => onChange({ authorizeConfirm: e.target.checked })} />}
             label={<Typography variant="body2">我确认仅在上述对象、动作与范围内授权</Typography>} />
-          
+
             {err('authorizeConfirm') && <FormHelperText>{err('authorizeConfirm')}</FormHelperText>}
           </FormControl>
           <TextField label="备注（可选）" fullWidth multiline minRows={2} value={value.note} onChange={(e) => onChange({ note: e.target.value })} sx={{ mt: 1 }} />

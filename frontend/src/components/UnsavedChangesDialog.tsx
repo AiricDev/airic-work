@@ -1,10 +1,9 @@
-import React from 'react';
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Button,Dialog,DialogActions,DialogContent,DialogContentText,DialogTitle } from '@mui/material';
 import type { Blocker } from 'react-router-dom';
 
 interface UnsavedChangesDialogProps {
   blocker: Blocker;
-  onSave: () => boolean;
+  onSave: () => boolean | Promise<boolean>;
   onDiscard: () => void;
 }
 
@@ -23,16 +22,16 @@ export function UnsavedChangesDialog({ blocker, onSave, onDiscard }: UnsavedChan
             onDiscard();
             blocker.proceed?.();
           }}>
-          
+
           放弃
         </Button>
         <Button
           variant="contained"
-          onClick={() => {
-            if (onSave()) blocker.proceed?.();else
+          onClick={async () => {
+            if (await onSave()) blocker.proceed?.();else
             blocker.reset?.();
           }}>
-          
+
           保存
         </Button>
       </DialogActions>

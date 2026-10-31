@@ -1,5 +1,8 @@
-import { nonempty, requireRule } from '../domain/model';
+import { nonempty, requireRule, RuleError } from '../domain/model';
 import type { Identity, ControlStore, Support } from './ports';
+export class DisabledAccountError extends RuleError {
+    constructor() { super('forbidden'); }
+}
 /**
  * 本地账户能力：自动身份接入、管理保护、资料和偏好。外部认证经 Identity，权限变化由命名 Store 提交，不自建注册/密码或业务委托流程。
  */
@@ -13,7 +16,7 @@ export class AccountUseCases {
         const identity = await this.identity.verify(token);
         [identity.issuer, identity.subject].forEach(nonempty);
         const user = await this.store.ensureUser({ ...identity, id: this.support.id(), enabled: true, admin: false, version: 0 });
-        requireRule(user.enabled, 'forbidden');
+        if (!user.enabled) throw new DisabledAccountError();
         return user;
     }
     /**

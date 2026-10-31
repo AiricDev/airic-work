@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Alert, Box, Button, Chip, CircularProgress, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import type { ActionResult } from '../../types/platform';
+import { Alert,Box,Button,Chip,CircularProgress,Stack,Table,TableBody,TableCell,TableHead,TableRow,TextField,Typography } from '@mui/material';
+import { useState } from 'react';
 import { usePlatform } from '../../contexts/PlatformContext';
+import type { ActionResult } from '../../types/platform';
 import { formatTime } from '../../utils/time';
 
 export function IdentityMappings({ userId }: {userId: string;}) {
@@ -52,7 +52,7 @@ export function IdentityMappings({ userId }: {userId: string;}) {
                     setResult(await verifyIdentity(i.id));
                     setVerifying(null);
                   }}>
-                  
+
                       请求业务系统验证
                     </Button>
                 }

@@ -1,10 +1,9 @@
-import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import { Alert, AlertTitle, Box, Button, LinearProgress, Link, Stack, Typography } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import type { DecisionRequest, Execution } from '../../types/workbench';
+import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { Alert,AlertTitle,Box,Button,LinearProgress,Link,Stack,Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import type { DecisionRequest,Execution } from '../../types/workbench';
 import { formatTime } from '../../utils/time';
 
 interface ExecutionSituationProps {
@@ -19,7 +18,7 @@ export function ExecutionSituation({ execution, pendingRequests, onOpenRequest, 
   const lastEvent = execution.events[execution.events.length - 1];
   const columns = [
   { key: 'doing', title: '正在做', icon: <PlayArrowIcon fontSize="small" color="primary" />, items: summary.doing },
-  { key: 'waiting', title: '等待人工', icon: <PauseCircleOutlineIcon fontSize="small" color="warning" />, items: summary.waiting },
+  { key: 'waiting', title: '等待人工', icon: <PauseCircleOutlineIcon fontSize="small" color="warning" />, items: pendingRequests.map(r=>r.question) },
   { key: 'continue', title: '可继续', icon: <ArrowForwardIcon fontSize="small" color="success" />, items: summary.canContinue }];
 
 
@@ -40,7 +39,7 @@ export function ExecutionSituation({ execution, pendingRequests, onOpenRequest, 
               查询取消状态
             </Button>
         }>
-        
+
           <AlertTitle>取消尚未完成</AlertTitle>
           {cancellation.reason} 最近查询：{cancellation.lastCheckedAt ? formatTime(cancellation.lastCheckedAt) : '—'}。无需重复发起取消请求。
         </Alert>
@@ -59,6 +58,8 @@ export function ExecutionSituation({ execution, pendingRequests, onOpenRequest, 
           </Typography>
         </Alert>
       }
+      {execution.phase==='new' && <Alert severity="info">执行已创建，尚待运行宿主准备与派发。</Alert>}
+      {execution.phase==='failed' && <Alert severity="error">执行失败，请查看 Session 中的实际记录。</Alert>}
       {execution.ended &&
       <Alert severity="info">
           <AlertTitle>Agent 执行已结束</AlertTitle>

@@ -1,10 +1,9 @@
-import React from 'react';
+import { Alert,Box,Button,Dialog,DialogActions,DialogContent,DialogTitle,Link,Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Link, Typography } from '@mui/material';
-import type { DemoUser } from '../../types/workbench';
-import type { ActionResult } from '../../types/platform';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
+import type { ActionResult } from '../../types/platform';
+import type { DemoUser } from '../../types/workbench';
 import { responsibilitiesFor } from '../../utils/responsibilities';
 
 export type UserAction = 'promote' | 'demote' | 'disable' | 'enable';
@@ -20,15 +19,15 @@ const titles: Record<UserAction, string> = { promote: '设为管理员', demote:
 
 export function UserActionDialog({ user, action, onClose, onDone }: UserActionDialogProps) {
   const { changeRole, setUserStatus } = usePlatform();
-  const { state } = useWorkbench();
+  const { state,currentUser } = useWorkbench();
   if (!user || !action) return null;
   const resp = responsibilitiesFor(user.id, state);
 
-  const confirm = () => {
-    const r =
+  const confirm = async () => {
+    const r = await (
     action === 'promote' ? changeRole(user.id, 'admin') :
     action === 'demote' ? changeRole(user.id, 'member') :
-    setUserStatus(user.id, action === 'disable' ? 'disabled' : 'active', resp.counts);
+    setUserStatus(user.id, action === 'disable' ? 'disabled' : 'active', resp.counts));
     onDone(r);
     onClose();
   };
@@ -43,7 +42,7 @@ export function UserActionDialog({ user, action, onClose, onDone }: UserActionDi
         {action === 'disable' &&
         <>
             <Typography variant="subtitle2">待处理责任</Typography>
-            {resp.counts.executions + resp.counts.requests === 0 ?
+            {user.id!==currentUser.id ? <Typography variant="body2">不读取其他用户的工作内容；能否停用由服务端检查。</Typography> : resp.counts.executions + resp.counts.requests === 0 ?
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>无进行中执行或待处理请求。</Typography> :
 
           <Box component="ul" sx={{ m: 0, pl: 2.5, mb: 1 }}>

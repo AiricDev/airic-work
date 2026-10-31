@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { Alert, Box, Button, Paper, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { externalMethods } from '../data/integrations';
-import { usePlatform } from '../contexts/PlatformContext';
+import { Alert,Box,Button,Paper,Snackbar,Stack,Table,TableBody,TableCell,TableHead,TableRow,Typography } from '@mui/material';
+import React,{ useState } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { McpReadPanel } from '../components/mcp/McpReadPanel';
+import { usePlatform } from '../contexts/PlatformContext';
+const externalMethods: {version:string;role:string;name:string;description:string;signature:string;resource:string;capability:string;note:string}[] = [];
 
 const interfaces = [
-{ name: '标准任务 / 决策 API', direction: '业务系统 → Airic Work', scope: '创建、查询、取消执行；查询、处理 DecisionRequest。创建幂等，接受不等于已执行，取消不等于已停止。', boundary: '调用方与实际用户需可信关联；路径与认证协议 TBD' },
+{ name: '标准任务 / 决策 API', direction: '业务系统 → Airic Work', scope: '创建、查询、取消执行；查询、处理 DecisionRequest。创建幂等，接受不等于已执行，取消不等于已停止。', boundary: '调用方与实际用户需可信关联；HTTP 使用 /api/v1；集成方 Bearer token 或工作台 Cookie 会话' },
 { name: '出站业务 MCP', direction: '后台 Agent → 业务系统', scope: '以执行归属人本人经验证且有效的业务身份读取、取证与操作。', boundary: '不回退到管理员、共享服务账号或其他用户' },
 { name: 'Git 获取', direction: 'Airic Work → GitHub/GitLab', scope: '同步本实例唯一 OM 仓库的文件、提交与差异；新执行启动前确认来源分支最新提交。', boundary: '变更管理、Review 与合并完全在 Git 平台' },
 { name: '入站轨迹只读 MCP', direction: '外部 Agent → Airic Work', scope: '在本人授权范围内定位执行记录、分页读取 Trajectory、读取 Episode 及必要版本与 Context 引用。', boundary: '不创建/取消执行、不提交决定、不修改 OM、不读取令牌' }];
@@ -73,7 +73,7 @@ export function Guide() {
               </Table>
             </Box>
             <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
-              技术调用方、实际发起用户、执行代表的业务主体、Agent 技术执行者与实际决策处理人分别记录。公开路径、MCP 工具名与认证协议均 TBD。
+              发起人就是归属人，Agent 访问业务 MCP 使用该用户的执行专用凭据。工作台读取与写入均通过 /api/v1 接口；只读 MCP transport 尚待交付。
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
               <Typography variant="body2">本实例 OM 仓库：</Typography>
@@ -82,7 +82,7 @@ export function Guide() {
             </Stack>
           </>
         )}
-        {card('只读轨迹 MCP 读取演示', <McpReadPanel />, 'mcp')}
+        {card('只读轨迹能力', <McpReadPanel />, 'mcp')}
       </Stack>
       <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)} message="已复制" />
     </Box>);

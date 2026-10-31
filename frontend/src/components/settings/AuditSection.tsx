@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Box, Chip, InputAdornment, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import { Box,Chip,InputAdornment,Stack,Table,TableBody,TableCell,TableHead,TableRow,TextField,Typography } from '@mui/material';
+import { useState } from 'react';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { formatTime } from '../../utils/time';
 
@@ -21,7 +21,7 @@ export function AuditSection({ target }: {target?: string;}) {
         sx={{ maxWidth: 360 }}
         inputProps={{ 'aria-label': '搜索审计记录' }}
         InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
-      
+
       <Box sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>

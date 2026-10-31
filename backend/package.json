@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "admin:grant": "tsx scripts/grant-admin.ts",
+    "generate:http": "tsx scripts/generate-http.ts",
+    "qa:http": "node --import tsx tests/support/http-qa.ts",
     "test": "../node_modules/.bin/vitest run tests",
     "typecheck": "../node_modules/.bin/tsc -p tsconfig.json"
   },
@@ -12,14 +14,18 @@
     "@earendil-works/pi-ai": "1.4.0",
     "@earendil-works/pi-durable": "1.4.0",
     "@earendil-works/pi-mcp": "1.4.0",
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/multipart": "^9.4.0",
     "awilix": "13.0.5",
     "better-sqlite3": "13.0.3",
     "drizzle-orm": "0.45.4",
+    "fastify": "^5.12.7",
     "tsx": "4.23.15",
     "uuid": "14.0.3",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "9.6.0"
+    "@types/better-sqlite3": "9.6.0",
+    "openapi-typescript": "^7.13.0"
   }
 }

@@ -1,15 +1,15 @@
-import { Link as EpisodeLink } from "react-router-dom";
-import React, { useState } from 'react';
-import { Alert, AlertTitle, Box, Button, Divider, Skeleton, Stack, Typography } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import type { DecisionRequest, Execution } from '../../types/workbench';
+import { Alert,AlertTitle,Box,Button,Divider,Skeleton,Stack,Typography } from '@mui/material';
+import { useState } from 'react';
+import { Link as EpisodeLink } from "react-router-dom";
 import { useWorkbench } from '../../contexts/WorkbenchContext';
 import { useDecisionPanel } from '../../hooks/useDecisionPanel';
+import type { DecisionRequest,Execution } from '../../types/workbench';
 import { userName } from '../../utils/decisionService';
 import { formatTime } from '../../utils/time';
+import { ConfirmSubmission } from './ConfirmSubmission';
 import { DecisionBrief } from './DecisionBrief';
 import { UserDecisionForm } from './UserDecisionForm';
-import { ConfirmSubmission } from './ConfirmSubmission';
 import { UserDecisionRecord } from './UserDecisionRecord';
 
 interface DecisionPanelProps {
@@ -21,7 +21,7 @@ interface DecisionPanelProps {
 export function DecisionPanel({ request, execution, onOpenEvidence }: DecisionPanelProps) {
   const { currentUser } = useWorkbench();
   const p = useDecisionPanel(request);
-  const [correcting, setCorrecting] = useState(false);
+  const [correcting, setCorrecting] = useState(!!p.value.pending || !!p.value.correctionOf);
 
   if (p.briefStatus === 'loading') {
     return (
@@ -50,8 +50,8 @@ export function DecisionPanel({ request, execution, onOpenEvidence }: DecisionPa
   if (request.status === 'answered' && !correcting) {
     return (
       <Box sx={{ p: 2 }}>
-        <EpisodeLink to={`/episodes/EP-${request.id.replace("DR-", "")}`}>查看 Decision Episode</EpisodeLink>
-        <Button onClick={() => { p.discard(); setCorrecting(true); }}>补充或更正 UserDecision</Button>
+        <EpisodeLink to={`/episodes/${request.id}`}>查看 Decision Episode</EpisodeLink>
+        <Button onClick={() => { p.discard(); p.update({correctionOf:request.userDecision?.id}); setCorrecting(true); }}>补充或更正 UserDecision</Button>
         <UserDecisionRecord
           request={request}
           conflictDraft={p.conflictDraft}
@@ -65,7 +65,7 @@ export function DecisionPanel({ request, execution, onOpenEvidence }: DecisionPa
 
   return (
     <Stack spacing={2} sx={{ p: 2 }}>
-<EpisodeLink to={`/episodes/EP-${request.id.replace("DR-", "")}`}>查看 Decision Episode</EpisodeLink>
+<EpisodeLink to={`/episodes/${request.id}`}>查看 Decision Episode</EpisodeLink>
       {!p.canResolve &&
       <Alert severity="info" icon={<LockOutlinedIcon fontSize="inherit" />}>
           <AlertTitle>只读查看</AlertTitle>
@@ -93,11 +93,11 @@ export function DecisionPanel({ request, execution, onOpenEvidence }: DecisionPa
 
       {p.step === 'edit' ?
       <>
-          <DecisionBrief request={request} onOpenEvidence={onOpenEvidence} />
+          <DecisionBrief request={p.displayedRequest} onOpenEvidence={onOpenEvidence} />
           {p.canResolve &&
         <>
               <Divider />
-              <UserDecisionForm request={request} value={p.value} errors={p.errors} showErrors={p.showErrors} onChange={p.update} />
+              <Box component="fieldset" disabled={p.frozen} sx={{border:0,p:0,m:0}}><UserDecisionForm request={request} value={p.value} errors={p.errors} showErrors={p.showErrors} onChange={p.update} /></Box>
               <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
                 {p.draft ?
             <Button color="inherit" onClick={p.discard}>

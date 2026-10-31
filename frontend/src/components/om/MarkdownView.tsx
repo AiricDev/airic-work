@@ -1,15 +1,16 @@
+import { Box,Link,Tooltip } from '@mui/material';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Link, Tooltip } from '@mui/material';
-import { omFileLink, resolveRelative } from '../../utils/omRepository';
+import remarkGfm from 'remark-gfm';
+import { omFileLink,resolveRelative } from '../../utils/omRepository';
 
 interface MarkdownViewProps {
   content: string;
   path: string;
   sha: string;
   highlight?: string;
+  executionId?: string;
 }
 
 /** Wrap occurrences of `q` in plain-string children with <mark>. */
@@ -37,7 +38,7 @@ function highlightChildren(children: React.ReactNode, q: string): React.ReactNod
   });
 }
 
-export function MarkdownView({ content, path, sha, highlight = '' }: MarkdownViewProps) {
+export function MarkdownView({ content, path, sha, executionId, highlight = '' }: MarkdownViewProps) {
   const hl = (Tag: keyof JSX.IntrinsicElements) =>
   function Highlighted({ children }: {children?: React.ReactNode;}) {
     return React.createElement(Tag, null, highlightChildren(children, highlight));
@@ -60,7 +61,7 @@ export function MarkdownView({ content, path, sha, highlight = '' }: MarkdownVie
         '& pre': { bgcolor: 'grey.50', border: 1, borderColor: 'divider', p: 1.5, borderRadius: 1, overflowX: 'auto' },
         '& pre code': { bgcolor: 'transparent', p: 0 }
       }}>
-      
+
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         skipHtml
@@ -78,7 +79,7 @@ export function MarkdownView({ content, path, sha, highlight = '' }: MarkdownVie
             const target = href ? resolveRelative(path, href) : null;
             if (target) {
               return (
-                <Link component={RouterLink} to={omFileLink(sha, target)}>
+                <Link component={RouterLink} to={omFileLink(sha, target,executionId)}>
                   {children}
                 </Link>);
 
@@ -97,7 +98,7 @@ export function MarkdownView({ content, path, sha, highlight = '' }: MarkdownVie
             </Box>
 
         }}>
-        
+
         {content}
       </ReactMarkdown>
     </Box>);

@@ -1,33 +1,31 @@
-import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Button,
-  Chip,
-  Link,
-  Stack,
-  Typography } from
-'@mui/material';
+import BlockIcon from '@mui/icons-material/Block';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import BlockIcon from '@mui/icons-material/Block';
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import {
+Accordion,
+AccordionDetails,
+AccordionSummary,
+Box,
+Button,
+Chip,
+Link,
+Stack,
+Typography
+} from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import type { DecisionRequest } from '../../types/workbench';
-import { evidence } from '../../data/evidence';
+
+import { userName } from '../../utils/decisionService';
 import { requestKindLabels } from '../../utils/labels';
 import { formatTime } from '../../utils/time';
-import { userName } from '../../utils/decisionService';
 import { BriefSection } from './BriefSection';
-import { ContextDependencyList } from './ContextDependencyList';
-import { contextDependencies } from '../../data/contextDependencies';
-import { findCommit, omFileLink } from '../../utils/omRepository';
+
+import { omFileLink } from '../../utils/omRepository';
 
 interface DecisionBriefProps {
   request: DecisionRequest;
@@ -36,15 +34,10 @@ interface DecisionBriefProps {
 
 export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
   const { brief } = request;
-  const commit = findCommit(brief.omCommit);
-  const covered = new Set(
-    contextDependencies.filter((d) => d.requestId === request.id).flatMap((d) => [d.evidenceId, d.afterUpdate?.evidenceId]).filter(Boolean) as string[]
-  );
-  const otherEvidence = brief.evidenceIds.filter((id) => !covered.has(id));
-  const evidenceLabel = (id: string) => {
-    const d = evidence.find((e) => e.id === id);
-    return d ? `${d.objectId} ${d.version}` : id;
-  };
+  const commit = brief.omCommit ? {sha:brief.omCommit} : undefined;
+  const otherEvidence: string[] = [];
+  const evidence: import('../../types/workbench').Evidence[] = [];
+  const evidenceLabel = (id:string) => id;
 
   return (
     <Stack spacing={2.25}>
@@ -121,8 +114,10 @@ export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
         }
       </BriefSection>
 
-      <BriefSection title="Decision Context 依赖">
-        <ContextDependencyList request={request} onOpenEvidence={onOpenEvidence} />
+      <BriefSection title="Decision Context">
+        {brief.rawContext !== undefined && <Box component="pre" sx={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{JSON.stringify(brief.rawContext,null,2)}</Box>}
+        {!!brief.sourceReferences?.length && <Box component="pre" sx={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{JSON.stringify(brief.sourceReferences,null,2)}</Box>}
+
       </BriefSection>
 
       <BriefSection title="事实 · 假设 · 缺失 Context">
@@ -207,7 +202,7 @@ export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
             <Typography component="dt" variant="body2">判断文件</Typography>
             <Typography component="dd" variant="body2">
               {commit ?
-              <Link component={RouterLink} to={omFileLink(commit.sha, brief.decisionModel.path)} sx={{ fontFamily: 'monospace', fontSize: 12 }}>
+              <Link component={RouterLink} to={omFileLink(commit.sha, brief.decisionModel.path,request.executionId)} sx={{ fontFamily: 'monospace', fontSize: 12 }}>
                   {brief.decisionModel.path}
                 </Link> :
 

@@ -23,6 +23,16 @@ it('maps dotenv into adapter options with paths relative to its own directory an
     expect(Buffer.from(config.mcp.key).toString('hex')).toBe(key);
     expect(config.persistence.initialSettings).toEqual({ version: 0, omSource: 'local', branch: 'main', root: 'om.md', connections: [] });
 });
+it('requires an explicit HTTP origin and source, validates session limits, and never changes production cookie security implicitly', () => {
+    expect(loadConfiguration(file, {}).http).toBeUndefined();
+    const config = loadConfiguration(file, { AIRIC_HTTP_SOURCE: 'business-prod', AIRIC_HTTP_ORIGINS: '["https://work.example"]' });
+    expect(config.http?.secureCookies).toBe(true);
+    expect(config.http?.session).toEqual({ idleMs: 1800000, absoluteMs: 28800000, capacity: 1000 });
+    expect(() => loadConfiguration(file, { AIRIC_HTTP_SOURCE: 'business-prod' })).toThrow('AIRIC_HTTP_ORIGINS');
+    expect(() => loadConfiguration(file, { AIRIC_HTTP_ORIGINS: '["https://work.example"]' })).toThrow('AIRIC_HTTP_SOURCE');
+    expect(() => loadConfiguration(file, { AIRIC_HTTP_SOURCE: 'x', AIRIC_HTTP_ORIGINS: '["http://work.example"]' })).toThrow('AIRIC_HTTP_ORIGINS');
+    expect(() => loadConfiguration(file, { AIRIC_HTTP_SOURCE: 'x', AIRIC_HTTP_ORIGINS: '["https://work.example"]', AIRIC_HTTP_SESSION_IDLE_MS: '0' })).toThrow('AIRIC_HTTP_SESSION_IDLE_MS');
+});
 it('maps fixed MCP endpoints, CA, provider credentials and all resource limits without changing global environment', async () => {
     await writeFile(join(directory, 'ca.pem'), 'private-ca');
     const before = process.env.AIRIC_MODEL_API_KEY;

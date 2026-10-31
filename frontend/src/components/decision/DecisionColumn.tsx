@@ -1,8 +1,7 @@
-import React from 'react';
-import { Alert, Box } from '@mui/material';
-import type { DecisionRequest, Execution } from '../../types/workbench';
-import { DecisionQueue } from './DecisionQueue';
+import { Alert,Box } from '@mui/material';
+import type { DecisionRequest,Execution } from '../../types/workbench';
 import { DecisionPanel } from './DecisionPanel';
+import { DecisionQueue } from './DecisionQueue';
 
 interface DecisionColumnProps {
   execution: Execution;

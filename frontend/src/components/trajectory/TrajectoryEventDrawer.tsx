@@ -1,14 +1,13 @@
-import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, Divider, Drawer, IconButton, Link, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { Alert,Box,Button,Chip,Divider,Drawer,IconButton,Link,Stack,Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import type { TrajectoryEvent } from '../../types/platform';
 import type { Execution } from '../../types/workbench';
-import { evidence } from '../../data/evidence';
-import { executionOrigins } from '../../data/accounts';
-import { trajectoryTypeLabels } from '../../utils/trajectory';
 import { userName } from '../../utils/decisionService';
 import { formatTime } from '../../utils/time';
+import { trajectoryTypeLabels } from '../../utils/trajectory';
+const evidence: import('../../types/workbench').Evidence[] = [];
+const executionOrigins: import('../../types/platform').ExecutionOrigin[] = [];
 
 interface TrajectoryEventDrawerProps {
   event: TrajectoryEvent | null;
@@ -70,7 +69,7 @@ export function TrajectoryEventDrawer({ event, prev, next, execution, onNavigate
               <Typography component="dd" variant="body2">{origin?.technicalExecutor ?? '未知'}</Typography>
               <Typography component="dt" variant="body2" color="text.secondary">OM 版本</Typography>
               <Typography component="dd" variant="body2">
-                <Link component={RouterLink} to={`/om?commit=${execution.omCommit}&path=root.md`} sx={{ fontFamily: 'monospace', fontSize: 12 }}>
+                <Link component={RouterLink} to={`/om?commit=${execution.omCommit}&executionId=${execution.id}`} sx={{ fontFamily: 'monospace', fontSize: 12 }}>
                   {execution.omCommit}
                 </Link>
               </Typography>

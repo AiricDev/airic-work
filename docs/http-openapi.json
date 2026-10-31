@@ -1,0 +1,4924 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Airic Work HTTP",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "session",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema1"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "login",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema1"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "logout",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema3"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "me",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema4"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "profile",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema5"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema4"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/preferences": {
+      "put": {
+        "operationId": "preferences",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema6"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema4"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "operationId": "projects",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "answered"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema7"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "operationId": "project",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema8"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions": {
+      "get": {
+        "operationId": "executions",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "answered"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema9"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema10"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema11"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}": {
+      "get": {
+        "operationId": "execution",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema11"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/cancel": {
+      "post": {
+        "operationId": "cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema11"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/steering": {
+      "post": {
+        "operationId": "steering",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema12"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema13"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decision-requests": {
+      "get": {
+        "operationId": "requests",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "answered"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema14"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/decision-requests": {
+      "get": {
+        "operationId": "executionRequests",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "answered"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema15"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decision-requests/{id}": {
+      "get": {
+        "operationId": "request",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema16"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decision-requests/{id}/user-decisions": {
+      "get": {
+        "operationId": "decisions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema17"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "answer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema18"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema19"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/inputs": {
+      "get": {
+        "operationId": "inputs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema20"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/uploads": {
+      "post": {
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema21"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/input-files/{id}": {
+      "get": {
+        "operationId": "file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema21"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/session": {
+      "get": {
+        "operationId": "history",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema22"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/episodes/{id}": {
+      "get": {
+        "operationId": "episode",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema23"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "users",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "answered"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema24"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "get": {
+        "operationId": "user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema4"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "manage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema25"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema4"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "settings",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema26"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "configure",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema27"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema26"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/mcp-calls": {
+      "get": {
+        "operationId": "calls",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "unknown"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema28"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/mcp-calls/{callId}": {
+      "get": {
+        "operationId": "call",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema29"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/status": {
+      "get": {
+        "operationId": "methodStatus",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema30"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/snapshot": {
+      "get": {
+        "operationId": "methodSnapshot",
+        "parameters": [
+          {
+            "name": "sha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "executionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema31"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/tree": {
+      "get": {
+        "operationId": "methodTree",
+        "parameters": [
+          {
+            "name": "sha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "executionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema32"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/file": {
+      "get": {
+        "operationId": "methodFile",
+        "parameters": [
+          {
+            "name": "sha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "executionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema33"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/search": {
+      "get": {
+        "operationId": "methodSearch",
+        "parameters": [
+          {
+            "name": "sha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "executionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema34"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/history": {
+      "get": {
+        "operationId": "methodHistory",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema35"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/commits/{sha}": {
+      "get": {
+        "operationId": "methodCommit",
+        "parameters": [
+          {
+            "name": "sha",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "executionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema36"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/om/sync": {
+      "post": {
+        "operationId": "methodSync",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema31"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/connections/{connection}/credential": {
+      "post": {
+        "operationId": "connect",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema37"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": [],
+            "csrf": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema38"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{id}/connections": {
+      "get": {
+        "operationId": "connections",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema39"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/input-files/{id}/content": {
+      "get": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified fixed file bytes; requires current ownership",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stream": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Invalidation hints only; reconnect must refresh queries",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Schema1": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "admin": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "number"
+              },
+              "preferences": {
+                "type": "object",
+                "properties": {
+                  "language": {
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string"
+                  },
+                  "notify": {
+                    "type": "object",
+                    "properties": {
+                      "decision": {
+                        "type": "boolean"
+                      },
+                      "anomaly": {
+                        "type": "boolean"
+                      },
+                      "result": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "decision",
+                      "anomaly",
+                      "result"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "language",
+                  "timezone",
+                  "notify"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "enabled",
+              "admin",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "csrfToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user",
+          "csrfToken"
+        ],
+        "additionalProperties": false
+      },
+      "Schema2": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "Schema3": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
+      },
+      "Schema4": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "admin": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "preferences": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "notify": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "boolean"
+                  },
+                  "anomaly": {
+                    "type": "boolean"
+                  },
+                  "result": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "decision",
+                  "anomaly",
+                  "result"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "language",
+              "timezone",
+              "notify"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "admin",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "Schema5": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "Schema6": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "notify": {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "type": "boolean"
+              },
+              "anomaly": {
+                "type": "boolean"
+              },
+              "result": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "decision",
+              "anomaly",
+              "result"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "language",
+          "timezone",
+          "notify"
+        ],
+        "additionalProperties": false
+      },
+      "Schema7": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "externalId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "executionCount": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "source",
+                "externalId",
+                "name",
+                "executionCount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema8": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "externalId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "executionCount": {
+            "type": "number"
+          },
+          "executions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "projectId": {
+                  "type": "string"
+                },
+                "ownerId": {
+                  "type": "string"
+                },
+                "creation": {
+                  "type": "object",
+                  "properties": {
+                    "project_id": {
+                      "type": "string"
+                    },
+                    "project_name": {
+                      "type": "string"
+                    },
+                    "task": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/Schema8___schema0"
+                      }
+                    },
+                    "instruction": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "project_id",
+                    "project_name",
+                    "task",
+                    "instruction",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                },
+                "sessionId": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "sha": {
+                      "type": "string"
+                    },
+                    "root": {
+                      "type": "string"
+                    },
+                    "runtimeVersion": {
+                      "type": "string"
+                    },
+                    "skillVersion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "sha",
+                    "root",
+                    "runtimeVersion",
+                    "skillVersion"
+                  ],
+                  "additionalProperties": false
+                },
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "new",
+                    "running",
+                    "ended",
+                    "stopping",
+                    "stopped",
+                    "failed"
+                  ]
+                },
+                "generation": {
+                  "type": "number"
+                },
+                "version": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "projectId",
+                "ownerId",
+                "creation",
+                "sessionId",
+                "phase",
+                "generation",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "externalId",
+          "name",
+          "executionCount",
+          "executions"
+        ],
+        "additionalProperties": false
+      },
+      "Schema8___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema8___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema8___schema0"
+            }
+          }
+        ]
+      },
+      "Schema9": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "projectId": {
+                  "type": "string"
+                },
+                "ownerId": {
+                  "type": "string"
+                },
+                "creation": {
+                  "type": "object",
+                  "properties": {
+                    "project_id": {
+                      "type": "string"
+                    },
+                    "project_name": {
+                      "type": "string"
+                    },
+                    "task": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/Schema9___schema0"
+                      }
+                    },
+                    "instruction": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "project_id",
+                    "project_name",
+                    "task",
+                    "instruction",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                },
+                "sessionId": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "sha": {
+                      "type": "string"
+                    },
+                    "root": {
+                      "type": "string"
+                    },
+                    "runtimeVersion": {
+                      "type": "string"
+                    },
+                    "skillVersion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "sha",
+                    "root",
+                    "runtimeVersion",
+                    "skillVersion"
+                  ],
+                  "additionalProperties": false
+                },
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "new",
+                    "running",
+                    "ended",
+                    "stopping",
+                    "stopped",
+                    "failed"
+                  ]
+                },
+                "generation": {
+                  "type": "number"
+                },
+                "version": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "projectId",
+                "ownerId",
+                "creation",
+                "sessionId",
+                "phase",
+                "generation",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema9___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema9___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema9___schema0"
+            }
+          }
+        ]
+      },
+      "Schema10": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "task": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema10___schema0"
+            }
+          },
+          "instruction": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "task",
+          "instruction"
+        ],
+        "additionalProperties": false
+      },
+      "Schema10___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema10___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema10___schema0"
+            }
+          }
+        ]
+      },
+      "Schema11": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "creation": {
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "type": "string"
+              },
+              "project_name": {
+                "type": "string"
+              },
+              "task": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Schema11___schema0"
+                }
+              },
+              "instruction": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id",
+              "project_name",
+              "task",
+              "instruction",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "method": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              },
+              "root": {
+                "type": "string"
+              },
+              "runtimeVersion": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "sha",
+              "root",
+              "runtimeVersion",
+              "skillVersion"
+            ],
+            "additionalProperties": false
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "new",
+              "running",
+              "ended",
+              "stopping",
+              "stopped",
+              "failed"
+            ]
+          },
+          "generation": {
+            "type": "number"
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "ownerId",
+          "creation",
+          "sessionId",
+          "phase",
+          "generation",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "Schema11___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema11___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema11___schema0"
+            }
+          }
+        ]
+      },
+      "Schema12": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "files": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Schema13": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "executionId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "executionId",
+          "userId",
+          "text",
+          "files",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "Schema14": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "executionId": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label",
+                      "description"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "contexts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "revision": {
+                        "type": "number"
+                      },
+                      "content": {
+                        "$ref": "#/components/schemas/Schema14___schema0"
+                      },
+                      "sources": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "system": {
+                              "type": "string"
+                            },
+                            "objectId": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "string"
+                            },
+                            "location": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "system",
+                            "objectId"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "revision",
+                      "content",
+                      "sources"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "answered"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "answeredAt": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "executionId",
+                "question",
+                "options",
+                "contexts",
+                "status",
+                "createdAt",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema14___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema14___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema14___schema0"
+            }
+          }
+        ]
+      },
+      "Schema15": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "executionId": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label",
+                      "description"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "contexts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "revision": {
+                        "type": "number"
+                      },
+                      "content": {
+                        "$ref": "#/components/schemas/Schema15___schema0"
+                      },
+                      "sources": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "system": {
+                              "type": "string"
+                            },
+                            "objectId": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "string"
+                            },
+                            "location": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "system",
+                            "objectId"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "revision",
+                      "content",
+                      "sources"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "answered"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "answeredAt": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "executionId",
+                "question",
+                "options",
+                "contexts",
+                "status",
+                "createdAt",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema15___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema15___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema15___schema0"
+            }
+          }
+        ]
+      },
+      "Schema16": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "executionId": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "description"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "contexts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "revision": {
+                  "type": "number"
+                },
+                "content": {
+                  "$ref": "#/components/schemas/Schema16___schema0"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "system": {
+                        "type": "string"
+                      },
+                      "objectId": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "system",
+                      "objectId"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "revision",
+                "content",
+                "sources"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "answered"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "executionId",
+          "question",
+          "options",
+          "contexts",
+          "status",
+          "createdAt",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "Schema16___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema16___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema16___schema0"
+            }
+          }
+        ]
+      },
+      "Schema17": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "optionId": {
+              "type": "string"
+            },
+            "contextRevision": {
+              "type": "number"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "correctionOf": {
+              "type": "string"
+            },
+            "at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "requestId",
+            "userId",
+            "text",
+            "contextRevision",
+            "files",
+            "at"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "Schema18": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "optionId": {
+            "type": "string"
+          },
+          "contextRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "files": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correctionOf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contextRevision"
+        ],
+        "additionalProperties": false
+      },
+      "Schema19": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "optionId": {
+            "type": "string"
+          },
+          "contextRevision": {
+            "type": "number"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correctionOf": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "requestId",
+          "userId",
+          "text",
+          "contextRevision",
+          "files",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "Schema20": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "executionId": {
+              "type": "string"
+            },
+            "sourceId": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "start",
+                "user-decision",
+                "steering"
+              ]
+            },
+            "sequence": {
+              "type": "number"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "delivered"
+              ]
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "executionId",
+            "sourceId",
+            "kind",
+            "sequence",
+            "status",
+            "files"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "Schema21": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "executionId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "executionId",
+          "name",
+          "size",
+          "hash"
+        ],
+        "additionalProperties": false
+      },
+      "Schema22": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "data": {
+                  "$ref": "#/components/schemas/Schema22___schema0"
+                },
+                "inputId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "userDecisionId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "at",
+                "kind",
+                "data"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "complete",
+          "limitations"
+        ],
+        "additionalProperties": false
+      },
+      "Schema22___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema22___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema22___schema0"
+            }
+          }
+        ]
+      },
+      "Schema23": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "executionId": {
+                "type": "string"
+              },
+              "question": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "description"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "contexts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "revision": {
+                      "type": "number"
+                    },
+                    "content": {
+                      "$ref": "#/components/schemas/Schema23___schema0"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "system": {
+                            "type": "string"
+                          },
+                          "objectId": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "location": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "system",
+                          "objectId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "revision",
+                    "content",
+                    "sources"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "answered"
+                ]
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "answeredAt": {
+                "type": "string"
+              },
+              "version": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "id",
+              "executionId",
+              "question",
+              "options",
+              "contexts",
+              "status",
+              "createdAt",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "optionId": {
+                  "type": "string"
+                },
+                "contextRevision": {
+                  "type": "number"
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "correctionOf": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "requestId",
+                "userId",
+                "text",
+                "contextRevision",
+                "files",
+                "at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "executionId": {
+                  "type": "string"
+                },
+                "sourceId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "start",
+                    "user-decision",
+                    "steering"
+                  ]
+                },
+                "sequence": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "delivered"
+                  ]
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "executionId",
+                "sourceId",
+                "kind",
+                "sequence",
+                "status",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "method": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              },
+              "root": {
+                "type": "string"
+              },
+              "runtimeVersion": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "sha",
+              "root",
+              "runtimeVersion",
+              "skillVersion"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "request",
+          "decisions",
+          "inputs",
+          "sessionId"
+        ],
+        "additionalProperties": false
+      },
+      "Schema23___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema23___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema23___schema0"
+            }
+          }
+        ]
+      },
+      "Schema24": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "admin": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "number"
+                },
+                "preferences": {
+                  "type": "object",
+                  "properties": {
+                    "language": {
+                      "type": "string"
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "notify": {
+                      "type": "object",
+                      "properties": {
+                        "decision": {
+                          "type": "boolean"
+                        },
+                        "anomaly": {
+                          "type": "boolean"
+                        },
+                        "result": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "decision",
+                        "anomaly",
+                        "result"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "language",
+                    "timezone",
+                    "notify"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "enabled",
+                "admin",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema25": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "admin": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Schema26": {
+        "type": "object",
+        "properties": {
+          "omSource": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "omSource",
+          "branch",
+          "root",
+          "connections",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "Schema27": {
+        "type": "object",
+        "properties": {
+          "expected": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "omSource": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "expected",
+          "omSource",
+          "branch",
+          "root",
+          "connections"
+        ],
+        "additionalProperties": false
+      },
+      "Schema28": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "connection": {
+                  "type": "string"
+                },
+                "tool": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write",
+                    "unknown"
+                  ]
+                },
+                "classificationSource": {
+                  "type": "string"
+                },
+                "schemaRevision": {
+                  "type": "string"
+                },
+                "parameters": {
+                  "$ref": "#/components/schemas/Schema28___schema0"
+                },
+                "result": {
+                  "$ref": "#/components/schemas/Schema28___schema0"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "calling",
+                    "success",
+                    "failed",
+                    "unknown"
+                  ]
+                },
+                "retryOf": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "userDecisionId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "connection",
+                "tool",
+                "at",
+                "type",
+                "schemaRevision",
+                "parameters",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unknownCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "complete",
+          "limitations",
+          "unknownCount"
+        ],
+        "additionalProperties": false
+      },
+      "Schema28___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema28___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema28___schema0"
+            }
+          }
+        ]
+      },
+      "Schema29": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "connection": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "unknown"
+            ]
+          },
+          "classificationSource": {
+            "type": "string"
+          },
+          "schemaRevision": {
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/Schema29___schema0"
+          },
+          "result": {
+            "$ref": "#/components/schemas/Schema29___schema0"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "calling",
+              "success",
+              "failed",
+              "unknown"
+            ]
+          },
+          "retryOf": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "userDecisionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection",
+          "tool",
+          "at",
+          "type",
+          "schemaRevision",
+          "parameters",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Schema29___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema29___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema29___schema0"
+            }
+          }
+        ]
+      },
+      "Schema30": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "managed",
+              "local"
+            ]
+          },
+          "sync": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "remote": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "source",
+          "kind",
+          "sync"
+        ],
+        "additionalProperties": false
+      },
+      "Schema31": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "runtimeVersion": {
+            "type": "string"
+          },
+          "skillVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "sha",
+          "root",
+          "runtimeVersion",
+          "skillVersion"
+        ],
+        "additionalProperties": false
+      },
+      "Schema32": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              },
+              "root": {
+                "type": "string"
+              },
+              "runtimeVersion": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "sha",
+              "root",
+              "runtimeVersion",
+              "skillVersion"
+            ],
+            "additionalProperties": false
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "number"
+                },
+                "text": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "path",
+                "size",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "method",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "Schema33": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              },
+              "root": {
+                "type": "string"
+              },
+              "runtimeVersion": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "sha",
+              "root",
+              "runtimeVersion",
+              "skillVersion"
+            ],
+            "additionalProperties": false
+          },
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "path",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "Schema34": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              },
+              "root": {
+                "type": "string"
+              },
+              "runtimeVersion": {
+                "type": "string"
+              },
+              "skillVersion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "sha",
+              "root",
+              "runtimeVersion",
+              "skillVersion"
+            ],
+            "additionalProperties": false
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "excerpt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "excerpt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "method",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema35": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sha": {
+                  "type": "string"
+                },
+                "parents": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "at": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sha",
+                "parents",
+                "at",
+                "subject"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "scope",
+          "commits",
+          "complete",
+          "limitations"
+        ],
+        "additionalProperties": false
+      },
+      "Schema36": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "parents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "at": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diff": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "parents",
+          "at",
+          "subject",
+          "files",
+          "diff"
+        ],
+        "additionalProperties": false
+      },
+      "Schema37": {
+        "type": "object",
+        "properties": {
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "Schema38": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
+      },
+      "Schema39": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "airic_session"
+      },
+      "csrf": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-csrf-token"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "cookieAuth": []
+    }
+  ]
+}

@@ -35,4 +35,34 @@ export class MethodUseCases {
     async methodStatus(userId: string) { requireRule((await this.store.user(userId)).enabled, 'forbidden'); return this.methods.status(await this.store.settings()); }
     /** 按当前配置显式同步 OM，不改变任何已有执行的固定版本；适配器必须保护本地工作区。 */
     async syncMethod(userId: string) { requireRule((await this.store.user(userId)).enabled, 'forbidden'); return this.methods.sync(await this.store.settings()); }
+    /** 浏览当前来源或本人执行的固定 Method；executionId 优先固定 source/SHA/root，不接受跨执行修订。 */
+    async browseMethod(userId: string, sha?: string, executionId?: string) {
+        const user = await this.store.user(userId);
+        requireRule(user.enabled, 'forbidden');
+        if (executionId) {
+            const execution = await this.store.execution(executionId);
+            requireRule(execution.ownerId === userId && execution.method, 'forbidden');
+            requireRule(!sha || sha === execution.method.sha, 'invalid');
+            return execution.method;
+        }
+        requireRule(this.methods.browse, 'blocked');
+        return this.methods.browse(await this.store.settings(), sha);
+    }
+    /** 在上述可浏览范围内列举文件，不直接解释宿主路径。 */
+    async methodTree(userId: string, sha?: string, executionId?: string) {
+        const method = await this.browseMethod(userId, sha, executionId);
+        requireRule(this.methods.tree, 'blocked');
+        return { method, files: await this.methods.tree(method) };
+    }
+    /** 查询固定版本提交及差异；缺少 adapter 能力时阻断，不以最新提交替代。 */
+    async methodCommit(userId: string, sha: string, executionId?: string) {
+        const method = await this.browseMethod(userId, sha, executionId);
+        requireRule(this.methods.commit, 'blocked');
+        return this.methods.commit(method);
+    }
+    /** 查询配置来源已有历史，不隐式同步。 */
+    async cachedMethodHistory(userId: string) {
+        requireRule((await this.store.user(userId)).enabled && this.methods.cachedHistory, 'blocked');
+        return this.methods.cachedHistory((await this.store.settings()).omSource);
+    }
 }

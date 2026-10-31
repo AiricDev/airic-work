@@ -1,11 +1,12 @@
-import React from 'react';
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { Alert, Box, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, Typography } from '@mui/material';
-import { usePlatform } from '../contexts/PlatformContext';
-import { useWorkbench } from '../contexts/WorkbenchContext';
+import { Alert,Box,Link,Paper,Table,TableBody,TableCell,TableContainer,TableHead,TablePagination,TableRow,Typography } from '@mui/material';
+import { Link as RouterLink,useNavigate,useSearchParams } from 'react-router-dom';
+import { api } from '../api/client';
+import { useApiQuery } from '../api/useApiQuery';
 import { PageHeader } from '../components/PageHeader';
 import { OMSourceSummary } from '../components/om/OMSourceSummary';
-import { commitsUpTo, shortSha } from '../utils/omRepository';
+import { usePlatform } from '../contexts/PlatformContext';
+import { useWorkbench } from '../contexts/WorkbenchContext';
+import { shortSha } from '../utils/omRepository';
 import { formatTime } from '../utils/time';
 
 const ROWS = 10;
@@ -16,7 +17,8 @@ export function OMHistory() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const page = Number(params.get('page') ?? '0') || 0;
-  const commits = commitsUpTo(state.omSync.latestConfirmedSha);
+  const history = useApiQuery(['om-history'],()=>api('methodHistory'));
+  const commits = history.data?.commits.map(c=>({...c,message:c.subject,author:'未提供',changes:[]})) ?? [];
   const rows = commits.slice(page * ROWS, page * ROWS + ROWS);
   const usedBy = (sha: string) => wb.state.executions.filter((e) => sha.startsWith(e.omCommit)).length;
 
@@ -25,8 +27,11 @@ export function OMHistory() {
       <PageHeader title="Operating Model" description="提交历史来自 Git 原始记录。提交描述不代表改进成效已被证明。" />
       <OMSourceSummary />
       <Alert severity="info" sx={{ mb: 2 }}>
-        仅显示已同步确认的提交。新提交只供未来新执行使用；既有执行保持其固定 SHA。
+        显示允许来源的本地 Git 历史，不自动联网。新提交只供未来新执行使用；既有执行保持其固定 SHA。
       </Alert>
+      {history.error && <Alert severity="error">{history.error}</Alert>}
+      {history.loading && <Typography>正在读取历史…</Typography>}
+      {history.data?.limitations.map(s=><Alert severity="warning" key={s}>{s}</Alert>)}
       <Paper variant="outlined">
         <TableContainer>
           <Table>
@@ -52,7 +57,7 @@ export function OMHistory() {
                     <TableCell>{c.message.split('\n')[0]}</TableCell>
                     <TableCell>{c.author}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatTime(c.at)}</TableCell>
-                    <TableCell>{c.changes.length}</TableCell>
+                    <TableCell>未提供</TableCell>
                     <TableCell>{n > 0 ? `${n} 个执行` : '—'}</TableCell>
                   </TableRow>);
 
@@ -68,7 +73,7 @@ export function OMHistory() {
           rowsPerPageOptions={[ROWS]}
           onPageChange={(_, p) => setParams(p ? { page: String(p) } : {})}
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} / 共 ${count} 条`} />
-        
+
       </Paper>
     </Box>);
 

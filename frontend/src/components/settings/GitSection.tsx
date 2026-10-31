@@ -1,39 +1,35 @@
-import React, { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography } from
-'@mui/material';
+Alert,
+Box,
+Button,
+Chip,
+CircularProgress,
+Dialog,
+DialogActions,
+DialogContent,
+DialogTitle,
+Stack,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableRow,
+TextField,
+Typography
+} from '@mui/material';
+import { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
 import { useSettingsForm } from '../../hooks/useSettingsForm';
-import { formatTime } from '../../utils/time';
 import { shortSha } from '../../utils/omRepository';
-import { SettingsActions } from './SettingsActions';
-import { ConnectionTestResult } from './ConnectionTestResult';
+import { formatTime } from '../../utils/time';
 import { UnsavedChangesDialog } from '../UnsavedChangesDialog';
+import { ConnectionTestResult } from './ConnectionTestResult';
+import { SettingsActions } from './SettingsActions';
 
 export function GitSection() {
-  const { state, saveOMSource, testGit, syncOM } = usePlatform();
+  const { state, saveOMSource, testGit, syncOM, status } = usePlatform();
   const wb = useWorkbench();
   const form = useSettingsForm(state.omSource, saveOMSource);
   const [testing, setTesting] = useState(false);
@@ -56,17 +52,11 @@ export function GitSection() {
       <Typography variant="body2" color="text.secondary">
         每个实例只配置一个 OM 仓库与来源分支，所有 Project 和执行共用。平台只同步文件与提交，不做语义索引；新执行启动前确认来源分支最新提交并固定 SHA。
       </Typography>
-      <FormControl size="small">
-        <InputLabel id="git-host">托管平台</InputLabel>
-        <Select labelId="git-host" label="托管平台" value={form.value.hostType} onChange={(e) => form.set({ hostType: e.target.value })}>
-          <MenuItem value="GitHub（演示）">GitHub（演示）</MenuItem>
-          <MenuItem value="GitLab（演示）">GitLab（演示）</MenuItem>
-        </Select>
-      </FormControl>
-      <TextField label="仓库" value={form.value.repo} onChange={(e) => form.set({ repo: e.target.value })} helperText="组织/仓库" />
-      <TextField label="仓库 URL" value={form.value.repoUrl} onChange={(e) => form.set({ repoUrl: e.target.value })} />
+      <Alert severity="info">来源 ID、分支与 Root 可保存到实例设置；实际 URL、凭据和允许列表由宿主 dotenv 配置。</Alert>
+      <TextField label="仓库" value={form.value.repo} onChange={(e) => form.set({ repo: e.target.value })} helperText="宿主允许的 OM 来源 ID" />
+      <TextField label="仓库 URL" value="由宿主配置" InputProps={{readOnly:true}} />
       <TextField label="来源分支" value={form.value.branch} onChange={(e) => form.set({ branch: e.target.value })} helperText="默认分支策略 TBD；分支变化只影响未来新执行" />
-      <TextField label="凭据引用" value={form.value.credentialRef} onChange={(e) => form.set({ credentialRef: e.target.value })} helperText="仅填写引用，不在此保存秘密值" />
+      <TextField label="Root 入口" value={form.value.root??""} onChange={e=>form.set({root:e.target.value})} />
       <SettingsActions
         dirty={form.dirty}
         result={form.result}
@@ -80,7 +70,7 @@ export function GitSection() {
             <Button color="error" onClick={() => setDisconnectOpen(true)}>断开连接</Button>
           </>
         } />
-      
+
       <ConnectionTestResult result={state.gitTest} />
 
       <Box>
@@ -88,13 +78,13 @@ export function GitSection() {
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             同步 · 最新确认 <Box component="span" sx={{ fontFamily: 'monospace' }}>{shortSha(omSync.latestConfirmedSha)}</Box> · 最后成功 {formatTime(omSync.lastSuccessAt)}
           </Typography>
-          <Chip variant="outlined" color={syncing ? 'info' : failed ? 'warning' : 'success'} label={syncing ? '同步中' : failed ? '最新未确认' : '已确认'} />
+          <Chip variant="outlined" color={syncing ? 'info' : failed ? 'warning' : 'success'} label={syncing ? '同步中' : failed ? '最新未确认' : '已有快照'} />
           <Button
             variant="outlined"
-            disabled={form.dirty || syncing}
+            disabled={form.dirty || syncing || !status?.sync.enabled}
             startIcon={syncing ? <CircularProgress size={14} /> : undefined}
-            onClick={() => setSyncMsg(syncOM().message)}>
-            
+            onClick={async () => setSyncMsg((await syncOM()).message)}>
+
             {failed ? '重试同步' : '同步'}
           </Button>
           <Button component={RouterLink} to="/om">查看文件</Button>
@@ -138,7 +128,7 @@ export function GitSection() {
         </DialogContent>
         <DialogActions><Button onClick={() => setDisconnectOpen(false)}>返回</Button></DialogActions>
       </Dialog>
-      <UnsavedChangesDialog blocker={form.blocker} onSave={() => form.save().ok} onDiscard={form.revert} />
+      <UnsavedChangesDialog blocker={form.blocker} onSave={async () => (await form.save()).ok} onDiscard={form.revert} />
     </Stack>);
 
 }

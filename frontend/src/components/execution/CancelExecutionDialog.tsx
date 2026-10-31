@@ -1,5 +1,4 @@
-import React from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import { Alert,Box,Button,Dialog,DialogActions,DialogContent,DialogTitle,Typography } from '@mui/material';
 import type { Execution } from '../../types/workbench';
 
 interface CancelExecutionDialogProps {

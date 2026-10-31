@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
-import SyncIcon from '@mui/icons-material/Sync';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import SyncIcon from '@mui/icons-material/Sync';
+import { Alert,Box,Button,Chip,CircularProgress,Paper,Stack,Tab,Tabs,Typography } from '@mui/material';
+import { useState } from 'react';
+import { Link as RouterLink,useLocation } from 'react-router-dom';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { shortSha } from '../../utils/omRepository';
 import { formatTime } from '../../utils/time';
 import { GitRefDialog } from './GitRefDialog';
 
 export function OMSourceSummary() {
-  const { state, isAdmin, syncOM } = usePlatform();
+  const { state, isAdmin, syncOM, status } = usePlatform();
   const location = useLocation();
   const [gitOpen, setGitOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -40,15 +40,15 @@ export function OMSourceSummary() {
             <Chip
               variant="outlined"
               color={syncing ? 'info' : failed ? 'warning' : 'success'}
-              label={syncing ? '同步中' : failed ? '最新未确认' : '已确认最新（截至最后同步）'} />
-            
+              label={syncing ? '同步中' : omSync.latestConfirmedSha ? '已有固定快照' : '尚未确认'} />
+
             {isAdmin &&
             <Button
               variant="outlined"
               startIcon={syncing ? <CircularProgress size={14} /> : <SyncIcon />}
-              disabled={syncing}
-              onClick={() => setMsg(syncOM().message)}>
-              
+              disabled={syncing || !status?.sync.enabled}
+              onClick={async () => setMsg((await syncOM()).message)}>
+
                 {syncing ? '同步中…' : '同步'}
               </Button>
             }
@@ -61,6 +61,7 @@ export function OMSourceSummary() {
             {isAdmin ? '' : ' 如需处理，请联系管理员。'}
           </Alert>
         }
+        {status?.sync.message && <Alert severity="info" sx={{mt:1.5}}>{status.sync.message}</Alert>}
         {msg && !failed && <Alert severity="info" sx={{ mt: 1.5 }} onClose={() => setMsg(null)}>{msg}</Alert>}
       </Box>
       <Tabs value={tab} sx={{ px: 1, borderTop: 1, borderColor: 'divider' }}>

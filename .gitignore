@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .airic-data/
 *.log
+
+# Local browser verification artifacts
+.qa-artifacts/

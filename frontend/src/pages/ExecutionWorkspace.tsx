@@ -1,32 +1,33 @@
-import React, { useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
-  Alert,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Paper,
-  Skeleton,
-  Stack,
-  Tab,
-  Tabs,
-  Typography,
-  useMediaQuery } from
-'@mui/material';
+Alert,
+Box,
+Button,
+Dialog,
+DialogActions,
+DialogContent,
+DialogContentText,
+DialogTitle,
+Paper,
+Skeleton,
+Stack,
+Tab,
+Tabs,
+Typography,
+useMediaQuery
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useExecutionWorkspace } from '../hooks/useExecutionWorkspace';
-import { formatTime } from '../utils/time';
-import { ExecutionHeader } from '../components/execution/ExecutionHeader';
-import { ExecutionSituation } from '../components/execution/ExecutionSituation';
-import { ExecutionActivityTabs } from '../components/execution/ExecutionActivityTabs';
-import { AskExecutionPanel } from '../components/execution/AskExecutionPanel';
-import { CancelExecutionDialog } from '../components/execution/CancelExecutionDialog';
+import { useState } from 'react';
+import { Link as RouterLink,useParams } from 'react-router-dom';
 import { DecisionColumn } from '../components/decision/DecisionColumn';
 import { EvidenceDrawer } from '../components/decision/EvidenceDrawer';
+import { AskExecutionPanel } from '../components/execution/AskExecutionPanel';
+import { CancelExecutionDialog } from '../components/execution/CancelExecutionDialog';
+import { ExecutionActivityTabs } from '../components/execution/ExecutionActivityTabs';
+import { ExecutionConnections } from '../components/execution/ExecutionConnections';
+import { ExecutionHeader } from '../components/execution/ExecutionHeader';
+import { ExecutionSituation } from '../components/execution/ExecutionSituation';
+import { useExecutionWorkspace } from '../hooks/useExecutionWorkspace';
+import { formatTime } from '../utils/time';
 
 export function ExecutionWorkspace() {
   const { executionId } = useParams();
@@ -71,7 +72,8 @@ export function ExecutionWorkspace() {
         <ExecutionSituation execution={execution} pendingRequests={w.pending} onOpenRequest={openRequest} onQueryCancel={w.queryCancel} />
       </Box>
       <ExecutionActivityTabs execution={execution} onOpenEvidence={w.setEvidenceId} onOpenRequest={openRequest} />
-      <AskExecutionPanel execution={execution} requests={w.requests} onLocateRequest={openRequest} />
+      <ExecutionConnections executionId={execution.id} />
+      <AskExecutionPanel key={execution.id} execution={execution} requests={w.requests} onLocateRequest={openRequest} />
     </Stack>;
 
 
@@ -94,6 +96,7 @@ export function ExecutionWorkspace() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: { md: 'calc(100vh - 112px)' } }}>
+      {w.cancelError && <Alert severity="error">{w.cancelError}</Alert>}
       <ExecutionHeader
         execution={execution}
         project={w.project}
@@ -101,7 +104,7 @@ export function ExecutionWorkspace() {
         pendingCount={w.pending.length}
         cancelDisabledReason={w.cancelDisabledReason}
         onRequestCancel={() => w.setCancelOpen(true)} />
-      
+
 
       {w.connectionLostAt &&
       <Alert severity="warning" sx={{ flexShrink: 0 }}>
@@ -140,7 +143,7 @@ export function ExecutionWorkspace() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => w.blocker.reset?.()}>继续编辑</Button>
-          <Button color="error" onClick={w.discardAndProceed}>
+          <Button color="error" disabled={w.pendingSubmission} onClick={w.discardAndProceed}>
             放弃草稿
           </Button>
           <Button variant="contained" onClick={() => w.blocker.proceed?.()}>

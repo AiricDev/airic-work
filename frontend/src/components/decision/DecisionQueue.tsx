@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Chip, IconButton, List, ListItemButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
-import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
-import type { DecisionRequest } from '../../types/workbench';
+import { Box,Chip,IconButton,List,ListItemButton,Stack,Tab,Tabs,Tooltip,Typography } from '@mui/material';
+import { useEffect,useState } from 'react';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
-import { requestKindLabels } from '../../utils/labels';
-import { duration, formatTime } from '../../utils/time';
+import type { DecisionRequest } from '../../types/workbench';
 import { userName } from '../../utils/decisionService';
+import { requestKindLabels } from '../../utils/labels';
+import { duration,formatTime } from '../../utils/time';
 
 interface DecisionQueueProps {
   requests: DecisionRequest[];
@@ -50,7 +50,7 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
       <>
           <Tabs value={tab} onChange={(_, v: 'pending' | 'answered') => setTab(v)} sx={{ px: 1, minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5 } }}>
             <Tab value="pending" label={`待处理 (${pending.length})`} />
-            <Tab value="resolved" label={`已处理 (${resolved.length})`} />
+            <Tab value="answered" label={`已处理 (${resolved.length})`} />
           </Tabs>
           {list.length === 0 ?
         <Box sx={{ px: 2, py: 2 }}>

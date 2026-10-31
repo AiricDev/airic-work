@@ -30,6 +30,14 @@ export class InputUseCases {
         const content = await this.files.put(bytes);
         return this.store.saveUpload(userId, { ...content, id: this.support.id(), executionId: id, userId, name });
     }
+    /** 本人执行/上传范围内读取已固定字节；Files 必须校验摘要和大小，不读取 Workspace 任意路径。 */
+    async readUpload(userId: string, id: string) {
+        const file = await this.store.upload(id);
+        const e = await this.policy.owned(userId, file.executionId);
+        await this.policy.files(userId, e, [id]);
+        requireRule(this.files.read, 'blocked');
+        return { file, bytes: await this.files.read(file) };
+    }
     /**
      * 按持久序号交付同一 Session 的输入：先检查文件就绪，再确认运行实例，结束后需确认旧进程退出才递增代次。
      * 先查 inputId 的持久接收结果再决定发送，接收状态未知必须失败而非当作未接收。Runtime 已接收而本地确认失败时，重试查回同一消息，不重复追加；最后写 delivered 不代表 Agent 已采纳。

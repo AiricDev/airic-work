@@ -13,7 +13,7 @@ export async function httpsIdentityFixture() {
     try {
         const key = join(directory, 'key.pem');
         const cert = join(directory, 'cert.pem');
-        await promisify(execFile)('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-noenc', '-keyout', key, '-out', cert, '-days', '1', '-subj', '/CN=Identity test', '-addext', 'subjectAltName=IP:127.0.0.1']);
+        await promisify(execFile)('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '1', '-subj', '/CN=Identity test', '-addext', 'subjectAltName=IP:127.0.0.1']);
         const ca = await readFile(cert, 'utf8');
         const received: { method?: string; url?: string; authorization?: string }[] = [];
         const fixture = {

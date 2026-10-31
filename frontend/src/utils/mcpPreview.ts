@@ -1,7 +1,7 @@
-import type { Execution } from '../types/workbench';
-import type { McpResource } from '../types/platform';
 import { episodes } from '../data/episodes';
-import { trajectoryFor, trajectoryTypeLabels } from './trajectory';
+import type { McpResource } from '../types/platform';
+import type { Execution } from '../types/workbench';
+import { trajectoryFor,trajectoryTypeLabels } from './trajectory';
 
 export interface McpPayload {
   items: string[];

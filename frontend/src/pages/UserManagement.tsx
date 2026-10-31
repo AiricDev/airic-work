@@ -1,38 +1,36 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  FormControl,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  Menu,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography } from
-'@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
-import type { DemoUser } from '../types/workbench';
-import type { ActionResult } from '../types/platform';
-import { usePlatform } from '../contexts/PlatformContext';
-import { formatTime } from '../utils/time';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+Alert,
+Box,
+Chip,
+FormControl,
+IconButton,
+InputAdornment,
+InputLabel,
+Menu,
+MenuItem,
+Paper,
+Select,
+Stack,
+Table,
+TableBody,
+TableCell,
+TableContainer,
+TableHead,
+TableRow,
+TextField,
+Typography
+} from '@mui/material';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { CreateUserDialog } from '../components/users/CreateUserDialog';
-import { UserActionDialog, type UserAction } from '../components/users/UserActionDialog';
+import { UserActionDialog,type UserAction } from '../components/users/UserActionDialog';
+import { usePlatform } from '../contexts/PlatformContext';
+import type { ActionResult } from '../types/platform';
+import type { DemoUser } from '../types/workbench';
+import { formatTime } from '../utils/time';
 
 export function UserManagement() {
   const navigate = useNavigate();

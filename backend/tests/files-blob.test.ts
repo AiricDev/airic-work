@@ -37,6 +37,15 @@ describe('local Files Blob', () => {
             expect(result.contentRef).not.toContain(root);
         }
     });
+    it('reads the fixed descriptor only after verifying bytes, size and hash and rejects corruption or arbitrary references', async () => {
+        const fixed = await storage.files.put(Buffer.from('original'));
+        expect(await storage.files.read!(fixed)).toEqual(Buffer.from('original'));
+        await expect(storage.files.read!({ ...fixed, contentRef: '/etc/passwd' })).rejects.toMatchObject({ code: 'invalid' });
+        await expect(storage.files.read!({ ...fixed, size: fixed.size + 1 })).rejects.toMatchObject({ code: 'blocked' });
+        await chmod(path(fixed.hash), 0o600);
+        await writeFile(path(fixed.hash), 'modified');
+        await expect(storage.files.read!(fixed)).rejects.toMatchObject({ code: 'blocked' });
+    });
 
     it('snapshots the exact supplied subarray before the first asynchronous operation', async () => {
         const source = Buffer.from([90, 1, 2, 3, 90]);

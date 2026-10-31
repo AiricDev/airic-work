@@ -1,6 +1,5 @@
-import React from 'react';
+import { Button,Paper,Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { Button, Paper, Typography } from '@mui/material';
 
 export function NotFound() {
   return (

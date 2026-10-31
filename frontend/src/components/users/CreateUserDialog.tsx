@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
 import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  Radio,
-  RadioGroup,
-  Stack,
-  TextField } from
-'@mui/material';
-import type { ActionResult } from '../../types/platform';
+Alert,
+Button,
+Dialog,
+DialogActions,
+DialogContent,
+DialogTitle,
+FormControl,
+FormControlLabel,
+FormLabel,
+Radio,
+RadioGroup,
+Stack,
+TextField
+} from '@mui/material';
+import { useState } from 'react';
 import { usePlatform } from '../../contexts/PlatformContext';
+import type { ActionResult } from '../../types/platform';
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -72,7 +72,7 @@ export function CreateUserDialog({ open, onClose, onCreated }: CreateUserDialogP
             }}
             error={showErrors && !EMAIL.test(email.trim()) || Boolean(error)}
             helperText={showErrors && !EMAIL.test(email.trim()) ? '请填写有效的邮箱格式' : error ?? '需唯一'} />
-          
+
           <FormControl>
             <FormLabel id="cu-role">角色</FormLabel>
             <RadioGroup row aria-labelledby="cu-role" value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>

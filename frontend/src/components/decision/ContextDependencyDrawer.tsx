@@ -1,13 +1,14 @@
-import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, Divider, Drawer, IconButton, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import type { DecisionRequest } from '../../types/workbench';
-import type { ContextDependency } from '../../types/platform';
-import { useWorkbench } from '../../contexts/WorkbenchContext';
+import { Alert,Box,Button,Chip,Divider,Drawer,IconButton,Stack,Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import { api } from '../../api/client';
+import { useApiQuery } from '../../api/useApiQuery';
 import { usePlatform } from '../../contexts/PlatformContext';
-import { fileAt, findCommit, omFileLink, shortSha } from '../../utils/omRepository';
+import { useWorkbench } from '../../contexts/WorkbenchContext';
+import type { ContextDependency } from '../../types/platform';
+import type { DecisionRequest } from '../../types/workbench';
 import { dependencyStatusColor } from '../../utils/contextDependencies';
+import { omFileLink,shortSha } from '../../utils/omRepository';
 import { formatTime } from '../../utils/time';
 
 interface ContextDependencyDrawerProps {
@@ -19,12 +20,13 @@ interface ContextDependencyDrawerProps {
 export function ContextDependencyDrawer({ dependency, request, onClose }: ContextDependencyDrawerProps) {
   const { state } = useWorkbench();
   const platform = usePlatform();
-  const commit = findCommit(request.brief.omCommit);
+  const commit = request.brief.omCommit ? {sha:request.brief.omCommit} : undefined;
+  const query=useApiQuery(['dependency',request.executionId,dependency?.omPath],()=>api('methodFile',{query:{executionId:request.executionId,path:dependency?.omPath}}),!!dependency?.omPath);
 
   const body = () => {
     if (!dependency) return null;
     if (dependency.kind === '规则' && dependency.omPath) {
-      const file = commit ? fileAt(commit.sha, dependency.omPath) : undefined;
+      const file = query.data;
       if (!commit || !file?.content) {
         return <Alert severity="warning">无法在执行固定版本 {request.brief.omCommit} 中读取该文件（缺版本或文件不存在）。不以摘要替代原文。</Alert>;
       }

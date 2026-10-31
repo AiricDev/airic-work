@@ -1,8 +1,7 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box,Typography } from '@mui/material';
+import { ExecutionBrowser } from '../components/lists/ExecutionBrowser';
 import { useWorkbench } from '../contexts/WorkbenchContext';
 import { getVisibleExecutions } from '../utils/selectors';
-import { ExecutionBrowser } from '../components/lists/ExecutionBrowser';
 
 export function ExecutionList() {
   const { state, currentUser } = useWorkbench();

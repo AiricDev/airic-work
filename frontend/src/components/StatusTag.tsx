@@ -1,12 +1,12 @@
-import React from 'react';
-import { Chip, Tooltip } from '@mui/material';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import { Chip,Tooltip } from '@mui/material';
+import React from 'react';
 import type { Execution } from '../types/workbench';
-import { executionTag, type TagIcon } from '../utils/selectors';
+import { executionTag,type TagIcon } from '../utils/selectors';
 
 interface StatusTagProps {
   execution: Execution;

@@ -1,5 +1,5 @@
+import { Box,Stack,Typography } from '@mui/material';
 import React from 'react';
-import { Box, Stack, Typography } from '@mui/material';
 
 interface BriefSectionProps {
   title: string;

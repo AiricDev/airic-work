@@ -3,6 +3,8 @@
  * 所有 userId/运行调用身份来自可信入口，不能直接信任模型或请求体。读取结果不自动赋权，跨存储失败须显式保留未知/未交付。
  */
 import type { User, Execution, Project, Creation, DecisionRequest, UserDecision, SteeringInput, Input, Upload, Method, Settings, Json } from '../domain/model';
+/** 可信宿主声明的允许来源/连接标识；管理员设置只能从中选择，不承载 URL 或秘密。 */
+export interface ConfigurationCatalog { sources: string[]; connections: string[] }
 /**
  * 本地命令幂等身份。Store 按用户、操作类型及 key 隔离；同键同 fingerprint 返回原结果，同键异内容冲突。不是业务 task.id 或外部操作幂等键。
  */
@@ -223,6 +225,8 @@ export interface Workspace {
  * 将上传字节固定保存的端口。返回内容身份而非任意宿主文件路径；本地 Blob 或对象存储均可实现，不在用例内引入业务资料登记流程。
  */
 export interface Files {
+    /** Read and verify a previously fixed descriptor. Optional for write-only hosts; absence is an explicit unavailable capability. */
+    read?(file: Pick<Upload, 'hash' | 'size' | 'contentRef'>): Promise<Uint8Array>;
     /**
      * 固定字节并返回实际 SHA-256、大小及受控内容引用。失败不返回可用引用，孤立但完整内容可后续清理；不负责输入事务绑定。
      */
@@ -244,6 +248,14 @@ export interface MethodSourceStatus {
 
 /** 固定版本 OM 出口；受管来源确认远端，本地来源确认本地配置分支，不把缓存冒充最新或访问作者材料。 */
 export interface Methods {
+    /** Offline browsing of an available fixed snapshot; never fetches or silently substitutes another SHA. */
+    browse?(settings: Settings, sha?: string): Promise<Method>;
+    /** 固定快照的允许文件列表，排除作者材料、链接与子模块；不触发同步。 */
+    tree?(method: Method): Promise<{ path: string; size: number; text: boolean }[]>;
+    /** 已有 Git 对象中的提交元信息和允许文件 diff；不返回 .ome/，不联网。 */
+    commit?(method: Method): Promise<Json>;
+    /** 只读本地历史，未有受管仓库时明确不可用；不 clone/fetch。 */
+    cachedHistory?(source: string): Promise<Json>;
     /**
      * 确认配置分支的提交及 Root。受管来源须联网确认最新，本地来源只读本地已提交版本、不自动 fetch；无法确认时拒绝。
      */

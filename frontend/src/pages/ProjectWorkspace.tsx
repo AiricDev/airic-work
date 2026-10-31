@@ -1,17 +1,16 @@
-import React from 'react';
-import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
-import { Box, Breadcrumbs, Button, Chip, Link, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { useWorkbench } from '../contexts/WorkbenchContext';
-import { getVisibleExecutions, getVisibleProjects, getVisibleRequests } from '../utils/selectors';
-import { ExecutionBrowser } from '../components/lists/ExecutionBrowser';
+import { Box,Breadcrumbs,Button,Chip,Link,Paper,Stack,Tab,Tabs,Typography } from '@mui/material';
+import { Link as RouterLink,useParams,useSearchParams } from 'react-router-dom';
 import { DecisionBrowser } from '../components/lists/DecisionBrowser';
+import { ExecutionBrowser } from '../components/lists/ExecutionBrowser';
+import { useWorkbench } from '../contexts/WorkbenchContext';
+import { getVisibleExecutions,getVisibleProjects,getVisibleRequests } from '../utils/selectors';
 
 export function ProjectWorkspace() {
   const { projectId } = useParams();
   const [params, setParams] = useSearchParams();
-  const { state, currentUser } = useWorkbench();
-  const project = getVisibleProjects(currentUser).find((p) => p.id === projectId);
+  const { state, projects, currentUser } = useWorkbench();
+  const project = getVisibleProjects(currentUser, projects).find((p) => p.id === projectId);
 
   if (!project) {
     return (

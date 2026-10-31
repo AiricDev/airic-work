@@ -1,4 +1,4 @@
-import type { ExternalClientGrant, McpReadLog } from '../types/platform';
+import type { ExternalClientGrant,McpReadLog } from '../types/platform';
 import { minutesAgo } from '../utils/time';
 
 const daysAhead = (n: number) => new Date(Date.now() + n * 86400000).toISOString();

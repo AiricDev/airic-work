@@ -31,6 +31,7 @@ import { SqliteAccountAdministration } from '../adapters/driven/sqlite/account-m
 
 /** 仅组合根使用的适配器注册表；不作为业务能力的服务定位器。 */
 export interface AdapterBindings {
+    configurationCatalog?: import('../application/ports').ConfigurationCatalog;
     store: ControlStore;
     support: Support;
     identity: Identity;
@@ -155,6 +156,10 @@ export function createAccountMaintenance(filename: string) {
 /** 部署配置只在组合根读取。路径相对于 .env 所在目录，系统环境变量优先；不修改 process.env。 */
 export interface BootstrapConfiguration {
     server: { host: string; port: number };
+    http?: {
+        source: string; origins: string[]; secureCookies: boolean; uploadBytes: number;
+        session: { idleMs: number; absoluteMs: number; capacity: number };
+    };
     persistence: PersistenceOptions;
     files: FileStorageOptions;
     identity: HttpsUserInfoOptions;
@@ -211,8 +216,20 @@ export function loadConfiguration(file?: string, environment: NodeJS.ProcessEnv 
     const key = parse('AIRIC_MCP_ENCRYPTION_KEY', z.string().regex(/^[a-fA-F0-9]{64}$/));
     let ca: string | undefined;
     if (value('AIRIC_IDENTITY_CA_FILE')) { try { ca = readFileSync(path('AIRIC_IDENTITY_CA_FILE', ''), 'utf8'); } catch { fail('AIRIC_IDENTITY_CA_FILE'); } }
+    let http: BootstrapConfiguration['http'];
+    if (value('AIRIC_HTTP_ORIGINS') || value('AIRIC_HTTP_SOURCE')) {
+        const secureCookies = parse('AIRIC_HTTP_SECURE_COOKIES', z.enum(['true', 'false']), 'true') === 'true';
+        const origins = json('AIRIC_HTTP_ORIGINS', z.array(text.refine(s => {
+            try { const u = new URL(s); return u.origin === s && (u.protocol === 'https:' || (!secureCookies && u.protocol === 'http:')); }
+            catch { return false; }
+        })).min(1));
+        http = { source: parse('AIRIC_HTTP_SOURCE', text), origins, secureCookies,
+            uploadBytes: number('AIRIC_HTTP_UPLOAD_BYTES', 20 * 1024 * 1024),
+            session: { idleMs: number('AIRIC_HTTP_SESSION_IDLE_MS', 1800000), absoluteMs: number('AIRIC_HTTP_SESSION_ABSOLUTE_MS', 28800000), capacity: number('AIRIC_HTTP_SESSION_CAPACITY', 1000) } };
+    }
     return {
         server: { host: parse('AIRIC_HOST', text, '127.0.0.1'), port: number('AIRIC_PORT', 8010, 65535) },
+        ...(http ? { http } : {}),
         persistence: { filename: path('AIRIC_DATABASE_PATH', resolve(data, 'db/airic.sqlite')), initialSettings: {
             version: 0, omSource, branch: parse('AIRIC_OM_BRANCH', text, 'main'), root, connections: connections.map(c => c.id),
         } },
@@ -260,7 +277,8 @@ export async function createConfiguredBackend(config: BootstrapConfiguration, wo
         let application!: Application;
         worker = createWorker({ ...config.worker, models: modelRegistry, tools: async e => mcp.tools(application, e) }, persistence.store, methods, persistence.support);
         const { createBackend } = await import('./container');
-        backend = createBackend({ ...persistence, identity, files, methods, workspace, runtime: worker.runtime, history: worker.history, mcp: mcp.gateway });
+        backend = createBackend({ ...persistence, identity, files, methods, workspace, runtime: worker.runtime, history: worker.history, mcp: mcp.gateway,
+            configurationCatalog: { sources: Object.keys(config.methods.sources), connections: config.mcp.connections.map(c => c.id) } });
         application = backend.application;
         const resources = worker;
         return { ...backend, credentials: mcp.credentials, runner: resources.runner(application),

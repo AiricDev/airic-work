@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
-import { Alert, Avatar, Box, Breadcrumbs, Button, Chip, Link, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
-import type { ActionResult } from '../types/platform';
+import { Alert,Avatar,Box,Breadcrumbs,Button,Chip,Link,Paper,Stack,Tab,Tabs,Typography } from '@mui/material';
+import { useState } from 'react';
+import { Link as RouterLink,useParams } from 'react-router-dom';
+import { UserActionDialog,type UserAction } from '../components/users/UserActionDialog';
 import { usePlatform } from '../contexts/PlatformContext';
 import { useWorkbench } from '../contexts/WorkbenchContext';
+import type { ActionResult } from '../types/platform';
 import { responsibilitiesFor } from '../utils/responsibilities';
 import { formatTime } from '../utils/time';
-import { IdentityMappings } from '../components/users/IdentityMappings';
-import { AuditSection } from '../components/settings/AuditSection';
-import { UserActionDialog, type UserAction } from '../components/users/UserActionDialog';
 
 export function UserDetail() {
   const { userId } = useParams();

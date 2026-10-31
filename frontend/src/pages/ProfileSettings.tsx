@@ -1,21 +1,22 @@
-import React from 'react';
-import { Alert, Autocomplete, Avatar, Box, FormControl, FormControlLabel, FormLabel, Paper, Radio, RadioGroup, Stack, Switch, TextField, Typography } from '@mui/material';
-import type { ActionResult, NotificationKind } from '../types/platform';
-import { usePlatform } from '../contexts/PlatformContext';
-import { useSettingsForm } from '../hooks/useSettingsForm';
+import { Alert,Autocomplete,Avatar,Box,FormControl,FormControlLabel,FormLabel,Paper,Radio,RadioGroup,Stack,Switch,TextField,Typography } from '@mui/material';
+import { useCallback } from 'react';
+import { useBlocker,type BlockerFunction } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
+import { timezones } from '../components/settings/GeneralSection';
 import { SettingsActions } from '../components/settings/SettingsActions';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
-import { BusinessAccounts } from '../components/profile/BusinessAccounts';
-import { timezones } from '../components/settings/GeneralSection';
+import { usePlatform } from '../contexts/PlatformContext';
+import { useSettingsFormState } from '../hooks/useSettingsForm';
+import type { NotificationKind } from '../types/platform';
 
 const notifyLabels: Record<NotificationKind, string> = { decision: '新增待决事项', anomaly: '执行异常', result: '执行结果更新' };
 
 export function ProfileSettings() {
   const { state, account, preference, saveProfile, savePreference } = usePlatform();
-  const profile = useSettingsForm({ name: account.name }, (v): ActionResult => v.name.trim() ? saveProfile(v.name.trim()) : { ok: false, message: '显示名不能为空。' });
-  const pref = useSettingsForm(preference, savePreference);
-  const blocker = profile.blocker.state === 'blocked' ? profile.blocker : pref.blocker;
+  const profile = useSettingsFormState({ name: account.name }, (v) => v.name.trim() ? saveProfile(v.name.trim()) : { ok: false, message: '显示名不能为空。' });
+  const pref = useSettingsFormState(preference, savePreference);
+  const dirty=profile.dirty||pref.dirty;
+  const blocker=useBlocker(useCallback<BlockerFunction>(({currentLocation,nextLocation})=>dirty&&currentLocation.pathname!==nextLocation.pathname,[dirty]));
 
   return (
     <Box sx={{ maxWidth: 960, mx: 'auto' }}>
@@ -29,7 +30,7 @@ export function ProfileSettings() {
               <Typography variant="caption" color="text.secondary">头像使用姓名首字母</Typography>
             </Stack>
             <TextField label="显示名" value={profile.value.name} onChange={(e) => profile.set({ name: e.target.value })} error={!profile.value.name.trim()} />
-            <TextField label="登录邮箱" value={account.email} InputProps={{ readOnly: true }} helperText="只读" />
+            <TextField label="身份标识（集成方接入）" value={account.id} InputProps={{ readOnly: true }} helperText="只读" />
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
               <TextField label="组织" value={state.general.orgName} InputProps={{ readOnly: true }} />
               <TextField label="角色" value={account.systemRole === 'admin' ? '管理员' : '成员'} InputProps={{ readOnly: true }} />
@@ -48,13 +49,13 @@ export function ProfileSettings() {
                 <FormControlLabel value="en-US" control={<Radio size="small" />} label="English (US)" />
               </RadioGroup>
             </FormControl>
-            {pref.value.language === 'en-US' && <Alert severity="warning">演示限制：英文界面尚未实现，保存后界面仍为简体中文。</Alert>}
+            {pref.value.language === 'en-US' && <Alert severity="warning">英文界面尚未实现，保存后界面仍为简体中文。</Alert>}
             <Autocomplete
               options={timezones}
               value={pref.value.timezone}
               disableClearable
               onChange={(_, v) => v && pref.set({ timezone: v })}
-              renderInput={(params) => <TextField {...params} label="时区（IANA）" helperText="演示中时间仍按浏览器本地时区显示" />} />
+              renderInput={(params) => <TextField {...params} label="时区（IANA）" helperText="当前时间按浏览器本地时区显示" />} />
 
             <Box>
               <Typography variant="subtitle2">站内通知</Typography>
@@ -78,7 +79,7 @@ export function ProfileSettings() {
       </Stack>
       <UnsavedChangesDialog
         blocker={blocker}
-        onSave={() => (profile.dirty ? profile.save().ok : true) && (pref.dirty ? pref.save().ok : true)}
+        onSave={async () => (profile.dirty ? (await profile.save()).ok : true) && (pref.dirty ? (await pref.save()).ok : true)}
         onDiscard={() => {
           profile.revert();
           pref.revert();

@@ -40,7 +40,7 @@ export class GitRepositories {
         requireRule((await readdir(template)).length === 0, 'blocked', 'Git template must be empty');
         return runGit(['-c', `core.hooksPath=${template}`, '-c', 'core.fsmonitor=false', ...args], this.limits.commandTimeoutMs, maximum, acceptedCodes);
     }
-    async open(source: string): Promise<GitRepository> {
+    async open(source: string, allowClone = true): Promise<GitRepository> {
         const definition = this.source(source);
         if (definition.kind === 'local') {
             const directory = await realpath(definition.directory);
@@ -60,6 +60,7 @@ export class GitRepositories {
         try { await directoryCheck(destination); }
         catch (error) {
             if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+            requireRule(allowClone, 'not-found', 'method repository unavailable');
             const staging = await mkdtemp(join(parent, '.mirror-'));
             try {
                 await this.run(['clone', '--mirror', '--no-local', `--template=${join(this.root, 'template')}`, '--', definition.repository, staging]);

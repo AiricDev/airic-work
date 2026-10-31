@@ -1,4 +1,4 @@
-import type { GitCommit, OMSourceConfig } from '../types/platform';
+import type { GitCommit,OMSourceConfig } from '../types/platform';
 import { minutesAgo } from '../utils/time';
 
 /** The single OM repository configured for this Airic Work instance (fictional demo). */

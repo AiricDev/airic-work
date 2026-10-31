@@ -4,6 +4,8 @@ export type AccountStatus = 'active' | 'disabled';
 /* ---------- OM source (single repository per instance) ---------- */
 
 export interface OMSourceConfig {
+  version?: number;
+  root?: string;
   hostType: string;
   repo: string;
   repoUrl: string;

@@ -1,45 +1,45 @@
-import React, { useMemo, useState } from 'react';
-import { Link as RouterLink, Navigate, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
-import {
-  AppBar,
-  Autocomplete,
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  Divider,
-  Drawer,
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  ListSubheader,
-  Menu,
-  MenuItem,
-  Paper,
-  TextField,
-  Toolbar,
-  Typography,
-  useMediaQuery } from
-'@mui/material';
-import { useTheme } from '@mui/material/styles';
-import MenuIcon from '@mui/icons-material/Menu';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
-import LogoutIcon from '@mui/icons-material/Logout';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import LockClockOutlinedIcon from '@mui/icons-material/LockClockOutlined';
-import { useWorkbench } from '../../contexts/WorkbenchContext';
+import LogoutIcon from '@mui/icons-material/Logout';
+import MenuIcon from '@mui/icons-material/Menu';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import {
+Alert,
+AppBar,
+Autocomplete,
+Avatar,
+Box,
+Button,
+Chip,
+Divider,
+Drawer,
+IconButton,
+List,
+ListItemButton,
+ListItemIcon,
+ListItemText,
+ListSubheader,
+Menu,
+MenuItem,
+Paper,
+TextField,
+Toolbar,
+Typography,
+useMediaQuery
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import React,{ useMemo,useState } from 'react';
+import { Navigate,Outlet,Link as RouterLink,ScrollRestoration,useLocation,useNavigate } from 'react-router-dom';
 import { usePlatform } from '../../contexts/PlatformContext';
-import { getVisibleProjects, getVisibleRequests } from '../../utils/selectors';
-import { DemoConsole } from './DemoConsole';
+import { useWorkbench } from '../../contexts/WorkbenchContext';
+import { getVisibleProjects,getVisibleRequests } from '../../utils/selectors';
+
 import { NotificationMenu } from './NotificationMenu';
 
 const drawerWidth = 240;
@@ -69,14 +69,14 @@ export function AppShell() {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [consoleOpen, setConsoleOpen] = useState(false);
+
   const [userAnchor, setUserAnchor] = useState<HTMLElement | null>(null);
-  const { state, currentUser, updateSettings } = useWorkbench();
+  const { state, projects, currentUser, loading, authLoading, error, draftError, refresh } = useWorkbench();
   const { state: platform, account, isAdmin, signOut } = usePlatform();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const visibleProjects = getVisibleProjects(currentUser);
+  const visibleProjects = getVisibleProjects(currentUser, projects);
   const myPending = getVisibleRequests(state.requests, state.executions, currentUser).filter(
     (r) => r.status === 'pending' && r.ownerId === currentUser.id
   ).length;
@@ -88,6 +88,7 @@ export function AppShell() {
     return visibleProjects.find((p) => p.id === id) ?? null;
   }, [location.pathname, state.executions, visibleProjects]);
 
+  if (authLoading) return <Box sx={{ p: 4 }}>正在确认身份…</Box>;
   if (platform.signedOut) {
     return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
@@ -102,7 +103,7 @@ export function AppShell() {
           {title}
         </ListSubheader>
     }>
-    
+
       {items.map((item) => {
       const active = (item.match ?? [item.to]).some((m) => location.pathname.startsWith(m));
       return (
@@ -114,7 +115,7 @@ export function AppShell() {
           aria-current={active ? 'page' : undefined}
           onClick={() => setMobileOpen(false)}
           sx={{ mx: 1, borderRadius: 1, mb: 0.25 }}>
-          
+
             <ListItemIcon sx={{ minWidth: 32 }}>{item.icon}</ListItemIcon>
             <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: active ? 600 : 400 }} />
             {item.to === '/decisions' && myPending > 0 &&
@@ -141,7 +142,7 @@ export function AppShell() {
         position="fixed"
         elevation={0}
         sx={{ zIndex: theme.zIndex.drawer + 1, bgcolor: 'background.paper', color: 'text.primary', borderBottom: 1, borderColor: 'divider' }}>
-        
+
         <Toolbar sx={{ gap: 1.5, minHeight: { xs: 56, sm: appBarHeight } }}>
           {!isDesktop &&
           <IconButton edge="start" aria-label="打开导航" onClick={() => setMobileOpen(true)}>
@@ -151,7 +152,7 @@ export function AppShell() {
           <Typography variant="subtitle1" component="span" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
             Airic Work
           </Typography>
-          <Chip label="演示数据" color="warning" variant="outlined" />
+
           <Box sx={{ flex: 1 }} />
           <Autocomplete
             size="small"
@@ -166,17 +167,14 @@ export function AppShell() {
             renderInput={(params) =>
             <TextField {...params} placeholder="切换项目" inputProps={{ ...params.inputProps, 'aria-label': '切换项目' }} />
             } />
-          
-          <Button startIcon={<TuneOutlinedIcon />} variant="outlined" color="inherit" onClick={() => setConsoleOpen(true)} aria-label="演示控制台">
-            <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>演示控制台</Box>
-          </Button>
+
           <NotificationMenu />
           <IconButton
             onClick={(e) => setUserAnchor(e.currentTarget)}
             aria-haspopup="menu"
             aria-label={`账户菜单：${account.name}`}
             sx={{ p: 0.5 }}>
-            
+
             <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: 'primary.main' }}>{account.name.slice(0, 1)}</Avatar>
           </IconButton>
           <Menu
@@ -185,7 +183,7 @@ export function AppShell() {
             onClose={() => setUserAnchor(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            
+
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="body2" fontWeight={600}>{account.name}</Typography>
               <Typography variant="caption" color="text.secondary">
@@ -205,9 +203,9 @@ export function AppShell() {
             <MenuItem
               onClick={() => {
                 setUserAnchor(null);
-                signOut();
+                void signOut().catch(() => window.alert("退出未完成，请重试。"));
               }}>
-              
+
               <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
               退出
             </MenuItem>
@@ -224,7 +222,7 @@ export function AppShell() {
           flexShrink: 0,
           '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box', pt: isDesktop ? `${appBarHeight}px` : 0 }
         }}>
-        
+
         {drawer}
       </Drawer>
 
@@ -238,25 +236,24 @@ export function AppShell() {
             <Typography color="text.secondary" sx={{ mt: 1 }}>
               {accountDisabled ?
             '当前账户已被管理员停用，无法查看执行或待决信息。请联系组织管理员。' :
-            '为保护业务数据，当前不显示任何执行或待决信息。请重新登录（登录流程为演示）。'}
+            '为保护业务数据，当前不显示任何执行或待决信息。请重新登录。'}
             </Typography>
             <Button
             variant="contained"
             sx={{ mt: 3 }}
             onClick={() => {
-              updateSettings({ sessionExpired: false });
-              signOut();
+              void signOut();
             }}>
-            
+
               前往登录
             </Button>
           </Paper> :
 
-        <Outlet />
+        <><Box aria-live="polite">{error && <Alert severity="error" action={<Button onClick={() => void refresh()}>重试</Button>}>{error}</Alert>}{draftError && <Alert severity="warning">{draftError}</Alert>}{loading && <Typography>正在读取工作台数据…</Typography>}</Box>{!loading && <Outlet />}</>
         }
       </Box>
 
-      <DemoConsole open={consoleOpen} onClose={() => setConsoleOpen(false)} />
+
     </Box>);
 
 }

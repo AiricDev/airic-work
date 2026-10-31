@@ -33,8 +33,12 @@
 | 实现 HOW 与后续批次 | backend/src/adapters/README.md | SQLite/Support、Files Blob、Methods 已实现；其余非 Agent 适配器分批接入，Agent 环境单独开发 |
 | Worker 执行方式与运行环境 | backend/skills/airic-work-worker/SKILL.md | docs/worker-runtime-design.md；常驻装配、能力映射、输入/停止恢复与待验证场景 |
 
-依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端当前为独立模拟原型，不能作为后端事实来源或反向依赖。
+依赖方向：适配器 → Application → Domain。`tests/architecture.test.ts` 检查内层导入。前端保留原 AppShell/pages/components，通过 api 与既有 Context 对接；服务端事实来自 HTTP，不反向依赖前端。
 
 Worker 运行入口：`backend/src/bootstrap/bindings.ts`；Pi 机制、历史和 MCP 工具桥接在 `backend/src/adapters/driven/runtime/`，宿主派发入口为 `adapters/driving/worker/execution-runner.ts`；行为证据见 `backend/tests/pi-runtime.test.ts`。隔离 Workspace 和业务网关仍由各自端口接入。
 
 业务 MCP 凭据与 HTTP：`application/mcp-credentials.ts` 负责归属与配置资格，`adapters/driven/mcp/` 负责凭据签发/加密/撤销及逐请求认证；`bootstrap/bindings.ts` 提供组合入口与 Agent 工具。验证为 `tests/mcp-integration.test.ts`，协议见模块 README 与 CertLab 的 assistant-protocol.md。
+
+前端接入路由：`frontend/src/App.tsx` 保留原页面树，`contexts/WorkbenchContext.tsx`、`PlatformContext.tsx` 负责真实查询生命周期与草稿，`api/views.ts` 适配既有显示类型。修改传输先看 `backend/src/adapters/driving/http/contracts.ts`，生成 OpenAPI/schema/routes；行为见 `docs/behavior/frontend-integration.md`，运行说明见 `docs/http-integration.md`。`frontend/tests/integration.test.ts` 防止替换原界面或重新引入 seed。
+
+HTTP 身份、CSRF、分页、文件/SSE：`backend/src/adapters/driving/http/server.ts`；会话生命周期 `session.ts`，监听装配 `bootstrap/http.ts`。用户归属、设置允许列表、上传读取仍由 Application 及其端口负责。

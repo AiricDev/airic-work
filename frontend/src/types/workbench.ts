@@ -1,4 +1,4 @@
-export interface PrototypeFile { name: string; size: number; content: string }
+export interface PrototypeFile { id?: string; name: string; size: number; content: string }
 export type ActionType = 'fact' | 'judgment' | 'authorization' | 'investigation';
 export type RequestKind = 'judgment' | 'fact' | 'authorization';
 export type UserDecisionChannel = '工作台' | '业务系统';
@@ -83,6 +83,9 @@ export interface Execution {
   id: string;
   projectId: string;
   ownerId: string;
+  sessionId?: string;
+  phase?: string;
+  historyLimitations?: string[];
   goal: string;
   scope: string;
   source: {system: string;ref: string;label: string;};
@@ -129,6 +132,8 @@ export interface AuthorizationScope {
 }
 
 export interface DecisionBriefData {
+  rawContext?: unknown;
+  sourceReferences?: unknown[];
   actionNeeded: string;
   trigger: string;
   affected: string[];
@@ -199,6 +204,7 @@ export interface DecisionRequest {
   updatedAt: string;
   version: number;
   allowedActions: ActionType[];
+  contextHistory?: {revision: number; content: unknown; sources: unknown[]}[];
   brief: DecisionBriefData;
   status: 'pending' | 'answered';
   userDecision: UserDecision | null;
@@ -220,6 +226,8 @@ export interface Evidence {
 }
 
 export interface Draft {
+  pending?: { text: string; files: string[]; contextRevision: number; optionId?: string; correctionOf?: string };
+  correctionOf?: string;
   files?: PrototypeFile[];
   requestId: string;
   action: ActionType | null;

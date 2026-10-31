@@ -1,5 +1,5 @@
-import type { DecisionRequest, DemoUser, Execution, Project } from '../types/workbench';
-import { projects } from '../data/projects';
+import type { DecisionRequest,DemoUser,Execution,Project } from '../types/workbench';
+
 
 export type TagIcon = 'play' | 'pause' | 'done' | 'hourglass' | 'stop';
 
@@ -9,7 +9,7 @@ export interface ExecutionTag {
   icon: TagIcon;
 }
 
-export function getVisibleProjects(user: DemoUser): Project[] {
+export function getVisibleProjects(user: DemoUser, projects: Project[]): Project[] {
   return projects.filter((p) => user.visibleProjectIds.includes(p.id));
 }
 
@@ -33,7 +33,7 @@ export function firstActionableRequest(requests: DecisionRequest[], executionId:
   return pending.find((r) => r.ownerId === user.id) ?? pending[0];
 }
 
-export function projectById(id: string): Project | undefined {
+export function projectById(id: string, projects: Project[]): Project | undefined {
   return projects.find((p) => p.id === id);
 }
 
@@ -51,6 +51,8 @@ export function currentWorkText(execution: Execution): string {
 }
 
 export function executionTag(execution: Execution, pendingCount: number): ExecutionTag {
+  if (execution.phase === 'new') return { label: '待准备', color: 'default', icon: 'hourglass' };
+  if (execution.phase === 'failed') return { label: '执行失败', color: 'warning', icon: 'stop' };
   const c = execution.cancellation;
   if (c?.status === 'confirmed') return { label: '已停止', color: 'default', icon: 'stop' };
   if (c) return { label: '取消处理中', color: 'warning', icon: 'hourglass' };

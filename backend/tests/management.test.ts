@@ -1,6 +1,17 @@
 import { it, expect } from 'vitest';
 import { harness } from './support/harness';
 import { ReadonlyMcp } from '../src/application/readonly-mcp';
+import { SettingsUseCases } from '../src/application/settings';
+it('configuration only accepts host-listed method sources and connection identifiers', async () => {
+    const h = harness();
+    const user = await h.app.account.ensureUser('admin');
+    h.store.u.set(user.id, { ...user, admin: true });
+    const settings = await h.store.settings();
+    const cases = new SettingsUseCases(h.store, { sources: [settings.omSource], connections: ['allowed'] });
+    await expect(cases.configure(user.id, settings.version, { ...settings, omSource: 'untrusted' })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(cases.configure(user.id, settings.version, { ...settings, connections: ['unknown'] })).rejects.toMatchObject({ code: 'invalid' });
+    expect((await cases.configure(user.id, settings.version, { ...settings, connections: ['allowed'] })).connections).toEqual(['allowed']);
+});
 it('personal preferences do not change account privilege', async () => { const h = harness(); const u = await h.app.account.ensureUser('owner'); const preferences = { language: 'zh-CN', timezone: 'Asia/Shanghai', notify: { decision: true, anomaly: true, result: false } }; const after = await h.app.account.updatePreferences(u.id, preferences); expect(after.preferences).toEqual(preferences); expect(after.admin).toBe(false); });
 it('settings use current administrator and CAS version without rewriting execution OM', async () => { const h = harness(); const { u, e } = await h.running(); await expect(h.app.settings.querySettings(u.id)).rejects.toMatchObject({ code: 'forbidden' }); h.store.u.set(u.id, { ...u, admin: true }); const s = await h.app.settings.querySettings(u.id); await h.app.settings.configure(u.id, s.version, { ...s, branch: 'next' }); expect((await h.store.execution(e.id)).method).toEqual(e.method); await expect(h.app.settings.configure(u.id, s.version, s)).rejects.toMatchObject({ code: 'conflict' }); });
 it('external MCP facade has no command capability and uses the same content rules', async () => { const h = harness(); const { e } = await h.running(); const other = await h.app.account.ensureUser('other'); const mcp = new ReadonlyMcp(h.app, other.id); expect(Object.getOwnPropertyNames(Object.getPrototypeOf(mcp)).filter(key => key !== "constructor")).toEqual(['executions', 'session', 'episode', 'operations']); expect(await mcp.executions()).toEqual([]); await expect(mcp.session(e.id)).rejects.toMatchObject({ code: 'forbidden' }); });

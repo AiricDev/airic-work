@@ -1,53 +1,7 @@
-import type { GitCommit, RepoFile } from '../types/platform';
-import { omCommits } from '../data/omRepository';
+
 
 export function shortSha(sha: string): string {
   return sha.slice(0, 12);
-}
-
-export function findCommit(ref: string | null | undefined): GitCommit | undefined {
-  if (!ref) return undefined;
-  return omCommits.find((c) => c.sha === ref || c.sha.startsWith(ref));
-}
-
-/** A commit is visible only once a sync has confirmed it (or a later commit). */
-export function isSynced(sha: string, confirmedSha: string): boolean {
-  const i = omCommits.findIndex((c) => c.sha === sha);
-  const j = omCommits.findIndex((c) => c.sha === confirmedSha);
-  return i >= 0 && j >= 0 && i <= j;
-}
-
-/** Commits up to and including `sha`, newest first. */
-export function commitsUpTo(sha: string): GitCommit[] {
-  const idx = omCommits.findIndex((c) => c.sha === sha);
-  if (idx < 0) return [];
-  return omCommits.slice(0, idx + 1).reverse();
-}
-
-const cache = new Map<string, Map<string, RepoFile>>();
-
-export function snapshotAt(sha: string): Map<string, RepoFile> {
-  const hit = cache.get(sha);
-  if (hit) return hit;
-  const files = new Map<string, RepoFile>();
-  for (const c of omCommits) {
-    for (const ch of c.changes) {
-      if (ch.status === 'deleted') files.delete(ch.path);else
-      files.set(ch.path, { path: ch.path, content: ch.content, binary: ch.binary });
-    }
-    if (c.sha === sha) break;
-  }
-  cache.set(sha, files);
-  return files;
-}
-
-export function fileAt(sha: string, path: string): RepoFile | undefined {
-  return snapshotAt(sha).get(path);
-}
-
-export function parentContent(commit: GitCommit, path: string): string | undefined {
-  const parent = commit.parents[0];
-  return parent ? fileAt(parent, path)?.content : undefined;
 }
 
 export interface DiffLine {
@@ -97,32 +51,6 @@ export interface SearchHit {
 }
 
 /** Plain full-text search over a synced commit snapshot (no semantic / vector index). */
-export function searchSnapshot(sha: string, query: string): SearchHit[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const hits: SearchHit[] = [];
-  snapshotAt(sha).forEach((file) => {
-    const pathHit = file.path.toLowerCase().includes(q);
-    if (!file.content) {
-      if (pathHit) hits.push({ path: file.path, lines: [], count: 1 });
-      return;
-    }
-    const lines: {no: number;text: string;}[] = [];
-    let count = 0;
-    file.content.split('\n').forEach((text, idx) => {
-      const lower = text.toLowerCase();
-      let from = lower.indexOf(q);
-      if (from >= 0) lines.push({ no: idx + 1, text });
-      while (from >= 0) {
-        count++;
-        from = lower.indexOf(q, from + q.length);
-      }
-    });
-    if (count > 0 || pathHit) hits.push({ path: file.path, lines: lines.slice(0, 5), count: Math.max(count, 1) });
-  });
-  return hits.sort((x, y) => y.count - x.count);
-}
-
 /**
  * Resolve a relative link within the same repository. Returns null for external links,
  * absolute URLs, or paths escaping the repository root.
@@ -145,6 +73,6 @@ export function isSafePath(path: string): boolean {
   return !path.split('/').some((s) => s === '..' || s === '') && !path.startsWith('/');
 }
 
-export function omFileLink(sha: string, path: string): string {
-  return `/om?commit=${shortSha(sha)}&path=${encodeURIComponent(path)}`;
+export function omFileLink(sha: string, path: string, executionId?: string): string {
+  return `/om?commit=${sha}&path=${encodeURIComponent(path)}${executionId ? `&executionId=${encodeURIComponent(executionId)}` : ''}`;
 }

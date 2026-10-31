@@ -1,8 +1,7 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box,Typography } from '@mui/material';
+import { DecisionBrowser } from '../components/lists/DecisionBrowser';
 import { useWorkbench } from '../contexts/WorkbenchContext';
 import { getVisibleRequests } from '../utils/selectors';
-import { DecisionBrowser } from '../components/lists/DecisionBrowser';
 
 export function DecisionList() {
   const { state, currentUser } = useWorkbench();

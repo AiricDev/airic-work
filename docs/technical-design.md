@@ -427,3 +427,7 @@ Execution 结束后是否继续、UserDecision 何时已回答、Decision Episod
 `bootstrap/bindings.ts` 与 `adapters/driven/mcp/` 已实现 HTTPS 签发、撤销、逐请求凭据注入、Schema 发现与调用；原业务用例仍控制权限、发起记录与未知结果。普通网页登录过期/退出不会自动撤销单独的后台凭据；后台凭据过期、撤销或用户停用时阻塞相应访问。CertLab 首版签发固定七天、无滑动续期的专用 token，重新连接使用新的有效登录凭据。凭据撤销先禁止本地使用，再确认业务系统返回的撤销身份。
 
 该协议是可部署在 MCP 旁边的自定义业务接口，不宣称完整 OAuth/OIDC 自动发现或通用 Token Exchange。OIDC 集成方可在其接口内验证允许的用户 access token 并签发 MCP 凭据，不能接受任意 audience 或将 ID token 当作通用 API token。配置、接入顺序及测试范围见[业务 MCP 模块说明](../backend/src/adapters/driven/mcp/README.md)。
+
+## 原前端 HTTP 接入实现
+
+既有 `AppShell → pages/components` 继续作为 UI；Context 查询服务端记录，api 层做传输与视图映射，不另建替代工作台。HTTP 合同由 `contracts.ts` 生成 OpenAPI/前端类型，权限仍由 Application 兑现；详见 [HTTP 接入](http-integration.md)。生产 Workspace/自动派发与 HTTP 接线分开交付，不把测试替身当成可运行 Agent。

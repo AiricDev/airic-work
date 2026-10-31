@@ -44,6 +44,32 @@ export class QueryUseCases {
      * 从本人可见执行汇总待回答请求；已经提交的 UserDecision 不因后台未继续而重新进入待回答列表。
      */
     async queryPending(userId: string) { const executions = await this.queryExecutions(userId); const all = await Promise.all(executions.map(e => this.store.requests(e.id))); return all.flat().filter(r => r.status === 'pending'); }
+    /** 只组合本人可见项目和执行，不因管理员身份扩大查询范围。 */
+    async queryProject(userId: string, id: string) {
+        const project = (await this.queryProjects(userId)).find(p => p.id === id);
+        requireRule(project, 'not-found');
+        return { ...project, executions: (await this.queryExecutions(userId)).filter(e => e.projectId === id) };
+    }
+    /** 按本人执行、可选执行/项目范围列出请求，保留已回答事实。 */
+    async queryRequests(userId: string, executionId?: string, projectId?: string) {
+        const executions = (executionId ? [await this.policy.owned(userId, executionId)] : await this.queryExecutions(userId)).filter(e => !projectId || e.projectId === projectId);
+        return (await Promise.all(executions.map(e => this.store.requests(e.id)))).flat();
+    }
+    /** 查询输入保存/交付事实，不据此推断 Agent 已继续或完成业务。 */
+    async queryInputs(userId: string, executionId: string) {
+        await this.policy.owned(userId, executionId);
+        return this.store.inputs(executionId);
+    }
+    /** 本人执行当前可用的连接标识；不暴露凭据或宣称已授权。 */
+    async queryConnections(userId: string, executionId: string) {
+        await this.policy.owned(userId, executionId);
+        return (await this.store.settings()).connections;
+    }
+    /** 经所属执行校验后读取追加的回答与更正历史。 */
+    async queryDecisions(userId: string, requestId: string) {
+        await this.queryDecisionRequest(userId, requestId);
+        return this.store.decisions(requestId);
+    }
     /**
      * 沿所属执行和上传者双重校验后返回固定文件描述；返回内容引用不等于已取得真实文件字节。
      */

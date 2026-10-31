@@ -1,26 +1,26 @@
-import React, { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Breadcrumbs,
-  Button,
-  IconButton,
-  Link,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Paper,
-  Stack,
-  Tooltip,
-  Typography } from
-'@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import type { Execution, Project } from '../../types/workbench';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import {
+Box,
+Breadcrumbs,
+Button,
+IconButton,
+Link,
+ListItemIcon,
+ListItemText,
+Menu,
+MenuItem,
+Paper,
+Stack,
+Tooltip,
+Typography
+} from '@mui/material';
+import { useState } from 'react';
+import { Link as RouterLink,useNavigate } from 'react-router-dom';
+import type { Execution,Project } from '../../types/workbench';
 import { formatTime } from '../../utils/time';
 import { StatusTag } from '../StatusTag';
 import { ExecutionIdentity } from './ExecutionIdentity';
@@ -67,7 +67,7 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
           variant="outlined"
           startIcon={<OpenInNewIcon />}
           sx={{ flexShrink: 0 }}>
-          
+
           返回业务系统
         </Button>
         <IconButton aria-label="更多操作" aria-haspopup="menu" onClick={(e) => setAnchor(e.currentTarget)}>
@@ -80,7 +80,7 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
               setAnchor(null);
               onRequestCancel();
             }}>
-            
+
             <ListItemIcon>
               <StopCircleOutlinedIcon fontSize="small" />
             </ListItemIcon>
@@ -107,13 +107,13 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
           <Link
             component={RouterLink}
-            to={`/om?commit=${execution.omCommit}&path=root.md`}
+            to={`/om?commit=${execution.omCommit}&executionId=${execution.id}`}
             variant="caption"
             sx={{ fontFamily: 'monospace' }}>
-            
+
             OM {execution.omRepo} @ {execution.omCommit}
           </Link>
-          <Tooltip title={`实际使用的 OM SHA，启动后不随仓库变更切换。Runtime：${execution.runtimeVersion}；Skill：${execution.skillVersion}（演示标识）`}>
+          <Tooltip title={`实际使用的 OM SHA，启动后不随仓库变更切换。Runtime：${execution.runtimeVersion}；Skill：${execution.skillVersion}`}>
             <InfoOutlinedIcon sx={{ fontSize: 14 }} aria-label="版本详情" />
           </Tooltip>
         </Box>

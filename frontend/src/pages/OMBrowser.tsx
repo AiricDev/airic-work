@@ -1,30 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  InputAdornment,
-  Link,
-  List,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  Stack,
-  TextField,
-  Typography } from
-'@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import HistoryIcon from '@mui/icons-material/History';
-import { usePlatform } from '../contexts/PlatformContext';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+Alert,
+Box,
+Button,
+IconButton,
+InputAdornment,
+Link,
+List,
+ListItemButton,
+ListItemText,
+Paper,
+Stack,
+TextField,
+Typography
+} from '@mui/material';
+import { useEffect,useState } from 'react';
+import { Link as RouterLink,useSearchParams } from 'react-router-dom';
+import { api } from '../api/client';
+import { useApiQuery } from '../api/useApiQuery';
 import { PageHeader } from '../components/PageHeader';
-import { OMSourceSummary } from '../components/om/OMSourceSummary';
 import { FileTree } from '../components/om/FileTree';
-import { MarkdownView } from '../components/om/MarkdownView';
 import { GitRefDialog } from '../components/om/GitRefDialog';
-import { findCommit, isSafePath, isSynced, searchSnapshot, shortSha, snapshotAt } from '../utils/omRepository';
+import { MarkdownView } from '../components/om/MarkdownView';
+import { OMSourceSummary } from '../components/om/OMSourceSummary';
+import { usePlatform } from '../contexts/PlatformContext';
+import { isSafePath,shortSha } from '../utils/omRepository';
 import { formatTime } from '../utils/time';
 
 const DEFAULT_PATH = 'README.md';
@@ -42,43 +44,28 @@ function HighlightLine({ text, q }: {text: string;q: string;}) {
 }
 
 export function OMBrowser() {
-  const { state, isAdmin } = usePlatform();
+  const { state } = usePlatform();
   const [params, setParams] = useSearchParams();
   const [gitOpen, setGitOpen] = useState(false);
   const q = params.get('q') ?? '';
   const [query, setQuery] = useState(q);
   useEffect(() => setQuery(q), [q]);
 
-  if (!state.omSource.repo.trim()) {
-    return (
-      <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
-        <PageHeader title="Operating Model" description="本实例唯一配置的 OM 仓库。" />
-        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6">尚未配置 OM 仓库</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            {isAdmin ? '请前往系统设置配置仓库与来源分支，并完成同步。' : '请联系管理员配置本实例的 OM 仓库。'}
-          </Typography>
-          {isAdmin && <Button component={RouterLink} to="/settings/system/git" variant="contained" sx={{ mt: 2 }}>前往 Git 设置</Button>}
-        </Paper>
-      </Box>);
-
-  }
-
-  const confirmed = state.omSync.latestConfirmedSha;
-  const commitParam = params.get('commit');
-  const requested = commitParam ? findCommit(commitParam) : undefined;
-  const commitUnavailable = Boolean(commitParam) && (!requested || !isSynced(requested.sha, confirmed));
-  const sha = requested && !commitUnavailable ? requested.sha : confirmed;
-  const commit = findCommit(sha)!;
-  const historical = sha !== confirmed;
-  const snapshot = snapshotAt(sha);
-  const paths = Array.from(snapshot.keys());
-  const binaryPaths = new Set(paths.filter((p) => snapshot.get(p)?.binary));
-  const rawPath = params.get('path') ?? DEFAULT_PATH;
-  const unsafe = !isSafePath(rawPath);
-  const file = unsafe ? undefined : snapshot.get(rawPath);
-  const results = q ? searchSnapshot(sha, q) : [];
-
+  const commitParam = params.get('commit') ?? undefined;
+  const executionId = params.get('executionId') ?? undefined;
+  const snapshot = useApiQuery(['om',commitParam,executionId],()=>api('methodTree',{query:{sha:commitParam,executionId}}));
+  const sha = snapshot.data?.method.sha ?? '';
+  const rawPath = params.get('path') ?? snapshot.data?.method.root ?? '';
+  const unsafe = rawPath ? !isSafePath(rawPath) : false;
+  const selected = snapshot.data?.files.find(f=>f.path===rawPath);
+  const content = useApiQuery(['om-file',sha,rawPath,executionId],()=>api('methodFile',{query:{sha,path:rawPath,executionId}}),!!sha&&!!selected?.text&&!unsafe);
+  const found = useApiQuery(['om-search',sha,q,executionId],()=>api('methodSearch',{query:{sha,q,executionId}}),!!sha&&!!q);
+  const paths = snapshot.data?.files.map(f=>f.path) ?? [];
+  const binaryPaths = new Set(snapshot.data?.files.filter(f=>!f.text).map(f=>f.path));
+  const file = selected ? selected.text ? {content:content.data?.content,binary:undefined} : {content:undefined,binary:{mime:'二进制',size:String(selected.size)}} : undefined;
+  const results = found.data?.items.map(r=>({path:r.path,count:1,lines:[{no:1,text:r.excerpt}]})) ?? [];
+  const historical = !!commitParam;
+  const commit = {sha,at:'',message:'指定固定修订'};
   const update = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([k, v]) => v ? next.set(k, v) : next.delete(k));
@@ -90,17 +77,14 @@ export function OMBrowser() {
       <PageHeader title="Operating Model" description="OM 是一组 Git 文件。此处只读浏览目录、正文与历史；编辑、Review 与合并在 Git 平台完成。" />
       <OMSourceSummary />
 
-      {commitUnavailable &&
-      <Alert severity="warning" sx={{ mb: 2 }}>
-          修订 {commitParam} 不存在或尚未同步，以下显示最新确认修订。
-        </Alert>
-      }
+      {snapshot.loading && <Typography>正在读取固定版本…</Typography>}
+      {[snapshot.error,content.error,found.error].filter(Boolean).map((e,i)=><Alert key={i} severity="error" sx={{mb:2}}>{e}。未回退到其他修订。</Alert>)}
       {historical &&
       <Alert
         severity="info"
         sx={{ mb: 2 }}
-        action={<Button color="inherit" onClick={() => update({ commit: null })}>回到最新确认</Button>}>
-        
+        action={<Button color="inherit" onClick={() => update({ commit: null, executionId:null })}>回到最新确认</Button>}>
+
           历史视图：<Box component="span" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{commit.sha}</Box> · {formatTime(commit.at)} · {commit.message.split('\n')[0]}
         </Alert>
       }
@@ -123,7 +107,7 @@ export function OMBrowser() {
                   </InputAdornment> :
                 undefined
               }} />
-            
+
             <Typography variant="caption" color="text.secondary">基于 {shortSha(sha)} 快照的文本匹配，不做语义索引。</Typography>
           </Box>
           <Box sx={{ maxHeight: { md: 'calc(100vh - 260px)' }, overflow: 'auto', py: 0.5 }}>
@@ -142,7 +126,7 @@ export function OMBrowser() {
                           </Box>
                   )}
                   secondaryTypographyProps={{ component: 'div' }} />
-                
+
                     </ListItemButton>
               )}
                 </List> :
@@ -174,7 +158,7 @@ export function OMBrowser() {
                 <Box><Button variant="outlined" onClick={() => setGitOpen(true)}>在 Git 平台查看</Button></Box>
               </Stack> :
             rawPath.endsWith('.md') ?
-            <MarkdownView content={file.content ?? ''} path={rawPath} sha={sha} highlight={q} /> :
+            <MarkdownView executionId={executionId} content={file.content ?? ''} path={rawPath} sha={sha} highlight={q} /> :
 
             <Box component="pre" sx={{ m: 0, fontSize: 13, whiteSpace: 'pre-wrap' }}>{file.content}</Box>
             }

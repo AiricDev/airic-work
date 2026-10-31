@@ -1,8 +1,8 @@
-import React from 'react';
-import { Box, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import { Box,List,ListItemButton,ListItemIcon,ListItemText } from '@mui/material';
+import React from 'react';
 
 interface TreeNode {
   name: string;
@@ -51,7 +51,7 @@ export function FileTree({ paths, selected, binaryPaths, onSelect }: FileTreePro
     aria-current={n.path === selected ? 'page' : undefined}
     onClick={() => onSelect(n.path)}
     sx={{ pl: 1 + depth * 2, py: 0.25 }}>
-    
+
           <ListItemIcon sx={{ minWidth: 28 }}>
             {binaryPaths.has(n.path) ? <ImageOutlinedIcon sx={{ fontSize: 18 }} /> : <DescriptionOutlinedIcon sx={{ fontSize: 18 }} />}
           </ListItemIcon>

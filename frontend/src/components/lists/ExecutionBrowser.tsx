@@ -1,34 +1,34 @@
-import React, { useMemo } from 'react';
-import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Chip,
-  FormControl,
-  InputAdornment,
-  InputLabel,
-  Link,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Typography } from
-'@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import type { Execution } from '../../types/workbench';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+Box,
+Button,
+Chip,
+FormControl,
+InputAdornment,
+InputLabel,
+Link,
+MenuItem,
+Paper,
+Select,
+Stack,
+Table,
+TableBody,
+TableCell,
+TableContainer,
+TableHead,
+TablePagination,
+TableRow,
+TextField,
+Typography
+} from '@mui/material';
+import { useMemo } from 'react';
+import { Link as RouterLink,useLocation,useNavigate,useSearchParams } from 'react-router-dom';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
-import { currentWorkText, firstActionableRequest, pendingFor, projectById } from '../../utils/selectors';
-import { formatTime, fromNow } from '../../utils/time';
+import type { Execution } from '../../types/workbench';
+import { currentWorkText,firstActionableRequest,pendingFor,projectById } from '../../utils/selectors';
+import { formatTime,fromNow } from '../../utils/time';
 import { StatusTag } from '../StatusTag';
 
 interface ExecutionBrowserProps {
@@ -42,7 +42,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, currentUser } = useWorkbench();
+  const { state, projects, currentUser } = useWorkbench();
 
   const q = params.get('q') ?? '';
   const source = params.get('source') ?? '';
@@ -102,7 +102,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
               </InputAdornment>
 
           }} />
-        
+
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel id="source-filter">来源</InputLabel>
           <Select labelId="source-filter" label="来源" value={source} onChange={(e) => setParam('source', e.target.value)}>
@@ -121,7 +121,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
           variant={mine ? 'filled' : 'outlined'}
           onClick={() => setParam('mine', mine ? '' : '1')}
           aria-pressed={mine} />
-        
+
         {hasFilter && <Button onClick={clear}>清除筛选</Button>}
       </Stack>
 
@@ -166,7 +166,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
                       if (ev.key === 'Enter') open(e.id);
                     }}
                     sx={{ cursor: 'pointer' }}>
-                    
+
                       <TableCell>
                         <Typography variant="body2" fontWeight={600}>
                           {e.goal}
@@ -181,7 +181,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
                           onClick={(ev) => ev.stopPropagation()}
                           variant="caption"
                           sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                          
+
                             {e.source.system} · {e.source.ref}
                             <OpenInNewIcon sx={{ fontSize: 12 }} />
                           </Link>
@@ -189,7 +189,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
                       </TableCell>
                       {showProject &&
                     <TableCell>
-                          <Typography variant="body2">{projectById(e.projectId)?.name}</Typography>
+                          <Typography variant="body2">{projectById(e.projectId, projects)?.name}</Typography>
                         </TableCell>
                     }
                       <TableCell>
@@ -237,7 +237,7 @@ export function ExecutionBrowser({ executions, showProject = false }: ExecutionB
           rowsPerPageOptions={[ROWS_PER_PAGE]}
           onPageChange={(_, p) => setParam('page', p ? String(p) : '')}
           labelDisplayedRows={({ from: f, to, count }) => `${f}–${to} / 共 ${count} 条`} />
-        
+
         </>
       }
     </Paper>);

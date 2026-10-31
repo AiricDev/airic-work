@@ -1,33 +1,33 @@
-import React, { useMemo } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box,
-  Chip,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography } from
-'@mui/material';
-import type { DecisionRequest } from '../../types/workbench';
+Box,
+Chip,
+FormControl,
+FormControlLabel,
+InputLabel,
+MenuItem,
+Paper,
+Select,
+Stack,
+Switch,
+Table,
+TableBody,
+TableCell,
+TableContainer,
+TableHead,
+TablePagination,
+TableRow,
+ToggleButton,
+ToggleButtonGroup,
+Typography
+} from '@mui/material';
+import { useMemo } from 'react';
+import { useLocation,useNavigate,useSearchParams } from 'react-router-dom';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
-import { projectById } from '../../utils/selectors';
-import { requestKindLabels } from '../../utils/labels';
-import { duration, formatTime } from '../../utils/time';
+import type { DecisionRequest } from '../../types/workbench';
 import { userName } from '../../utils/decisionService';
+import { requestKindLabels } from '../../utils/labels';
+import { projectById } from '../../utils/selectors';
+import { duration,formatTime } from '../../utils/time';
 
 interface DecisionBrowserProps {
   requests: DecisionRequest[];
@@ -40,7 +40,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, currentUser } = useWorkbench();
+  const { state, projects, currentUser } = useWorkbench();
 
   const scopeAll = params.get('scope') === 'all';
   const status = params.get('status') === 'answered' ? 'answered' : 'pending';
@@ -79,7 +79,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
           aria-label="处理状态">
 
           <ToggleButton value="pending">待处理</ToggleButton>
-          <ToggleButton value="resolved">已处理</ToggleButton>
+          <ToggleButton value="answered">已处理</ToggleButton>
         </ToggleButtonGroup>
         <FormControlLabel
           control={<Switch checked={!scopeAll} onChange={(e) => setParam('scope', e.target.checked ? '' : 'all')} />}
@@ -156,7 +156,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
                         <Typography variant="body2">{exec?.goal}</Typography>
                         {showProject && exec &&
                       <Typography variant="caption" color="text.secondary">
-                            {projectById(exec.projectId)?.name}
+                            {projectById(exec.projectId, projects)?.name}
                           </Typography>
                       }
                       </TableCell>

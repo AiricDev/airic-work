@@ -1,17 +1,17 @@
-import React from 'react';
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Alert,
-  AlertTitle,
-  Box,
-  Button,
-  LinearProgress,
-  Stack,
-  Typography } from
-'@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+Accordion,
+AccordionDetails,
+AccordionSummary,
+Alert,
+AlertTitle,
+Box,
+Button,
+LinearProgress,
+Stack,
+Typography
+} from '@mui/material';
+import React from 'react';
 import type { DecisionRequest } from '../../types/workbench';
 import { actionLabels } from '../../utils/labels';
 import { formatTime } from '../../utils/time';
@@ -31,7 +31,7 @@ export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDi
   const f = request.followUp;
   const rows: {label: string;value: string;}[] = [
   { label: '处理方式', value: actionLabels[r.action] },
-  { label: '内容', value: r.content }];
+  { label: '内容', value: [r.choiceLabel,r.content].filter(Boolean).join(' · ') }];
 
   if (r.reason) rows.push({ label: r.action === 'judgment' ? '理由' : '备注', value: r.reason });
   if (r.source) rows.push({ label: '来源', value: r.source });
@@ -46,14 +46,14 @@ export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDi
     <Stack spacing={2}>
       {conflictDraft &&
       <Alert severity="warning" action={<Button color="inherit" onClick={onDiscardDraft}>放弃我的草稿</Button>}>
-          <AlertTitle>此请求已由他人处理</AlertTitle>
+          <AlertTitle>此请求已有保存记录</AlertTitle>
           {r.actorName} 已通过{r.channel}处理。你的草稿未提交，也不会覆盖下方的正式记录。
         </Alert>
       }
       {justSubmitted && !conflictDraft && <Alert severity="success">已回答。UserDecision 已保存，消息交付及 Agent 继续情况分别显示。</Alert>}
 
       <Box>
-        {r.files?.map((f, i) => <Typography key={i}><a href={f.content} download={f.name}>{f.name}</a> · 已交付 Workspace（模拟）</Typography>)}
+        {r.files?.map((f, i) => <Typography key={i}><a href={f.content} download={f.name}>{f.name}</a> · 已上传；不代表 Agent 已读取</Typography>)}
         <Typography variant="overline" color="text.secondary" component="h3">
           UserDecision
         </Typography>
@@ -111,7 +111,7 @@ export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDi
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <DecisionBrief request={request} onOpenEvidence={onOpenEvidence} />
+          <DecisionBrief request={(() => {const c=request.contextHistory?.find(c=>c.revision===r.basisVersion);return c?{...request,version:c.revision,brief:{...request.brief,rawContext:c.content,sourceReferences:c.sources}}:request;})()} onOpenEvidence={onOpenEvidence} />
         </AccordionDetails>
       </Accordion>
     </Stack>);

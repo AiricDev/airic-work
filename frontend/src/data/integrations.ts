@@ -1,12 +1,12 @@
 import type {
-  ApiCaller,
-  BusinessConnection,
-  DataPolicy,
-  RuntimeCapability,
-  SkillVersion,
-  SyncRecord,
-  TrajectoryMcpPolicy } from
-'../types/platform';
+ApiCaller,
+BusinessConnection,
+DataPolicy,
+RuntimeCapability,
+SkillVersion,
+SyncRecord,
+TrajectoryMcpPolicy
+} from '../types/platform';
 import { minutesAgo } from '../utils/time';
 
 export const seedSyncRecords: SyncRecord[] = [

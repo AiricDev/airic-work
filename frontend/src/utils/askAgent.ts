@@ -1,4 +1,4 @@
-import type { ChatMessage, DecisionRequest, Execution } from '../types/workbench';
+import type { ChatMessage,DecisionRequest,Execution } from '../types/workbench';
 import { formatTime } from './time';
 
 type AgentReply = Pick<ChatMessage, 'text' | 'kind' | 'requestId'>;

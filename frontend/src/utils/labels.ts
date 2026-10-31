@@ -1,4 +1,4 @@
-import type { ActionType, RequestKind } from '../types/workbench';
+import type { ActionType,RequestKind } from '../types/workbench';
 
 export const actionLabels: Record<ActionType, string> = {
   fact: '补充事实',

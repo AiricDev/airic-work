@@ -1,4 +1,4 @@
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { format,formatDistanceToNowStrict } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
 export function minutesAgo(n: number): string {
@@ -10,13 +10,16 @@ export function nowIso(): string {
 }
 
 export function formatTime(iso: string): string {
+  if (!iso || !Number.isFinite(Date.parse(iso))) return '未提供';
   return format(new Date(iso), 'MM-dd HH:mm');
 }
 
 export function fromNow(iso: string): string {
+  if (!iso || !Number.isFinite(Date.parse(iso))) return '未提供';
   return formatDistanceToNowStrict(new Date(iso), { locale: zhCN, addSuffix: true });
 }
 
 export function duration(iso: string): string {
+  if (!iso || !Number.isFinite(Date.parse(iso))) return '未提供';
   return formatDistanceToNowStrict(new Date(iso), { locale: zhCN });
 }

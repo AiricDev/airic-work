@@ -1,6 +1,6 @@
 # Airic Work 后端
 
-已交付 Domain/Application、入口校验与 DI、SQLite、Files Blob、Methods Git/快照/搜索、HTTPS Identity、本机管理员命令，以及 Pi Worker 和业务 MCP 对接。尚无 HTTP 服务和生产 Workspace 实现。
+已交付 Domain/Application、入口校验与 DI、SQLite、Files Blob、Methods Git/快照/搜索、HTTPS Identity、本机管理员命令，以及 Pi Worker 和业务 MCP 对接。已提供 HTTP adapter 与原前端对接；生产 Workspace 和自动派发宿主尚未交付。详见 `../docs/http-integration.md`。
 
 部署配置统一放在仓库根 `.env`，变量清单见 `.env.example`。填写真实的 Identity/MCP 地址、OM 来源和模型 API key；MCP 加密密钥需要固定保存。系统环境变量优先，相对路径以 dotenv 文件目录为基准。`loadConfiguration()` 和 `createConfiguredBackend(config, workspace)` 都位于 `src/bootstrap/bindings.ts`；完整装配与关闭示例见该目录 README。下面的工厂示例用于了解各 adapter 的独立配置合同。
 
@@ -28,7 +28,7 @@ npm run check
 10. `src/adapters/driven/methods/`、`src/bootstrap/bindings.ts`：Git 方法、固定快照与独立 FTS5 索引；见 `docs/behavior/methods-adapter.md`、`docs/methods-adapter-report.md`。
 11. `src/adapters/driven/identity/`、`src/bootstrap/bindings.ts`、`scripts/grant-admin.ts`：HTTPS 身份验证与独立管理员运维入口；见 `docs/behavior/identity-adapter.md`、`docs/identity-adapter-report.md`。
 
-`tests/support` 是测试替身或集成 fixture，不可接到生产运行。`adapters/driving/validation` 使用 Zod，`bootstrap/container.ts` 使用 Awilix；生产 HTTP 和 Workspace 仍待实现。
+`tests/support` 是测试替身或集成 fixture，不可接到生产运行。`adapters/driving/validation` 使用 Zod，`bootstrap/container.ts` 使用 Awilix；HTTP 已在 `adapters/driving/http/` 接入；生产 Workspace 仍待实现。
 
 ## HTTPS Identity 与管理员命令
 

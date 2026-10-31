@@ -1,13 +1,11 @@
-import React from 'react';
-import { Link as RouterLink, Navigate, useParams } from 'react-router-dom';
-import { Box, List, ListItemButton, ListItemText, Paper } from '@mui/material';
+import { Box,List,ListItemButton,ListItemText,Paper } from '@mui/material';
+import { Navigate,Link as RouterLink,useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
+import { BusinessSection } from '../components/settings/BusinessSection';
 import { GeneralSection } from '../components/settings/GeneralSection';
 import { GitSection } from '../components/settings/GitSection';
-import { BusinessSection } from '../components/settings/BusinessSection';
 import { RuntimeSection } from '../components/settings/RuntimeSection';
 import { TrajectoryMcpSection } from '../components/settings/TrajectoryMcpSection';
-import { AuditSection } from '../components/settings/AuditSection';
 
 const sections = [
 { id: 'general', label: '基本信息' },

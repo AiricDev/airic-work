@@ -1,6 +1,6 @@
+import type { ContextDependency,Delegation } from '../types/platform';
 import type { DecisionRequest } from '../types/workbench';
-import type { ContextDependency, Delegation } from '../types/platform';
-import { contextDependencies } from '../data/contextDependencies';
+const contextDependencies: import('../types/platform').ContextDependency[] = [];
 
 /** Effective dependency list for a request, reflecting context updates and current delegation validity. */
 export function dependenciesFor(request: DecisionRequest, delegations: Delegation[]): ContextDependency[] {

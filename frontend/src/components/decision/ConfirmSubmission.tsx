@@ -1,7 +1,7 @@
+import { Alert,AlertTitle,Box,Button,CircularProgress,Stack,Typography } from '@mui/material';
 import React from 'react';
-import { Alert, AlertTitle, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
-import type { DecisionRequest, Draft, SubmitOutcome } from '../../types/workbench';
-import { actionLabels, submitLabels } from '../../utils/labels';
+import type { DecisionRequest,Draft,SubmitOutcome } from '../../types/workbench';
+import { actionLabels,submitLabels } from '../../utils/labels';
 
 interface ConfirmSubmissionProps {
   request: DecisionRequest;
@@ -46,6 +46,7 @@ export function ConfirmSubmission({
     if (value.note.trim()) rows.push({ label: '备注', value: value.note });
   }
   if (action === 'investigation') rows.push({ label: '调查问题', value: value.investigation });
+  if(value.files?.length)rows.push({label:'附件',value:value.files.map(f=>f.name).join('；')});
   rows.push({ label: '影响范围', value: request.brief.affected.join('；') }, { label: '依据版本', value: `v${value.baseVersion}` });
 
   return (
@@ -68,7 +69,7 @@ export function ConfirmSubmission({
 
       <Alert severity="info">此决定不自动更新 OM。是否沉淀为可复用知识，需通过 OME 与 Git 评审另行处理。</Alert>
       {action === 'authorization' && <Alert severity="warning">此授权仅在列明范围内有效，不替代业务系统的正式审批。</Alert>}
-      {action === 'investigation' && <Alert severity="info">提交后记录为调查请求；原问题是否仍待处理由后续反馈决定。</Alert>}
+      {action === 'investigation' && <Alert severity="info">提交后即已回答。Agent 是否继续调查以后续 Session 为准。</Alert>}
 
       {draftStale &&
       <Alert severity="warning" action={<Button color="inherit" onClick={onReviewLatest}>查看最新内容</Button>}>
@@ -98,9 +99,9 @@ export function ConfirmSubmission({
         </Alert>
       }
       {unknown &&
-      <Alert severity="warning" action={<Button color="inherit" onClick={onCheckAcceptance}>查询接受情况</Button>}>
+      <Alert severity="warning" action={<Button color="inherit" onClick={onCheckAcceptance}>确认原提交（同键重试）</Button>}>
           <AlertTitle>正在核实是否已接受</AlertTitle>
-          提交结果未知：这既不代表成功，也不代表失败。请先查询接受情况，不要重复提交。
+          提交结果未知：这既不代表成功，也不代表失败。请先确认原提交（同键重试），不要重复提交。
           {lookupMessage &&
         <Typography variant="body2" sx={{ mt: 0.5 }}>
               {lookupMessage}
@@ -110,7 +111,7 @@ export function ConfirmSubmission({
       }
 
       <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button onClick={onBack} disabled={submitting}>
+        <Button onClick={onBack} disabled={submitting || unknown || !!value.pending}>
           返回修改
         </Button>
         {!unknown &&
@@ -119,7 +120,7 @@ export function ConfirmSubmission({
           onClick={onSubmit}
           disabled={submitting || draftStale}
           startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : undefined}>
-          
+
             {submitting ? '提交中…' : submitLabels[action]}
           </Button>
         }

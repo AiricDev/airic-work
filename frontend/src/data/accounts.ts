@@ -1,4 +1,4 @@
-import type { BusinessIdentity, Delegation, ExecutionOrigin } from '../types/platform';
+import type { BusinessIdentity,Delegation,ExecutionOrigin } from '../types/platform';
 import { minutesAgo } from '../utils/time';
 
 const daysAhead = (n: number) => new Date(Date.now() + n * 86400000).toISOString();

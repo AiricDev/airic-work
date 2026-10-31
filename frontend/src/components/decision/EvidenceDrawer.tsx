@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import { Alert, AlertTitle, Box, Button, Chip, Divider, Drawer, IconButton, Skeleton, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { evidence } from '../../data/evidence';
+import { Alert,AlertTitle,Box,Button,Chip,Divider,Drawer,IconButton,Skeleton,Stack,Typography } from '@mui/material';
+import { useEffect,useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
+const evidence: import('../../types/workbench').Evidence[] = [];
 
 interface EvidenceDrawerProps {
   evidenceId: string | null;
@@ -67,7 +67,7 @@ export function EvidenceDrawer({ evidenceId, onClose }: EvidenceDrawerProps) {
                     重试
                   </Button>
             }>
-            
+
                 <AlertTitle>来源存在，但当前无法核验</AlertTitle>
                 业务系统未返回原文（模拟）。不以 Agent 摘要替代已查证原文；可重试或在业务系统中查看。
               </Alert>
@@ -81,7 +81,7 @@ export function EvidenceDrawer({ evidenceId, onClose }: EvidenceDrawerProps) {
                   <Box
                 component="blockquote"
                 sx={{ m: 0, mt: 0.5, p: 1.5, borderLeft: 3, borderColor: 'primary.main', bgcolor: 'action.hover', borderRadius: 0.5 }}>
-                
+
                     <Typography variant="body2">{doc.excerpt}</Typography>
                   </Box>
                 </Box>

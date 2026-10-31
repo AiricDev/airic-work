@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
-import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Breadcrumbs, Button, Chip, Link, Paper, Stack, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Accordion,AccordionDetails,AccordionSummary,Alert,Box,Breadcrumbs,Button,Chip,Link,Paper,Stack,Typography } from '@mui/material';
+import React,{ useState } from 'react';
+import { Link as RouterLink,useParams } from 'react-router-dom';
+import { api } from '../api/client';
+import { useApiQuery } from '../api/useApiQuery';
+import { PageHeader } from '../components/PageHeader';
+import { GitRefDialog } from '../components/om/GitRefDialog';
+import { OMSourceSummary } from '../components/om/OMSourceSummary';
 import { usePlatform } from '../contexts/PlatformContext';
 import { useWorkbench } from '../contexts/WorkbenchContext';
-import { PageHeader } from '../components/PageHeader';
-import { OMSourceSummary } from '../components/om/OMSourceSummary';
-import { DiffView } from '../components/om/DiffView';
-import { GitRefDialog } from '../components/om/GitRefDialog';
-import { findCommit, isSynced, omFileLink, parentContent, shortSha } from '../utils/omRepository';
+import { omFileLink,shortSha } from '../utils/omRepository';
 import { formatTime } from '../utils/time';
 
 const statusLabel = { added: '新增', modified: '修改', deleted: '删除' } as const;
@@ -19,15 +20,16 @@ export function OMCommitDetail() {
   const { state } = usePlatform();
   const wb = useWorkbench();
   const [gitPath, setGitPath] = useState<string | null>(null);
-  const commit = findCommit(ref);
+  const detail = useApiQuery(['om-commit',ref],()=>api('methodCommit',{params:{sha:ref!}}),!!ref);
+  const commit = detail.data ? {...detail.data,message:detail.data.subject,author:'未提供',changes:detail.data.files.map(path=>({path,status:'modified' as import('../types/platform').FileChangeStatus,content:'',binary:undefined as import('../types/platform').CommitChange['binary']}))} : undefined;
 
-  if (!commit || !isSynced(commit.sha, state.omSync.latestConfirmedSha)) {
+  if (!commit) {
     return (
       <Box sx={{ maxWidth: 1280, mx: 'auto' }}>
         <PageHeader title="Operating Model" />
         <OMSourceSummary />
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6">提交不存在或尚未同步</Typography>
+          <Typography variant="h6">{detail.loading?'正在读取提交…':detail.error??'提交不存在或尚未同步'}</Typography>
           <Button component={RouterLink} to="/om/history" variant="outlined" sx={{ mt: 2 }}>返回提交历史</Button>
         </Paper>
       </Box>);
@@ -71,7 +73,7 @@ export function OMCommitDetail() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-          <Button component={RouterLink} to={`/om?commit=${shortSha(commit.sha)}`} variant="outlined">以此修订浏览文件</Button>
+          <Button component={RouterLink} to={`/om?commit=${commit.sha}`} variant="outlined">以此修订浏览文件</Button>
         </Stack>
       </Paper>
 
@@ -93,7 +95,7 @@ export function OMCommitDetail() {
                 </Stack> :
 
             <Stack spacing={1}>
-                  <DiffView before={parentContent(commit, ch.path) ?? ''} after={ch.status === 'deleted' ? '' : ch.content ?? ''} />
+                  <Box component="pre" sx={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{detail.data?.diff.split(/(?=^diff --git )/m).filter(part=>part.startsWith(`diff --git a/${ch.path} b/${ch.path}\n`)).join('\n') || '本提交未提供该文件的文本差异（可能为二进制或合并提交）。'}</Box>
                   {ch.status !== 'deleted' &&
               <Box><Link component={RouterLink} to={omFileLink(commit.sha, ch.path)} variant="body2">查看此修订中的完整文件</Link></Box>
               }

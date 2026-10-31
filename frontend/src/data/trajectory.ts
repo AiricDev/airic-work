@@ -1,4 +1,4 @@
-import type { TrajectoryCoverage, TrajectoryEvent } from '../types/platform';
+import type { TrajectoryCoverage,TrajectoryEvent } from '../types/platform';
 import { minutesAgo } from '../utils/time';
 
 export const trajectoryEvents: TrajectoryEvent[] = [

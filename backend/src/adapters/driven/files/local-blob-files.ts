@@ -36,6 +36,22 @@ async function childDirectory(parent: string, name: string): Promise<string> {
 /** 本地内容寻址 Files 实现；没有数据库、用户权限、文件名、下载或 Workspace 职责。 */
 export class LocalBlobFiles implements Files {
     private constructor(private readonly directory: string) { }
+    async read(file: { hash: string; size: number; contentRef: string }): Promise<Uint8Array> {
+        requireRule(/^[a-f0-9]{64}$/.test(file.hash) && file.contentRef === `sha256:${file.hash}` && Number.isSafeInteger(file.size) && file.size >= 0, 'invalid');
+        let handle: FileHandle | undefined;
+        try {
+            await checkDirectory(this.directory);
+            const algorithm = join(this.directory, 'sha256'), shard = join(algorithm, file.hash.slice(0, 2));
+            await checkDirectory(algorithm); await checkDirectory(shard);
+            handle = await open(join(shard, file.hash), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+            const info = await handle.stat();
+            requireRule(info.isFile() && info.size === file.size, 'blocked');
+            const bytes = await handle.readFile();
+            requireRule(bytes.length === file.size && createHash('sha256').update(bytes).digest('hex') === file.hash, 'blocked');
+            return bytes;
+        } catch { throw unavailable(); }
+        finally { await handle?.close(); }
+    }
 
     /** 根目录来自可信宿主配置；已有目录不 chmod，也不接受可由其他本地用户写入的根目录。 */
     static async open(directory: string): Promise<LocalBlobFiles> {

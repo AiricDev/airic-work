@@ -1,14 +1,13 @@
-import React from 'react';
+import { Box,Chip,Paper,Table,TableBody,TableCell,TableContainer,TableHead,TableRow,Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import { useWorkbench } from '../contexts/WorkbenchContext';
-import { getVisibleExecutions, getVisibleProjects, getVisibleRequests, projectLastActivity } from '../utils/selectors';
-import { formatTime, fromNow } from '../utils/time';
+import { getVisibleExecutions,getVisibleProjects,getVisibleRequests,projectLastActivity } from '../utils/selectors';
+import { formatTime,fromNow } from '../utils/time';
 
 export function ProjectList() {
   const navigate = useNavigate();
-  const { state, currentUser } = useWorkbench();
-  const projects = getVisibleProjects(currentUser).filter(p => state.executions.some(e => e.projectId === p.id && e.ownerId === currentUser.id));
+  const { state, projects:allProjects, currentUser } = useWorkbench();
+  const projects = getVisibleProjects(currentUser, allProjects).filter(p => state.executions.some(e => e.projectId === p.id && e.ownerId === currentUser.id));
   const executions = getVisibleExecutions(state.executions, currentUser);
   const requests = getVisibleRequests(state.requests, state.executions, currentUser);
 

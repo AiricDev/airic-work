@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { Alert,Box,Button,Chip,CircularProgress,Dialog,DialogActions,DialogContent,DialogTitle,Link,Stack,Typography } from '@mui/material';
+import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Link, Stack, Typography } from '@mui/material';
-import type { ActionResult, Delegation } from '../../types/platform';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { useWorkbench } from '../../contexts/WorkbenchContext';
+import type { ActionResult,Delegation } from '../../types/platform';
 import { formatTime } from '../../utils/time';
 
 const mask = (id: string) => id.length > 4 ? `${id.slice(0, 3)}***${id.slice(-2)}` : '***';
@@ -57,7 +57,7 @@ export function BusinessAccounts() {
                   setResult(await reauthorize(dg.id));
                   setBusy(null);
                 }}>
-                
+
                   重新授权
                 </Button>
               }

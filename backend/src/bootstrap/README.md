@@ -16,7 +16,7 @@ try {
 }
 ```
 
-目录、Identity 接口与字段、OM 来源、模型凭据、Worker Skill、MCP 连接和限制值由这个入口校验并装配。Workspace 仍由宿主提供实现。`server` 地址供未来 HTTP 宿主使用；装配本身不监听端口、不启动调度循环。低层工厂继续支持测试和专用宿主显式注入。
+目录、Identity 接口与字段、OM 来源、模型凭据、Worker Skill、MCP 连接和限制值由这个入口校验并装配。Workspace 仍由宿主提供实现。`server` 地址由 `http.ts` 的 `listenConfiguredHttp` 使用；装配本身不监听端口、不启动调度循环。低层工厂继续支持测试和专用宿主显式注入。
 
 `.env` 已被 Git 忽略。`AIRIC_MCP_ENCRYPTION_KEY` 是 32 字节随机密钥的 64 位十六进制表示，需要备份并在重启时保持稳定；模型 API key 仅注入宿主模型凭据存储。配置校验错误只报告变量名。`AIRIC_OM_SOURCE/BRANCH/ROOT` 和 MCP 连接 ID 只作为空库 Settings 的初值，重开不覆盖管理员已保存的设置；连接地址、来源允许列表等宿主配置仍从 dotenv 读取。
 
@@ -37,3 +37,5 @@ try {
 初始化、显式运行和资源关闭由宿主负责：先创建所需 adapter，再传入 createBackend；退出时先 dispose Backend，再关闭 Worker/持久化资源。导入 bindings 本身不打开数据库、启动 Worker 或发起网络请求；Pi 的 Node SQLite 也延迟到首次实际打开 Session 时加载。
 
 管理员运维工厂虽然集中在 bindings 中，依然不属于普通 AdapterBindings 或公开 HTTP/MCP 能力。Domain/Application 不导入本目录。
+
+HTTP 配置复用 dotenv；`http.ts` 只负责监听/关闭，不维护另一份 adapter 配置，不自动派发 Agent。实际启动与隔离联调见 `docs/http-integration.md`。

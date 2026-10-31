@@ -1,5 +1,4 @@
-import React from 'react';
-import { Alert, AlertTitle } from '@mui/material';
+import { Alert,AlertTitle } from '@mui/material';
 import type { TestResult } from '../../types/platform';
 import { formatTime } from '../../utils/time';
 

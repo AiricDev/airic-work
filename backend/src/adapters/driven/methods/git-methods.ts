@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdtemp, readdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -45,7 +45,7 @@ export class GitMethods implements Methods {
         requireRule(options.limits.commandTimeoutMs <= 2147483647, 'invalid');
         try {
             const root = await storageRoot(options.directory);
-            for (const name of ['mirrors', 'snapshots', 'indexes', 'template']) await childDirectory(root, name);
+            for (const name of ['mirrors', 'snapshots', 'indexes', 'template', 'views']) await childDirectory(root, name);
             requireRule((await readdir(join(root, 'template'))).length === 0, 'blocked', 'Git template must be empty');
             return new GitMethods(root, structuredClone(options));
         } catch (error) {
@@ -160,6 +160,63 @@ export class GitMethods implements Methods {
     async sync(settings: Settings): Promise<Method> {
         return this.protect(() => this.serial(settings.omSource, () => this.prepare(settings, true)));
     }
+    private viewPath(settings: Settings) { return join(this.root, 'views', hash(JSON.stringify([settings.omSource, settings.branch, settings.root])) + '.json'); }
+    private async remember(settings: Settings, method: Method) {
+        const path = this.viewPath(settings), temporary = path + '.' + randomUUID();
+        try {
+            await directoryCheck(join(this.root, 'views'));
+            await writeFixed(temporary, Buffer.from(JSON.stringify(method)));
+            await rename(temporary, path);
+            await syncDirectory(join(this.root, 'views'));
+        } finally { await rm(temporary, { force: true }); }
+    }
+    async browse(settings: Settings, sha?: string): Promise<Method> {
+        return this.protect(async () => {
+            this.repositories.source(settings.omSource);
+            let method: Method;
+            if (sha) {
+                requireRule(shaValid(sha), 'invalid');
+                method = { source: settings.omSource, sha, root: settings.root, runtimeVersion: this.options.runtimeVersion, skillVersion: this.options.skillVersion };
+                try { await this.read(method, method.root); return method; }
+                catch (error) { if (!(error instanceof RuleError && error.code === 'not-found')) throw error; }
+                // Export an available historical commit without fetching or changing refs.
+                const repository = await this.repositories.open(settings.omSource, false);
+                const resolved = (await this.repositories.run([`--git-dir=${repository.gitDir}`, 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`], undefined, [0, 1])).toString().trim();
+                requireRule(resolved === sha, 'not-found');
+                method = await this.serial(settings.omSource, () => this.pinned(settings, repository.gitDir, sha));
+            } else {
+                try {
+                    const value = JSON.parse((await readRegular(this.viewPath(settings), 65536)).toString('utf8'));
+                    requireRule(value.source === settings.omSource && value.root === settings.root && shaValid(value.sha), 'blocked');
+                    method = value;
+                } catch (error) {
+                    if (!codeIs(error, 'ENOENT')) throw error;
+                    // Local-only preparation reads committed files, not the worktree, and never fetches.
+                    requireRule(this.repositories.source(settings.omSource).kind === 'local', 'not-found', 'no confirmed method snapshot');
+                    method = await this.serial(settings.omSource, () => this.prepare(settings, false));
+                }
+            }
+            await this.read(method, method.root);
+            return method;
+        });
+    }
+    async tree(method: Method) {
+        return this.protect(async () => {
+            await this.read(method, method.root);
+            return (await this.snapshot(method)).manifest.files.map(({ path, size, text }) => ({ path, size, text }));
+        });
+    }
+    async commit(method: Method): Promise<Json> {
+        return this.protect(async () => {
+            await this.read(method, method.root);
+            const repository = await this.repositories.open(method.source, false);
+            const raw = (await this.git([`--git-dir=${repository.gitDir}`, 'show', '-s', '--format=%H%x00%P%x00%cI%x00%s', method.sha, '--'])).toString('utf8').split('\0');
+            const changed = (await this.git([`--git-dir=${repository.gitDir}`, 'diff-tree', '--root', '--no-commit-id', '--name-only', '-r', '-z', method.sha, '--'])).toString('utf8').split('\0').filter(Boolean);
+            const files = changed.filter(path => { try { methodPath(path); return true; } catch { return false; } });
+            const diff = files.length ? (await this.git([`--git-dir=${repository.gitDir}`, 'show', '--format=', '--no-ext-diff', '--no-textconv', '--no-renames', method.sha, '--', ...files])).toString('utf8') : '';
+            return { sha: raw[0], parents: raw[1].split(' ').filter(Boolean), at: raw[2], subject: raw[3].trim(), files, diff };
+        });
+    }
     private async pinned(settings: Settings, gitDir: string, sha: string): Promise<Method> {
         await this.exportSnapshot(settings.omSource, sha, gitDir);
         const method = { source: settings.omSource, sha, root: settings.root, runtimeVersion: this.options.runtimeVersion, skillVersion: this.options.skillVersion };
@@ -175,6 +232,7 @@ export class GitMethods implements Methods {
         const sha = await this.repositories.revision(repository, settings.branch);
         const method = await this.pinned(settings, repository.gitDir, sha);
         await this.repositories.confirm(repository, settings.branch, sha);
+        await this.remember(settings, method);
         return method;
     }
     async read(method: Method, path: string): Promise<string> {
@@ -214,12 +272,14 @@ export class GitMethods implements Methods {
             });
         });
     }
-    async history(source: string): Promise<Json> {
+    async cachedHistory(source: string): Promise<Json> { return this.readHistory(source, false); }
+    async history(source: string): Promise<Json> { return this.readHistory(source, true); }
+    private async readHistory(source: string, refresh: boolean): Promise<Json> {
         return this.protect(async () => {
             this.repositories.source(source);
             return this.serial(source, async () => {
-                const repository = await this.repositories.open(source);
-                if (repository.kind === 'managed') await this.repositories.fetch(repository);
+                const repository = await this.repositories.open(source, refresh);
+                if (repository.kind === 'managed' && refresh) await this.repositories.fetch(repository);
                 const mirror = repository.gitDir;
                 const limit = this.options.limits.historyEntries;
                 const raw = (await this.git([`--git-dir=${mirror}`, 'log', '--branches', '--topo-order', `--max-count=${limit + 1}`, '--format=%H%x00%P%x00%cI%x00%s%x00', '--'])).toString('utf8').split('\0');

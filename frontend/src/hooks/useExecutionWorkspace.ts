@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useBlocker, useLocation, useSearchParams, type BlockerFunction } from 'react-router-dom';
+import { useCallback,useEffect,useState } from 'react';
+import { useBlocker,useLocation,useSearchParams,type BlockerFunction } from 'react-router-dom';
 import { useWorkbench } from '../contexts/WorkbenchContext';
 import { draftHasContent } from '../utils/decisionService';
 import { projectById } from '../utils/selectors';
 
 export function useExecutionWorkspace(executionId: string | undefined) {
-  const { state, drafts, currentUser, requestCancel, queryCancel, discardDraft } = useWorkbench();
+  const { state, projects, drafts, currentUser, requestCancel, queryCancel, discardDraft } = useWorkbench();
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const from = (location.state as {from?: string;} | null)?.from;
-  const [loading, setLoading] = useState(true);
+  const [cancelError, setCancelError] = useState('');
+  const {loading} = useWorkbench();
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const found = state.executions.find((e) => e.id === executionId);
   const execution = found && found.ownerId === currentUser.id ? found : undefined;
-  const project = execution ? projectById(execution.projectId) : undefined;
+  const project = execution ? projectById(execution.projectId, projects) : undefined;
   const requests = state.requests.
   filter((r) => r.executionId === executionId).
   sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -27,13 +28,6 @@ export function useExecutionWorkspace(executionId: string | undefined) {
   const activeRequest = requested ?? pending.find((r) => r.ownerId === currentUser.id) ?? pending[0] ?? null;
   const activeId = activeRequest?.id ?? null;
 
-  useEffect(() => {
-    setLoading(true);
-    setEvidenceId(null);
-    const t = window.setTimeout(() => setLoading(false), 500);
-    return () => window.clearTimeout(t);
-  }, [executionId]);
-
   // Pin the default selection in the URL so a processed request stays in view instead of jumping to the next one.
   useEffect(() => {
     if (!paramRequest && activeId) {
@@ -44,7 +38,7 @@ export function useExecutionWorkspace(executionId: string | undefined) {
   }, [paramRequest, activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draft = activeId ? drafts[activeId] : undefined;
-  const dirty = Boolean(activeRequest && activeRequest.status === 'pending' && draft && draftHasContent(draft));
+  const dirty = Boolean(activeRequest && draft && draftHasContent(draft));
 
   const blocker = useBlocker(
     useCallback<BlockerFunction>(
@@ -65,7 +59,7 @@ export function useExecutionWorkspace(executionId: string | undefined) {
   };
 
   const discardAndProceed = () => {
-    if (activeId) discardDraft(activeId);
+    if (activeId && !draft?.pending) discardDraft(activeId);
     blocker.proceed?.();
   };
 
@@ -94,13 +88,15 @@ export function useExecutionWorkspace(executionId: string | undefined) {
     cancelOpen,
     setCancelOpen,
     cancelDisabledReason,
-    confirmCancel: () => {
-      if (execution) requestCancel(execution.id);
-      setCancelOpen(false);
+    confirmCancel: async () => {
+      if (!execution) return;
+      try { await requestCancel(execution.id); setCancelOpen(false); setCancelError(''); } catch(e) { setCancelError(e instanceof Error?e.message:'请求失败'); }
     },
-    queryCancel: () => execution && queryCancel(execution.id),
+    cancelError,
+    queryCancel: () => void queryCancel(),
     blocker,
     discardAndProceed,
+    pendingSubmission:!!draft?.pending,
     connectionLostAt: state.settings.connectionLostAt
   };
 }

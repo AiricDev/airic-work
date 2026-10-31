@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Badge, Box, Button, Divider, IconButton, List, ListItemButton, ListItemText, Popover, Stack, Tooltip, Typography } from '@mui/material';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import { Badge,Box,Button,Divider,IconButton,List,ListItemButton,ListItemText,Popover,Stack,Tooltip,Typography } from '@mui/material';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { formatTime } from '../../utils/time';
 
@@ -30,14 +30,14 @@ export function NotificationMenu() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         PaperProps={{ sx: { width: 360, maxWidth: '100vw' } }}>
-        
+
         <Stack direction="row" alignItems="center" sx={{ px: 2, py: 1.25 }}>
           <Typography variant="subtitle2" sx={{ flex: 1 }}>站内通知</Typography>
           <Button size="small" disabled={unread === 0} onClick={markAllRead}>全部标为已读</Button>
         </Stack>
         <Divider />
         {mine.length === 0 ?
-        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>暂无通知。</Typography> :
+        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>通知列表尚未接入。待决事项仍在工作台显示。</Typography> :
 
         <List dense disablePadding sx={{ maxHeight: 360, overflow: 'auto' }}>
             {mine.map((n) => {
@@ -51,7 +51,7 @@ export function NotificationMenu() {
                   navigate(n.link);
                 }}
                 sx={{ alignItems: 'flex-start', borderLeft: 3, borderColor: n.read ? 'transparent' : 'primary.main' }}>
-                
+
                   <ListItemText
                   primary={
                   <Typography variant="body2" fontWeight={n.read ? 400 : 600}>
@@ -67,7 +67,7 @@ export function NotificationMenu() {
                         </Box>
                       </>
                   } />
-                
+
                 </ListItemButton>);
 
           })}

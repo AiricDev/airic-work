@@ -1,13 +1,13 @@
-import type { DecisionRequest, DemoUser, Draft, UserDecision, UserDecisionChannel, SubmitOutcome } from '../types/workbench';
-import { demoUsers } from '../data/users';
+import type { DecisionRequest,DemoUser,Draft,SubmitOutcome,UserDecision,UserDecisionChannel } from '../types/workbench';
+
 import { nowIso } from './time';
 
 export function createId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  return `${prefix}-${crypto.randomUUID()}`;
 }
 
 export function userName(id: string): string {
-  return demoUsers.find((u) => u.id === id)?.name ?? id;
+  return id;
 }
 
 export function canResolveRequest(request: DecisionRequest, user: DemoUser): boolean {
@@ -57,7 +57,7 @@ export function validateDraft(d: Draft, request: DecisionRequest): Record<string
 
   }
   if (d.action === 'fact') {
-    if (!d.fact.trim()) errors.fact = '请填写补充的事实内容';
+    if (!d.fact.trim() && !d.files?.length) errors.fact = '请填写补充的事实内容';
 
   }
   if (d.action === 'authorization' && !d.authorizeConfirm) {
