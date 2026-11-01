@@ -1,5 +1,7 @@
 # Airic Work 后端
 
+单镜像与 Compose 集成预览见 [发布说明](../docs/container-release.md)。构建前端后可用 `npm --prefix backend start` 启动控制面；需配置 HTTP，生产 Workspace 与自动派发仍不可用。
+
 已交付 Domain/Application、入口校验与 DI、SQLite、Files Blob、Methods Git/快照/搜索、HTTPS Identity、本机管理员命令，以及 Pi Worker 和业务 MCP 对接。已提供 HTTP adapter 与原前端对接；生产 Workspace 和自动派发宿主尚未交付。详见 `../docs/http-integration.md`。
 
 部署配置统一放在仓库根 `.env`，变量清单见 `.env.example`。填写真实的 Identity/MCP 地址、OM 来源和模型 API key；MCP 加密密钥需要固定保存。系统环境变量优先，相对路径以 dotenv 文件目录为基准。`loadConfiguration()` 和 `createConfiguredBackend(config, workspace)` 都位于 `src/bootstrap/bindings.ts`；完整装配与关闭示例见该目录 README。下面的工厂示例用于了解各 adapter 的独立配置合同。

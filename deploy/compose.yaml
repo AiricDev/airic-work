@@ -1,0 +1,25 @@
+services:
+  airic-work:
+    image: ${AIRIC_WORK_IMAGE:-ghcr.io/airicdev/airic-work:preview}
+    init: true
+    restart: unless-stopped
+    env_file:
+      - ./airic-work.env
+    environment:
+      AIRIC_HOST: 0.0.0.0
+      AIRIC_PORT: "8010"
+      AIRIC_DATA_DIR: /var/lib/airic-work
+    ports:
+      - "127.0.0.1:${AIRIC_WORK_PORT:-8010}:8010"
+    volumes:
+      - airic-work-data:/var/lib/airic-work
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 30s
+    # A single instance owns this SQLite/Session volume. Do not scale replicas.
+
+volumes:
+  airic-work-data:

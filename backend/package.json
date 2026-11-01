@@ -7,7 +7,8 @@
     "generate:http": "tsx scripts/generate-http.ts",
     "qa:http": "node --import tsx tests/support/http-qa.ts",
     "test": "../node_modules/.bin/vitest run tests",
-    "typecheck": "../node_modules/.bin/tsc -p tsconfig.json"
+    "typecheck": "../node_modules/.bin/tsc -p tsconfig.json",
+    "start": "node --import tsx src/bootstrap/serve.ts"
   },
   "dependencies": {
     "@earendil-works/chord": "1.4.0",

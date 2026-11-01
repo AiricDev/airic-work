@@ -2,6 +2,8 @@
 
 产品语义：`docs/prd.md`；机制目标：`docs/technical-design.md`。
 
+镜像/Compose 集成：`Dockerfile`、`deploy/compose.yaml`、`docs/container-release.md`；启动/关闭在 `backend/src/bootstrap/serve.ts`，公开静态产物与控制面健康检查在 HTTP adapter 的 `public-delivery.ts`。只复用现有应用合同；生产 Workspace 与自动派发仍未交付。
+
 | 修改意图 | 行为负责人 | 相关合同与验证 |
 | --- | --- | --- |
 | 自动用户接入、管理与偏好 | backend/src/application/account.ts | domain/model.ts、ports.ts、management.test.ts |

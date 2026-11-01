@@ -11,3 +11,4 @@ coverage/
 
 # Local browser verification artifacts
 .qa-artifacts/
+deploy/airic-work.env

@@ -10,9 +10,12 @@ import { InputValidationError, parseInput, ValidatedCommands } from '../validati
 import { contracts, listQuery, methodQuery, projectDtoValue } from './contracts';
 import { equalSecret, HttpError, Sessions } from './session';
 import { createHash } from 'node:crypto';
+import { publicDelivery } from './public-delivery';
 
 export interface HttpOptions {
     application: Application;
+    /** Trusted build output; enables public UI and control-plane health only. */
+    publicDirectory?: string;
     /** Trusted deployment identifier, never inferred from a caller-controlled header. */
     source: string;
     origins: string[];
@@ -31,6 +34,7 @@ const keyOf = (request: FastifyRequest) => parseInput(z.string().trim().min(1).m
 
 /** HTTP is a delivery adapter. It owns sessions and DTOs, never the worker's lifecycle or policy. */
 export async function createHttpServer(options: HttpOptions) {
+    const deliverPublic = options.publicDirectory ? await publicDelivery(options.publicDirectory) : undefined;
     const app = options.application;
     const commands = new ValidatedCommands(app);
     const now = options.now ?? Date.now;
@@ -80,6 +84,7 @@ export async function createHttpServer(options: HttpOptions) {
     }
     server.addHook('onRequest', async (request, reply) => {
         reply.header('cache-control', 'no-store').header('x-content-type-options', 'nosniff').header('referrer-policy', 'no-referrer');
+        if (deliverPublic && await deliverPublic(request, reply)) return;
         if (!request.routeOptions.url) throw new HttpError(404, 'not-found', '接口不存在');
         for (const [ip, item] of requests) if (item.reset <= now()) requests.delete(ip);
         const window = requests.get(request.ip) ?? { count: 0, reset: now() + 60_000 };
