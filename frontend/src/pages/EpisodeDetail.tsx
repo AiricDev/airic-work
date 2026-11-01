@@ -1,3 +1,5 @@
+import { DecisionMarkdown } from '../components/shared/DecisionMarkdown';
+import { decisionSummary } from '../utils/decisionSummary';
 import { Alert,Box,Link,Paper,Stack,Typography } from '@mui/material';
 import { Link as RouterLink,useParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -13,7 +15,7 @@ export function EpisodeDetail() {
   const execution = state.executions.find(e => e.id === request?.executionId && e.ownerId === currentUser.id);
   if (!request || !execution) return <Alert severity="warning">Decision Episode 不存在或无权查看。</Alert>;
   return <Paper variant="outlined" sx={{ p: 3 }}><Stack spacing={2}>
-    <Typography variant="h5">Decision Episode · {request.id}</Typography><Typography>{request.question}</Typography>
+    <Typography variant="h5">Decision Episode · {request.id}</Typography><Typography variant="h6">{decisionSummary(request)}</Typography><DecisionMarkdown>{request.question}</DecisionMarkdown>
     <Alert severity="info">一个 DecisionRequest 的生命周期，与请求一一对应；不是独立的学习结论或 Precedent。</Alert>
     <Typography>创建：{request.createdAt}</Typography><Typography>状态：{request.status === 'answered' ? '已回答' : '待回答'}</Typography>
     {detail.error && <Alert severity="error">{detail.error}</Alert>}

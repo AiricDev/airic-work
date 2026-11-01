@@ -1,3 +1,4 @@
+import { DecisionMarkdown } from '../shared/DecisionMarkdown';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -7,6 +8,10 @@ import {
 Box,
 Breadcrumbs,
 Button,
+Dialog,
+DialogTitle,
+DialogContent,
+DialogActions,
 IconButton,
 Link,
 ListItemIcon,
@@ -36,6 +41,7 @@ interface ExecutionHeaderProps {
 
 export function ExecutionHeader({ execution, project, from, pendingCount, cancelDisabledReason, onRequestCancel }: ExecutionHeaderProps) {
   const navigate = useNavigate();
+  const [instructionOpen, setInstructionOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const projectPath = project ? from?.startsWith(`/projects/${project.id}`) ? from : `/projects/${project.id}` : '/projects';
   const backPath = from ?? projectPath;
@@ -48,7 +54,7 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
             <ArrowBackIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Breadcrumbs aria-label="位置" sx={{ flex: 1, minWidth: 0, '& ol': { flexWrap: 'nowrap' } }}>
+        <Breadcrumbs aria-label="位置" sx={{ flex: 1, minWidth: 0, '& ol': { flexWrap: 'nowrap' }, '& li': { minWidth: 0 }, '& li:last-child': { overflow: 'hidden', flex: 1 } }}>
           <Link component={RouterLink} to="/projects" underline="hover" color="inherit">
             项目
           </Link>
@@ -90,9 +96,10 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
       </Stack>
 
       <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ mt: 1, pl: 5 }}>
-        <Typography variant="h6" component="h1">
+        <Typography variant="h6" component="h1" sx={{ minWidth: 0, maxWidth: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
           {execution.goal}
         </Typography>
+        <Button size="small" onClick={() => setInstructionOpen(true)}>查看完整指示</Button>
         <StatusTag execution={execution} pendingCount={pendingCount} />
         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
           {execution.id}
@@ -103,7 +110,7 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
         <Typography variant="caption">
           来源：{execution.source.label}（{execution.source.system}）
         </Typography>
-        <Typography variant="caption">范围：{execution.scope}</Typography>
+        <Typography variant="caption" sx={{ maxWidth: '100%', overflowWrap: 'anywhere' }}>范围：{execution.scope}</Typography>
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
           <Link
             component={RouterLink}
@@ -125,6 +132,11 @@ export function ExecutionHeader({ execution, project, from, pendingCount, cancel
       <Box sx={{ mt: 0.5, pl: 5 }}>
         <ExecutionIdentity execution={execution} />
       </Box>
+      <Dialog open={instructionOpen} onClose={() => setInstructionOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>执行指示</DialogTitle>
+        <DialogContent><DecisionMarkdown>{execution.goal}</DecisionMarkdown></DialogContent>
+        <DialogActions><Button onClick={() => setInstructionOpen(false)}>关闭</Button></DialogActions>
+      </Dialog>
     </Paper>);
 
 }

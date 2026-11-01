@@ -1,15 +1,15 @@
+import { SourceReferences } from './SourceReferences';
+import { DecisionContextContent } from './DecisionContextContent';
+import { decisionSummary } from '../../utils/decisionSummary';
+import { DecisionMarkdown } from '../shared/DecisionMarkdown';
 import BlockIcon from '@mui/icons-material/Block';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import {
-Accordion,
-AccordionDetails,
-AccordionSummary,
 Box,
 Button,
 Chip,
@@ -17,24 +17,20 @@ Link,
 Stack,
 Typography
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
-import type { DecisionRequest } from '../../types/workbench';
+import type { DecisionRequest, Execution } from '../../types/workbench';
 
-import { userName } from '../../utils/decisionService';
 import { requestKindLabels } from '../../utils/labels';
-import { formatTime } from '../../utils/time';
 import { BriefSection } from './BriefSection';
 
-import { omFileLink } from '../../utils/omRepository';
 
 interface DecisionBriefProps {
   request: DecisionRequest;
+  execution?: Execution;
   onOpenEvidence: (id: string) => void;
 }
 
-export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
+export function DecisionBrief({ request, execution, onOpenEvidence }: DecisionBriefProps) {
   const { brief } = request;
-  const commit = brief.omCommit ? {sha:brief.omCommit} : undefined;
   const otherEvidence: string[] = [];
   const evidence: import('../../types/workbench').Evidence[] = [];
   const evidenceLabel = (id:string) => id;
@@ -49,14 +45,10 @@ export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
           </Typography>
         </Stack>
         <Typography variant="subtitle1" component="h2" sx={{ lineHeight: 1.45 }}>
-          {request.question}
+          {decisionSummary(request)}
         </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          <Box component="span" sx={{ fontWeight: 600 }}>
-            需要你：
-          </Box>
-          {brief.actionNeeded}
-        </Typography>
+        <DecisionMarkdown>{request.question}</DecisionMarkdown>
+        {brief.actionNeeded !== request.question && <Typography variant="body2" sx={{ mt: 1 }}>需要你：{brief.actionNeeded}</Typography>}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
           <Box component="span" sx={{ fontWeight: 600 }}>
             为什么需要人：
@@ -115,8 +107,7 @@ export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
       </BriefSection>
 
       <BriefSection title="Decision Context">
-        {brief.rawContext !== undefined && <Box component="pre" sx={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{JSON.stringify(brief.rawContext,null,2)}</Box>}
-        {!!brief.sourceReferences?.length && <Box component="pre" sx={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{JSON.stringify(brief.sourceReferences,null,2)}</Box>}
+        {brief.rawContext !== undefined && <DecisionContextContent value={brief.rawContext} />}
 
       </BriefSection>
 
@@ -157,23 +148,7 @@ export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
         </Stack>
       </BriefSection>
 
-      {brief.options.length > 0 &&
-      <BriefSection title="候选方案与风险">
-          <Stack spacing={1}>
-            {brief.options.map((o) =>
-          <Box key={o.id} sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="body2" fontWeight={600}>
-                  {o.label}
-                </Typography>
-                <Typography variant="body2">{o.description}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  风险：{o.risk}
-                </Typography>
-              </Box>
-          )}
-          </Stack>
-        </BriefSection>
-      }
+      <SourceReferences sources={brief.sourceReferences ?? []} executionId={request.executionId} fixedSha={brief.omCommit} execution={execution} />
 
       {otherEvidence.length > 0 &&
       <BriefSection title="其他证据引用">
@@ -191,40 +166,6 @@ export function DecisionBrief({ request, onOpenEvidence }: DecisionBriefProps) {
       </BriefSection>
       }
 
-      <Accordion variant="outlined" disableGutters sx={{ '&:before': { display: 'none' } }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="body2" fontWeight={500}>
-            来源与 OM 修订
-          </Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5, '& dt': { color: 'text.secondary' }, '& dd': { m: 0 } }}>
-            <Typography component="dt" variant="body2">判断文件</Typography>
-            <Typography component="dd" variant="body2">
-              {commit ?
-              <Link component={RouterLink} to={omFileLink(commit.sha, brief.decisionModel.path,request.executionId)} sx={{ fontFamily: 'monospace', fontSize: 12 }}>
-                  {brief.decisionModel.path}
-                </Link> :
-
-              <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12 }}>{brief.decisionModel.path}</Box>
-              }
-              <Typography variant="caption" color="text.secondary" component="div">{brief.decisionModel.id} · {brief.decisionModel.title}</Typography>
-            </Typography>
-            <Typography component="dt" variant="body2">OM Commit</Typography>
-            <Typography component="dd" variant="body2" sx={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>
-              {commit?.sha ?? brief.omCommit}（执行固定版本）
-            </Typography>
-            <Typography component="dt" variant="body2">请求来源</Typography>
-            <Typography component="dd" variant="body2">{brief.origin}</Typography>
-            <Typography component="dt" variant="body2">内容版本</Typography>
-            <Typography component="dd" variant="body2">
-              v{request.version} · 更新于 {formatTime(request.updatedAt)}
-            </Typography>
-            <Typography component="dt" variant="body2">归属人</Typography>
-            <Typography component="dd" variant="body2">{userName(request.ownerId)}</Typography>
-          </Box>
-        </AccordionDetails>
-      </Accordion>
     </Stack>);
 
 }

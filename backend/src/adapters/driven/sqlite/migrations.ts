@@ -92,7 +92,7 @@ CREATE TRIGGER immutable_upload BEFORE UPDATE ON uploads
 BEGIN SELECT RAISE(ABORT, 'immutable upload'); END;
 `;
 
-const migrations = [initial];
+const migrations = [initial, `ALTER TABLE decision_requests ADD COLUMN summary TEXT NOT NULL DEFAULT '' CHECK(length(summary) <= 80);`];
 
 function appliedMigrations(connection: Database.Database): number {
     const applied = connection.prepare('SELECT version, hash FROM schema_migrations ORDER BY version').all() as { version: number; hash: string }[];

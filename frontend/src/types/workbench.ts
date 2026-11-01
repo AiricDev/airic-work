@@ -197,6 +197,7 @@ export interface DecisionRequest {
   id: string;
   executionId: string;
   ownerId: string;
+  summary?: string;
   question: string;
   kind: RequestKind;
   waitingItem: string;

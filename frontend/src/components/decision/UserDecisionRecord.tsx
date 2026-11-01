@@ -1,3 +1,4 @@
+import { decisionSummary } from '../../utils/decisionSummary';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
 Accordion,
@@ -12,20 +13,21 @@ Stack,
 Typography
 } from '@mui/material';
 import React from 'react';
-import type { DecisionRequest } from '../../types/workbench';
+import type { DecisionRequest, Execution } from '../../types/workbench';
 import { actionLabels } from '../../utils/labels';
 import { formatTime } from '../../utils/time';
 import { DecisionBrief } from './DecisionBrief';
 
 interface UserDecisionRecordProps {
   request: DecisionRequest;
+  execution?: Execution;
   conflictDraft: boolean;
   justSubmitted: boolean;
   onDiscardDraft: () => void;
   onOpenEvidence: (id: string) => void;
 }
 
-export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDiscardDraft, onOpenEvidence }: UserDecisionRecordProps) {
+export function UserDecisionRecord({ request, execution, conflictDraft, justSubmitted, onDiscardDraft, onOpenEvidence }: UserDecisionRecordProps) {
   const r = request.userDecision;
   if (!r) return null;
   const f = request.followUp;
@@ -58,7 +60,7 @@ export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDi
           UserDecision
         </Typography>
         <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          {request.question}
+          {decisionSummary(request)}
         </Typography>
         <Box component="dl" sx={{ m: 0, p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.75, '& dd': { m: 0 } }}>
           {rows.map((row) =>
@@ -111,7 +113,7 @@ export function UserDecisionRecord({ request, conflictDraft, justSubmitted, onDi
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <DecisionBrief request={(() => {const c=request.contextHistory?.find(c=>c.revision===r.basisVersion);return c?{...request,version:c.revision,brief:{...request.brief,rawContext:c.content,sourceReferences:c.sources}}:request;})()} onOpenEvidence={onOpenEvidence} />
+          <DecisionBrief execution={execution} request={(() => {const c=request.contextHistory?.find(c=>c.revision===r.basisVersion);return c?{...request,version:c.revision,brief:{...request.brief,rawContext:c.content,sourceReferences:c.sources}}:request;})()} onOpenEvidence={onOpenEvidence} />
         </AccordionDetails>
       </Accordion>
     </Stack>);

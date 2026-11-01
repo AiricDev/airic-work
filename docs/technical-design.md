@@ -104,7 +104,7 @@ Composition Root：装配具体实现和管理生命周期
 | User | 本地 ID、认证来源、外部稳定用户 ID、启用状态、管理员权限及偏好；来源与外部 ID 组合唯一，重新认证不覆盖本地停用或管理员设置 |
 | Project | 内部 ID、sourceSystemId、externalProjectId、名称；来源与外部分组标识唯一，重试不改名 |
 | Execution | Project ID、ownerUserId、创建输入快照、固定方法及环境版本、Session/Workspace 关联、运行控制版本；归属和启动后 OM 不变 |
-| DecisionRequest | Execution ID、问题、选项、Decision Context 修订、创建/展示/回答时间和必要消息引用；提交回答不依赖 Agent 采纳 |
+| DecisionRequest | Execution ID、列表摘要 summary、完整问题 question、选项、Decision Context 修订、创建/展示/回答时间和必要消息引用；提交回答不依赖 Agent 采纳 |
 | UserDecision | DecisionRequest ID、文字、选项、固定文件引用、查看的 Context 修订、提交人/时间及可选更正关联；提交后不可覆盖 |
 | Steering Input | Execution ID、文字、固定文件引用、提交人/时间；没有必需 DecisionRequest ID，不自动转为 UserDecision |
 | 上传内容与绑定 | 上传者、Execution 范围、哈希/大小/类型、完成状态和输入关联；同名文件不覆盖已提交内容 |
@@ -431,3 +431,8 @@ Execution 结束后是否继续、UserDecision 何时已回答、Decision Episod
 ## 原前端 HTTP 接入实现
 
 既有 `AppShell → pages/components` 继续作为 UI；Context 查询服务端记录，api 层做传输与视图映射，不另建替代工作台。HTTP 合同由 `contracts.ts` 生成 OpenAPI/前端类型，权限仍由 Application 兑现；详见 [HTTP 接入](http-integration.md)。生产 Workspace/自动派发与 HTTP 接线分开交付，不把测试替身当成可运行 Agent。
+
+
+### DecisionRequest 摘要与详情呈现
+
+`summary` 是独立的短标题（最多80字符，建议12–30字符），`question` 保留完整问题正文。创建请求用例验证并将摘要纳入命令指纹，SQLite 迁移新增 summary 列，不修改旧 question；旧记录空摘要在呈现层从首段提取短标题。HTTP/只读查询携带该字段，Worker 请求工具要求模型提供简洁摘要。列表与队列最多显示两行摘要，详情安全渲染 question 的 Markdown，结构化 Context 分节显示；禁止原始 HTML 和自动加载外部图片。摘要不是新的业务实体，不改变 UserDecision、Context 修订或生命周期。

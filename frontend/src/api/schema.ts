@@ -792,6 +792,7 @@ export interface components {
             items: {
                 id: string;
                 executionId: string;
+                summary?: string;
                 question: string;
                 options: {
                     id: string;
@@ -821,6 +822,7 @@ export interface components {
             items: {
                 id: string;
                 executionId: string;
+                summary?: string;
                 question: string;
                 options: {
                     id: string;
@@ -849,6 +851,7 @@ export interface components {
         Schema16: {
             id: string;
             executionId: string;
+            summary?: string;
             question: string;
             options: {
                 id: string;
@@ -941,6 +944,7 @@ export interface components {
             request: {
                 id: string;
                 executionId: string;
+                summary?: string;
                 question: string;
                 options: {
                     id: string;

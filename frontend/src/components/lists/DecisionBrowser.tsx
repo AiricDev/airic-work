@@ -1,3 +1,4 @@
+import { decisionSummary } from '../../utils/decisionSummary';
 import {
 Box,
 Chip,
@@ -109,10 +110,10 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
 
       <>
           <TableContainer>
-            <Table>
+            <Table sx={{ tableLayout: 'fixed', minWidth: 900 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ minWidth: 300 }}>问题</TableCell>
+                  <TableCell sx={{ width: '32%' }}>问题</TableCell>
                   <TableCell>请求类型</TableCell>
                   <TableCell sx={{ minWidth: 220 }}>来源执行</TableCell>
                   <TableCell sx={{ minWidth: 180 }}>受影响范围</TableCell>
@@ -134,8 +135,8 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
                     }}>
 
                       <TableCell>
-                        <Typography variant="body2" fontWeight={600}>
-                          {r.question}
+                        <Typography variant="body2" fontWeight={600} sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
+                          {decisionSummary(r)}
                         </Typography>
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.25 }}>
                           <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
@@ -153,7 +154,7 @@ export function DecisionBrowser({ requests, showProject = true }: DecisionBrowse
                         <Chip variant="outlined" label={requestKindLabels[r.kind]} />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{exec?.goal}</Typography>
+                        <Typography variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{exec?.goal}</Typography>
                         {showProject && exec &&
                       <Typography variant="caption" color="text.secondary">
                             {projectById(exec.projectId, projects)?.name}

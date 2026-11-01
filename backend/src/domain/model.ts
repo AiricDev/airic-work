@@ -162,6 +162,8 @@ export interface Option {
 export interface DecisionRequest {
     id: string;
     executionId: string;
+    /** 列表中的简短问题标题；完整问题保留在 question。历史请求未提供时由呈现层生成摘要。 */
+    summary?: string;
     question: string;
     options: Option[];
     /**

@@ -1,3 +1,4 @@
+import { decisionSummary } from '../../utils/decisionSummary';
 import CloseIcon from '@mui/icons-material/Close';
 import { Alert,Box,Button,Chip,Divider,Drawer,IconButton,Stack,Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
@@ -53,7 +54,7 @@ export function ContextDependencyDrawer({ dependency, request, onClose }: Contex
       return (
         <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.75, '& dd': { m: 0 } }}>
           <Typography component="dt" variant="body2" color="text.secondary">请求</Typography>
-          <Typography component="dd" variant="body2">{prior.id} · {prior.question}</Typography>
+          <Typography component="dd" variant="body2">{prior.id} · {decisionSummary(prior)}</Typography>
           <Typography component="dt" variant="body2" color="text.secondary">正式记录</Typography>
           <Typography component="dd" variant="body2">{r.content}</Typography>
           {r.source &&

@@ -1,7 +1,9 @@
+import { responseText } from '../../utils/decisionResponse';
+import { decisionSummary } from '../../utils/decisionSummary';
 import { Alert,AlertTitle,Box,Button,CircularProgress,Stack,Typography } from '@mui/material';
 import React from 'react';
 import type { DecisionRequest,Draft,SubmitOutcome } from '../../types/workbench';
-import { actionLabels,submitLabels } from '../../utils/labels';
+import { submitLabels } from '../../utils/labels';
 
 interface ConfirmSubmissionProps {
   request: DecisionRequest;
@@ -34,18 +36,16 @@ export function ConfirmSubmission({
   const unknown = outcome?.kind === 'unknown';
 
   const rows: {label: string;value: string;}[] = [
-  { label: '请求', value: `${request.id} · ${request.question}` },
-  { label: '处理方式', value: actionLabels[action] }];
+  { label: '请求', value: `${request.id} · ${decisionSummary(request)}` },
+  { label: '回应', value: action === 'judgment' ? option?.label ?? '' : action === 'investigation' ? '需要进一步调查' : action === 'authorization' ? '提供授权' : '补充内容' }];
 
-  if (action === 'judgment') {
-    rows.push({ label: '判断', value: option?.label ?? '' }, { label: '理由', value: value.reason });
-  }
-  if (action === 'fact') rows.push({ label: '事实', value: value.fact }, { label: '来源', value: value.factSource });
+  if (responseText(value).trim()) rows.push({ label: '补充内容', value: responseText(value) });
+  if (value.factSource.trim()) rows.push({ label: '来源', value: value.factSource });
   if (action === 'authorization' && auth) {
     rows.push({ label: '授权对象', value: auth.object }, { label: '允许动作', value: auth.action }, { label: '范围', value: auth.scope });
-    if (value.note.trim()) rows.push({ label: '备注', value: value.note });
+
   }
-  if (action === 'investigation') rows.push({ label: '调查问题', value: value.investigation });
+
   if(value.files?.length)rows.push({label:'附件',value:value.files.map(f=>f.name).join('；')});
   rows.push({ label: '影响范围', value: request.brief.affected.join('；') }, { label: '依据版本', value: `v${value.baseVersion}` });
 

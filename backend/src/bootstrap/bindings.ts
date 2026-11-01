@@ -241,7 +241,7 @@ export function loadConfiguration(file?: string, environment: NodeJS.ProcessEnv 
             ...(ca ? { ca } : {}),
         },
         methods: { directory: path('AIRIC_METHOD_DIRECTORY', resolve(data, 'methods')), sources,
-            runtimeVersion: parse('AIRIC_RUNTIME_VERSION', text, 'pi-durable@1.4.0'), skillVersion: parse('AIRIC_WORKER_SKILL_VERSION', text, '0.2.0'),
+            runtimeVersion: parse('AIRIC_RUNTIME_VERSION', text, 'pi-durable@1.4.0'), skillVersion: parse('AIRIC_WORKER_SKILL_VERSION', text, '0.2.1'),
             limits: { commandTimeoutMs: number('AIRIC_GIT_TIMEOUT_MS', 30000, 2147483647), maxTreeBytes: number('AIRIC_OM_MAX_TREE_BYTES', 10485760), maxFileBytes: number('AIRIC_OM_MAX_FILE_BYTES', 10485760), maxSnapshotBytes: number('AIRIC_OM_MAX_SNAPSHOT_BYTES', 134217728), historyEntries: number('AIRIC_OM_HISTORY_ENTRIES', 50) },
         },
         worker: { directory: path('AIRIC_RUNTIME_DIRECTORY', resolve(data, 'executions')), skillPath: path('AIRIC_WORKER_SKILL_PATH', 'backend/skills/airic-work-worker/SKILL.md'),

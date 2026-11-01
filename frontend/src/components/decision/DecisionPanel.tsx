@@ -53,6 +53,7 @@ export function DecisionPanel({ request, execution, onOpenEvidence }: DecisionPa
         <EpisodeLink to={`/episodes/${request.id}`}>查看 Decision Episode</EpisodeLink>
         <Button onClick={() => { p.discard(); p.update({correctionOf:request.userDecision?.id}); setCorrecting(true); }}>补充或更正 UserDecision</Button>
         <UserDecisionRecord
+          execution={execution}
           request={request}
           conflictDraft={p.conflictDraft}
           justSubmitted={p.outcome?.kind === 'accepted' || p.outcome?.kind === 'duplicate'}
@@ -93,11 +94,11 @@ export function DecisionPanel({ request, execution, onOpenEvidence }: DecisionPa
 
       {p.step === 'edit' ?
       <>
-          <DecisionBrief request={p.displayedRequest} onOpenEvidence={onOpenEvidence} />
+          <DecisionBrief execution={execution} request={p.displayedRequest} onOpenEvidence={onOpenEvidence} />
+          <Divider />
+          <Box component="fieldset" disabled={p.frozen || !p.canResolve} sx={{border:0,p:0,m:0}}><UserDecisionForm request={p.displayedRequest} value={p.value} errors={p.errors} showErrors={p.showErrors} onChange={p.update} readOnly={!p.canResolve} /></Box>
           {p.canResolve &&
         <>
-              <Divider />
-              <Box component="fieldset" disabled={p.frozen} sx={{border:0,p:0,m:0}}><UserDecisionForm request={request} value={p.value} errors={p.errors} showErrors={p.showErrors} onChange={p.update} /></Box>
               <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
                 {p.draft ?
             <Button color="inherit" onClick={p.discard}>

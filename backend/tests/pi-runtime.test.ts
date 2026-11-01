@@ -129,3 +129,20 @@ it('reuses one continuation when two questions block the same work', async () =>
     expect(await r.independentAnswers(e, input('x', 'A'), input('y', 'B'))).toBe(false);
     expect(new Set((await r.records(e.sessionId)).map(record => record.conversationId)).size).toBe(2);
 });
+
+it('rejects an unknown continuation before saving a request so a corrected tool call creates only one question', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'airic-invalid-continuation-')); directories.push(dir);
+    const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
+    const saved: string[] = [];
+    const host: WorkerHost = { assembly: async () => ({ worker: 'worker', root: 'om', version: 'fixed' }), check: async () => {}, input: async (_e, i) => ({ content: i.text }), request: async (_e, _key, question) => { saved.push(question); return `request-${saved.length}`; } };
+    const r = new PiRuntime(dir, models, { provider: 'faux', modelId: 'faux-1' }, host); runtimes.push(r);
+    await r.start(e);
+    faux.setResponses([
+        fauxAssistantMessage([fauxToolCall('work_request_decision', { question: 'O7', scope: 'O7', continuationId: e.id }, { id: 'invalid-link' })], { stopReason: 'toolUse' }),
+        fauxAssistantMessage([fauxToolCall('work_request_decision', { question: 'O7', scope: 'O7' }, { id: 'corrected-link' })], { stopReason: 'toolUse' }),
+        text('waiting for O7'),
+    ]);
+    await r.deliver(e, input('start')); await r.drain(e.sessionId);
+    expect(saved).toEqual(['O7']);
+    expect(JSON.stringify(await r.records(e.sessionId))).toContain('unknown continuation');
+});

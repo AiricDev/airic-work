@@ -1,3 +1,4 @@
+import { decisionSummary } from '../../utils/decisionSummary';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
@@ -21,7 +22,8 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
   const resolved = requests.filter((r) => r.status === 'answered');
   const active = requests.find((r) => r.id === activeId);
   const [tab, setTab] = useState<'pending' | 'answered'>(active?.status === 'answered' ? 'answered' : 'pending');
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(Boolean(activeId));
+  useEffect(() => { if (activeId) setCollapsed(true); }, [activeId]);
 
   useEffect(() => {
     if (active) setTab(active.status === 'answered' && !pending.some((r) => r.id === active.id) ? 'answered' : 'pending');
@@ -44,7 +46,7 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
 
       {collapsed ?
       <Typography variant="body2" color="text.secondary" noWrap sx={{ px: 2, pb: 1.5 }}>
-          当前：{active ? active.question : '未选择请求'}
+          当前：{active ? decisionSummary(active) : '未选择请求'}
         </Typography> :
 
       <>
@@ -79,7 +81,7 @@ export function DecisionQueue({ requests, activeId, onSelect }: DecisionQueuePro
                   fontWeight={selected ? 600 : 500}
                   sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
 
-                      {r.question}
+                      {decisionSummary(r)}
                     </Typography>
                     <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
                       <Chip variant="outlined" label={requestKindLabels[r.kind]} />

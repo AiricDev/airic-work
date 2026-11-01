@@ -48,12 +48,12 @@ export function draftHasContent(d: Draft): boolean {
 export function validateDraft(d: Draft, request: DecisionRequest): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!d.action) {
-    errors.action = '请选择处理方式';
+    errors.action = '请选择一个方案，或填写补充内容。';
     return errors;
   }
   if (!request.allowedActions.includes(d.action)) errors.action = '此请求不支持该处理方式';
   if (d.action === 'judgment') {
-    if (!d.choiceId) errors.choiceId = '请选择一个方案';
+    if (!request.brief.options.some(o => o.id === d.choiceId)) errors.choiceId = '请选择当前请求中的一个方案';
 
   }
   if (d.action === 'fact') {
@@ -62,9 +62,6 @@ export function validateDraft(d: Draft, request: DecisionRequest): Record<string
   }
   if (d.action === 'authorization' && !d.authorizeConfirm) {
     errors.authorizeConfirm = '请确认授权的对象、动作与范围';
-  }
-  if (d.action === 'investigation' && !d.investigation.trim()) {
-    errors.investigation = '请说明需要调查的问题';
   }
   return errors;
 }

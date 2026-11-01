@@ -1,3 +1,4 @@
+import { decisionSummary } from '../utils/decisionSummary';
 /** Transport → existing UI view models. Missing product data stays empty/unknown; no seed fallbacks. */
 import type {
   DecisionRequest,
@@ -111,9 +112,10 @@ export function requestView(
     id: r.id,
     executionId: r.executionId,
     ownerId: e.ownerId,
+    summary: decisionSummary(r),
     question: r.question,
     kind: r.options.length ? "judgment" : "fact",
-    waitingItem: r.question,
+    waitingItem: decisionSummary(r),
     createdAt: r.createdAt,
     updatedAt: r.answeredAt ?? r.createdAt,
     version: context?.revision ?? 1,
@@ -130,7 +132,7 @@ export function requestView(
       at: "",
       source: "Decision Context",
       summary: `修订 ${c.revision}`,
-      scope: r.question,
+      scope: decisionSummary(r),
     })),
     followUp:
       r.status === "answered"

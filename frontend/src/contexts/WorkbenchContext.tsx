@@ -1,3 +1,4 @@
+import { decisionPayload } from '../utils/decisionResponse';
 import React, {
   createContext,
   useCallback,
@@ -240,26 +241,7 @@ function useProvideWorkbench() {
   );
   const submitUserDecision = useCallback(
     async (id: string, draft: Draft): Promise<SubmitOutcome> => {
-      const option = state.requests
-        .find((r) => r.id === id)
-        ?.brief.options.find((o) => o.id === draft.choiceId);
-      const payload = draft.pending ?? {
-        contextRevision: draft.baseVersion,
-        text: [
-          draft.action === "judgment"
-            ? draft.reason
-            : draft.action === "investigation"
-              ? draft.investigation
-              : draft.fact,
-          draft.factSource,
-          draft.note,
-        ]
-          .filter((s) => s?.trim())
-          .join("\n\n"),
-        files: (draft.files ?? []).map((f) => f.id!).filter(Boolean),
-        ...(option ? { optionId: option.id } : {}),
-        ...(draft.correctionOf ? { correctionOf: draft.correctionOf } : {}),
-      };
+      const payload = decisionPayload(draft, state.requests.find(r => r.id === id));
       saveDraft({ ...draft, pending: payload });
       try {
         const d = await api("answer", {

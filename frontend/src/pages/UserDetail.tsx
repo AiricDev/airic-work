@@ -1,3 +1,4 @@
+import { decisionSummary } from '../utils/decisionSummary';
 import { Alert,Avatar,Box,Breadcrumbs,Button,Chip,Link,Paper,Stack,Tab,Tabs,Typography } from '@mui/material';
 import { useState } from 'react';
 import { Link as RouterLink,useParams } from 'react-router-dom';
@@ -77,7 +78,7 @@ export function UserDetail() {
 
             <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                   {resp.executions.map((e) => <Typography component="li" variant="body2" key={e.id}>执行唯一归属人：<Link component={RouterLink} to={`/executions/${e.id}`}>{e.goal}</Link></Typography>)}
-                  {resp.requests.map((r) => <Typography component="li" variant="body2" key={r.id}>待处理请求：{r.id} {r.question}</Typography>)}
+                  {resp.requests.map((r) => <Typography component="li" variant="body2" key={r.id}>待处理请求：{r.id} {decisionSummary(r)}</Typography>)}
                 </Box>
             }
               <Typography variant="caption" color="text.secondary">仅显示你有权查看的引用；管理员不因角色获得他人的专业判断或业务审批权。</Typography>

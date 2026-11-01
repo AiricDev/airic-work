@@ -70,3 +70,50 @@ AIRIC_API_TARGET=http://127.0.0.1:8048 npm --prefix frontend run dev -- --host 1
 自动验证涵盖 HTTP 身份/CSRF/归属/幂等/文件与重开、OM 离线/历史快照，以及 SSE 不耗尽普通请求并发；前端验证原组件树仍参与运行、seed 不进入入口、视图映射与未知提交的按用户持久恢复。旧 ontology 测试保留，不能当作真实 Agent 证据。
 
 2026-10-31 浏览器验证：原项目表格→执行工作区→不填理由的选项回答→追加更正与真实附件→固定 OM 文件树/正文/历史。回答保存后仍显示消息待交付。桌面与窄屏断点均已检查。当前完整检查后端 326、前端 12 项通过，前端类型检查/构建通过；主包约 973 KB，尚未拆包。
+
+### 使用真实本地 OM 做联调
+
+`qa:http` 默认仍用临时示例 Git 仓库。加 `--configured-om` 才读取根 `.env` 的 OM 配置，或用 `--env /path/.env` 指定文件。其余控制库/Blob/索引仍隔离，Runtime/Workspace 仍为测试替身。不会写入 OM 仓库、不自动 fetch 或生成提交。
+
+```dotenv
+AIRIC_OM_SOURCES='{"certlab":{"kind":"local","directory":"../certlab-om"}}'
+AIRIC_OM_SOURCE=certlab
+AIRIC_OM_BRANCH=main
+AIRIC_OM_ROOT=om.md
+```
+
+```sh
+AIRIC_QA_PORT=8058 AIRIC_QA_ORIGIN=http://127.0.0.1:5217 npm --prefix backend run qa:http -- --configured-om
+AIRIC_API_TARGET=http://127.0.0.1:8058 npm --prefix frontend run dev -- --host 127.0.0.1 --port 5217 --strictPort
+```
+
+2026-10-31 实际 `certlab-om` 检查：main 的 `71b0169699ab75740125e1abde8c382afd8df8d9`，53 个运行时文件、3 条提交；Root、SCCR 搜索和提交 diff 可读，`.ome/` 不出现在文件树/搜索/diff，旧提交 `49527b7c0b641629e0af0c15aeae1a1295647254` 可独立浏览且不改变当前选择或执行固定版本。本地仓库无 remote，同步禁用但浏览可用。该结果只验证 Git OM 对接，不代表 OM 已专业核定或真实 Agent/CertLab 业务已验证。
+
+
+### CertLab 真实服务连接（本地隔离联调）
+
+`--configured-services` 同时读取 dotenv 的真实 Identity、MCP 和 OM；不创建 `qa-owner` 等合成身份。Runtime/Workspace 仍使用测试替身。`--directory` 保留专用控制库、OM 缓存与加密凭据；不传则退出清理临时目录。
+
+```sh
+cd backend
+AIRIC_QA_PORT=8059 node --env-file=../.env --import tsx tests/support/http-qa.ts --configured-services --directory ../.airic-data/certlab-link
+```
+
+当前 CertLab 的身份地址为 `https://127.0.0.1:8443/api/v1/auth/me`，subject/name 字段是 `actor_id/display_name`；issuer/source/connection 都为 `certlab`。MCP 配置 HTTPS `/mcp`、`/api/v1/auth/mcp-token` 与 `/api/v1/auth/mcp-token/revoke`；保留原凭据加密密钥。身份 CA 文件还会在此测试宿主创建客户端之前加入 Node 默认信任，以覆盖同一 CertLab 的 MCP 请求；Node `--env-file` 中的 `NODE_EXTRA_CA_CERTS` 初始化太晚，不能单独依赖它。未关闭证书验证，不修改系统信任。
+
+根 `.env` 的 `AIRIC_API_TARGET=http://127.0.0.1:8059` 供前端 Vite 代理读取；HTTP origins 精确包含5217和5180的地址，本地 HTTP 才设置 Secure Cookie=false。CertLab 的 `/airic-work/api` 代理与页面地址配置见其 frontend/README.md。当前同主机不同端口的 HttpOnly Cookie 交接不构成通用跨域 SSO。
+
+2026-10-31 合成联调：仅对隔离副本授权演示工程师访问合成项目；验证真实用户自动建档、稳定幂等创建、Execution 凭据签发、会话交接、44个 MCP 工具发现与报告只读上下文。调用前从 `integration.info` 获取 `domain.release`，按工具 schema 传 `domain_release`；平台不注入 CertLab 专有业务参数。浏览器创建的测试任务保持 new；专用连接探针经替身 Runtime 后结束，不代表真实模型完成业务。旧业务数据库与服务保留。
+
+待决列表现在使用独立 summary；旧请求从首段生成最多40字符的显示标题，原 question 不变。详情保留完整 Markdown 问题与分节 Context。summary 的持久化迁移、重开和幂等合同见 decision-summary.test.ts；呈现与安全 Markdown 验证见 frontend/tests/decision-summary.test.tsx。
+
+
+### 来源引用跳转
+
+根 dotenv 可配置公开的 `VITE_REFERENCE_TEMPLATES`，键为来源 system 和 objectId 的类型前缀，例如：
+
+```dotenv
+VITE_REFERENCE_TEMPLATES='{"certlab-mcp":{"report":"http://127.0.0.1:5180/reports/{id}","assessment":"http://127.0.0.1:5180/reports/{report_id}/{id}"}}'
+```
+
+`{id}` 来自引用 objectId 的类型后部分，其他占位符来自调用方 task 的字符串字段（前端 Execution.scope 投影）；所有值 URL 编码。此配置会公开到前端，只放路由，不放 token、用户信息或其他秘密；更改后由 Vite 重新加载。来源缺少路由所需字段时不造链接。Git 引用使用其明确的 Commit（没有注明时用执行固定版本）打开 OM 文件；不使用最新版本替换引用版本。原始 system/objectId/version/location 仍可展开查看。

@@ -1,3 +1,4 @@
+import { decisionSummary } from '../../utils/decisionSummary';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -18,7 +19,7 @@ export function ExecutionSituation({ execution, pendingRequests, onOpenRequest, 
   const lastEvent = execution.events[execution.events.length - 1];
   const columns = [
   { key: 'doing', title: '正在做', icon: <PlayArrowIcon fontSize="small" color="primary" />, items: summary.doing },
-  { key: 'waiting', title: '等待人工', icon: <PauseCircleOutlineIcon fontSize="small" color="warning" />, items: pendingRequests.map(r=>r.question) },
+  { key: 'waiting', title: '等待人工', icon: <PauseCircleOutlineIcon fontSize="small" color="warning" />, items: pendingRequests.map(r=>decisionSummary(r)) },
   { key: 'continue', title: '可继续', icon: <ArrowForwardIcon fontSize="small" color="success" />, items: summary.canContinue }];
 
 

@@ -13,7 +13,7 @@ export interface WorkerHost {
     assembly(e: Execution): Promise<{ worker: string; root: string; version: string }>;
     check(e: Execution): Promise<void>;
     input(e: Execution, input: Input): Promise<{ content: string; requestId?: string }>;
-    request(e: Execution, key: string, question: string, options?: Option[], decisionContext?: Context): Promise<string>;
+    request(e: Execution, key: string, question: string, options?: Option[], decisionContext?: Context, summary?: string): Promise<string>;
     tools?(e: Execution): Promise<ToolRegistration[]>;
 }
 type SliceInput = { target: ConversationId; content: string; kind: string; scope: string; generation: number };
@@ -105,10 +105,15 @@ export class PiRuntime implements Runtime {
                 abort: (t, api, c) => api.commit(async tx => { const s = await tx.doc(State); if (s.active === t.id) s.active = null; return { status: 'terminal', outcome: { status: 'aborted' } } as const; }, c),
             });
             registry.install(defineExtension({ name: 'airic-work', tasks: [Anchor, Slice], sections: [section('worker', () => assembly.worker), section('om', () => assembly.root), section('execution', () => JSON.stringify({ executionId: current().id, generation: current().generation, task: current().creation.task, instruction: current().creation.instruction, method: current().method }))], tools: [
-                defineTool({ name: 'work_request_decision', description: 'Ask the owner. Defer only the described scope; continue unaffected work.', parameters: Type.Object({ question: Type.String(), scope: Type.String(), wait: Type.Optional(Type.Boolean()), continuationId: Type.Optional(Type.String()), options: Type.Optional(Type.Array(Type.Object({ id: Type.String(), label: Type.String(), description: Type.String() }))), decisionContext: Type.Optional(Type.Object({ revision: Type.Literal(1), content: Type.Unknown(), sources: Type.Array(Type.Object({ system: Type.String(), objectId: Type.String(), version: Type.Optional(Type.String()), location: Type.Optional(Type.String()) })) })) }), replay: 'safe',
+                defineTool({ name: 'work_request_decision', description: 'Ask the owner. Supply a concise summary (ideally 12-30 characters, at most 80) for list titles. Keep question to one direct question (one or two sentences). Put only decision-relevant context in 2-4 short points; retain source/version references separately. Do not copy the question, standards or OM into the context or ask approval for routine follow-up work. Defer only the described scope; continue unaffected work.', parameters: Type.Object({ summary: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })), question: Type.String(), scope: Type.String(), wait: Type.Optional(Type.Boolean()), continuationId: Type.Optional(Type.String()), options: Type.Optional(Type.Array(Type.Object({ id: Type.String(), label: Type.String(), description: Type.String() }))), decisionContext: Type.Optional(Type.Object({ revision: Type.Literal(1), content: Type.Unknown(), sources: Type.Array(Type.Object({ system: Type.String(), objectId: Type.String(), version: Type.Optional(Type.String()), location: Type.Optional(Type.String()) })) })) }), replay: 'safe',
                     execute: async (args, api) => {
                         await guard();
-                        const id = await this.host.request(current(), `pi:${e.sessionId}:${api.taskId}`, args.question, args.options, args.decisionContext as Context | undefined);
+                        // Reject invalid routing before the application persists a question. A failed tool must not leave an unrouteable DecisionRequest.
+                        if (args.continuationId) {
+                            const state = await h.snapshot(State, context);
+                            requireRule(state?.links[args.continuationId], 'invalid', 'unknown continuation');
+                        }
+                        const id = await this.host.request(current(), `pi:${e.sessionId}:${api.taskId}`, args.question, args.options, args.decisionContext as Context | undefined, args.summary);
                         await api.commit(async tx => {
                             const s = await tx.doc(State);
                             if (args.continuationId) requireRule(s.links[args.continuationId], 'invalid', 'unknown continuation');

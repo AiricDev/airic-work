@@ -18,7 +18,7 @@ export const executions = sqliteTable('executions', {
     generation: integer().notNull(), version: integer().notNull(),
 });
 export const requests = sqliteTable('decision_requests', {
-    id: text().primaryKey(), executionId: text('execution_id').notNull(), question: text().notNull(),
+    id: text().primaryKey(), executionId: text('execution_id').notNull(), summary: text().notNull().default(''), question: text().notNull(),
     options: text({ mode: 'json' }).$type<Option[]>().notNull(), contexts: text({ mode: 'json' }).$type<Context[]>().notNull(),
     status: text({ enum: ['pending', 'answered'] }).notNull(), createdAt: text('created_at').notNull(),
     answeredAt: text('answered_at'), version: integer().notNull(),

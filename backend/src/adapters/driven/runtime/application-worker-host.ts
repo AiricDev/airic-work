@@ -39,7 +39,7 @@ export class ApplicationWorkerHost implements WorkerHost {
             return { output: [{ type: 'text' as const, text: await this.methods.read(e.method, path) }] };
         } }), ...await this.capabilities(e)];
     }
-    request(e: Execution, key: string, question: string, options: Option[] = [], decisionContext?: Context) {
-        return this.decisions.createDecisionRequest(e.ownerId, e.id, e.generation, key, question, options, decisionContext ?? { revision: 1, content: { question }, sources: [] }).then(r => r.id);
+    request(e: Execution, key: string, question: string, options: Option[] = [], decisionContext?: Context, summary?: string) {
+        return this.decisions.createDecisionRequest(e.ownerId, e.id, e.generation, key, question, options, decisionContext ?? { revision: 1, content: { question }, sources: [] }, summary).then(r => r.id);
     }
 }

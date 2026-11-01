@@ -19,7 +19,7 @@ export const contextDto = z.strictObject({
     sources: z.array(z.strictObject({ system: text, objectId: text, version: text.optional(), location: text.optional() })),
 });
 export const requestDto = z.strictObject({
-    id: text, executionId: text, question: text,
+    id: text, executionId: text, summary: text.optional(), question: text,
     options: z.array(z.strictObject({ id: text, label: text, description: text })),
     contexts: z.array(contextDto), status: z.enum(['pending', 'answered']),
     createdAt: text, answeredAt: text.optional(), version: z.number(),

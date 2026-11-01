@@ -148,6 +148,8 @@ Airic Work 以 DecisionRequest 组织需要用户介入的判断。用户提交 
 关系与协作规则：
 
 * 一个 Execution 可以产生零个或多个 DecisionRequest。每个 DecisionRequest 属于一个 Execution，由该 Execution 的任务归属人逐项处理。
+* 待决列表和执行内队列仅显示简短的问题摘要，不将完整问题或背景铺在列表中。Agent 提问时同时提供简短 `summary` 和完整 `question`；历史请求未提供摘要时使用显示用短标题，不改写原始问题。打开请求后展示完整问题与 Decision Context，支持 Markdown 的段落、标题、列表、表格和引用；摘要不替代用户回答所依据的完整内容。
+* DecisionRequest 的处理采用一层回应选择：候选方案卡片可直接选择，“需要进一步调查”与候选方案并列；统一的可选补充内容框允许用户不选方案、仅补充事实或条件，不再先选“处理方式”再选方案。均不预选；用户仍逐项核对提交，可附文件。选择调查本身即可表达回应，调查细节可补充；提交后即已回答，不保证 Agent 已完成调查。来源引用默认折叠，展开后显示来源、版本及可解析的原始链接。
 * DecisionRequest 总是需要任务归属人回应。界面展示 Decision Brief，并以选项卡、文本框及文件上传等控件收集 UserDecision；UserDecision 提交成功即标记为已回答。补充或更正保留历史，不因 Agent 仍需信息而撤销已回答事实；进一步提问可新建 DecisionRequest。
 * 每条 UserDecision 关联用户回应时查看的 Decision Context 版本，后续资料更新不改写原始提交。
 * 平台保存 UserDecision，并将其组装成消息交付对应 Execution 的 Agent。保存成功、消息交付和 Agent 实际继续执行是不同事实。

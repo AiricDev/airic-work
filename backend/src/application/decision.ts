@@ -11,16 +11,17 @@ export class DecisionUseCases {
     /**
      * 仅当前运行代次可提出需要用户回应的问题。初始 Context 修订为 1、选项 ID 不重复，命令重试返回原请求；请求 ID 同时作为 Episode 查询身份。
      */
-    async createDecisionRequest(userId: string, id: string, generation: number, key: string, question: string, options: Option[], context: Context) {
+    async createDecisionRequest(userId: string, id: string, generation: number, key: string, question: string, options: Option[], context: Context, summary?: string) {
         const e = await this.policy.owned(userId, id);
         active(e, generation);
         nonempty(question);
+        if (summary !== undefined) { summary = summary.trim(); nonempty(summary); requireRule(summary.length <= 80, 'invalid', 'summary exceeds 80 characters'); }
         requireRule(context.revision === 1 && new Set(options.map(o => o.id)).size === options.length, 'invalid');
-        const k = this.policy.key(userId, key, { id, question, options, context });
+        const k = this.policy.key(userId, key, { id, question, options, context, ...(summary === undefined ? {} : { summary }) });
         const old = await this.store.replay<Awaited<ReturnType<typeof this.store.request>>>('request', k);
         if (old)
             return old;
-        return this.store.createRequest(k, generation, { id: this.support.id(), executionId: id, question, options, contexts: [context], status: 'pending', createdAt: this.support.now(), version: 0 });
+        return this.store.createRequest(k, generation, { id: this.support.id(), executionId: id, ...(summary === undefined ? {} : { summary }), question, options, contexts: [context], status: 'pending', createdAt: this.support.now(), version: 0 });
     }
     /**
      * 当前代次追加下一份 Context 修订，保留此前阅读版本及已回答事实。它不撤销回答，也不负责跨业务系统强一致性。
