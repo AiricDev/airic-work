@@ -32,7 +32,7 @@ Dockerfile 使用多阶段构建，前端产物与 Linux 原生依赖进入最�
 
 代理需保留 Cookie、Authorization、Origin 和 Idempotency-Key；SSE `/api/v1/stream` 关闭缓冲并允许长连接，上传限制至少与 `AIRIC_HTTP_UPLOAD_BYTES` 一致。不要记录敏感请求头或正文。浏览器 origin 必须与 `AIRIC_HTTP_ORIGINS` 精确匹配。线上保持 Secure Cookie，HTTP 只用于明确的本地联调。
 
-Identity、MCP 签发/撤销和调用地址必须是可达且证书有效的 HTTPS；容器内 `127.0.0.1` 指向容器本身。内部 CA 文件只读挂载，同时配置 `NODE_EXTRA_CA_CERTS` 与 `AIRIC_IDENTITY_CA_FILE`，前者必须在 Node 启动前存在。网络别名须匹配证书域名。
+Identity、MCP 链接获取和调用地址必须是可达且证书有效的 HTTPS；容器内 `127.0.0.1` 指向容器本身。内部 CA 文件只读挂载，同时配置 `NODE_EXTRA_CA_CERTS` 与 `AIRIC_IDENTITY_CA_FILE`，前者必须在 Node 启动前存在。网络别名须匹配证书域名。
 
 OM 默认示例使用远程 Git，由受管缓存保存。私有仓库认证须由部署方配置只读凭据与 known_hosts，不把秘密放 URL/镜像。离线部署可只读挂载完整 Git 仓库至 `/opt/om`，并设置：
 

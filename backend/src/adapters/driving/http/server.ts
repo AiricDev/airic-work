@@ -258,7 +258,7 @@ export async function createHttpServer(options: HttpOptions) {
         revoke: async r => {
             const { connection } = parseInput(z.object({ connection: z.string().min(1).max(200) }), r.params);
             if (!options.credentials) throw new HttpError(503, 'capability-unavailable', '后台凭据能力未装配');
-            await options.credentials.revoke(actor(r).user.id, idOf(r), connection, actor(r).token);
+            await options.credentials.disconnect(actor(r).user.id, idOf(r), connection, actor(r).token);
             return { ok: true };
         },
     };

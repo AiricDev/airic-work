@@ -73,7 +73,7 @@ export function Guide() {
               </Table>
             </Box>
             <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
-              发起人就是归属人，Agent 访问业务 MCP 使用该用户的执行专用凭据。工作台读取与写入均通过 /api/v1 接口；只读 MCP transport 尚待交付。
+              发起人就是归属人，Agent 访问业务 MCP 使用该用户的个人链接。执行中断开连接不会删除其他客户端使用的链接。
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
               <Typography variant="body2">本实例 OM 仓库：</Typography>

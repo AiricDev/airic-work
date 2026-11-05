@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:worker": "node --import tsx scripts/dev-worker.ts",
     "admin:grant": "tsx scripts/grant-admin.ts",
     "generate:http": "tsx scripts/generate-http.ts",
     "qa:http": "node --import tsx tests/support/http-qa.ts",

@@ -1157,7 +1157,7 @@ export interface components {
             diff: string;
         };
         Schema37: {
-            expiresAt: string;
+            expiresAt: string | null;
         };
         Schema38: {
             /** @constant */

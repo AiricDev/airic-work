@@ -16,12 +16,16 @@ export function ExecutionConnections({ executionId }: { executionId: string }) {
     try {
       if (revoke) {
         await api("revoke", { params: { id: executionId, connection: id } });
-        setMessage("后台凭据已撤销，已发生的业务效果不会撤回。");
+        setMessage("本执行已断开连接；个人 MCP 链接仍可用于其他客户端。");
       } else {
         const r = await api("connect", {
           params: { id: executionId, connection: id },
         });
-        setMessage(`本执行后台凭据已连接，有效期至 ${r.expiresAt}。`);
+        setMessage(
+          r.expiresAt
+            ? `本执行已连接，有效期至 ${r.expiresAt}。`
+            : "本执行已连接个人 MCP 链接。",
+        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "操作结果未确认，请查询或重试");
@@ -34,16 +38,16 @@ export function ExecutionConnections({ executionId }: { executionId: string }) {
       <Stack spacing={1}>
         <Typography variant="subtitle2">本执行的业务 MCP 连接</Typography>
         <Typography variant="caption">
-          使用本人身份换取执行专用后台凭据。工作台退出不会自动撤销它。
+          使用本人在业务系统中的 MCP 链接。撤销共享链接请前往业务系统的个人设置。
         </Typography>
         {q.data?.map((id) => (
           <Stack direction="row" key={id} alignItems="center">
             <Typography sx={{ flex: 1 }}>{id}</Typography>
             <Button disabled={busy} onClick={() => void change(id, false)}>
-              连接 / 续期
+              连接 / 重新连接
             </Button>
             <Button disabled={busy} onClick={() => void change(id, true)}>
-              撤销
+              断开
             </Button>
           </Stack>
         ))}

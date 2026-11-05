@@ -5,8 +5,8 @@ import type { McpCredentials } from '../../../application/ports';
 import { canonical, requireRule, RuleError } from '../../../domain/model';
 
 export interface CredentialScope { userId: string; executionId: string; connection: string; issuer: string; subject: string }
-export interface McpConnection { id: string; /** Trusted Airic identity source (User.issuer), not a response-provided claim. */ issuer: string; endpoint: string; issueEndpoint: string; revokeEndpoint: string }
-interface Secret { token: string; tokenId: string; expiresAt: string }
+export interface McpConnection { id: string; /** Trusted Airic identity source (User.issuer), not a response-provided claim. */ issuer: string; endpoint: string; issueEndpoint: string }
+interface Secret { url: string; tokenId: string; enabled: boolean }
 /** Encrypted per-execution credential vault. The key is host configuration, never persisted alongside ciphertext. */
 export class McpCredentialVault implements McpCredentials {
     private readonly key: Buffer;
@@ -16,7 +16,7 @@ export class McpCredentialVault implements McpCredentials {
         this.key = Buffer.from(key);
         this.connections = connections.map(c => Object.freeze({ ...c }));
         requireRule(new Set(connections.map(c => c.id)).size === connections.length, 'invalid');
-        for (const c of connections) for (const value of [c.endpoint, c.issueEndpoint, c.revokeEndpoint]) {
+        for (const c of connections) for (const value of [c.endpoint, c.issueEndpoint]) {
             const url = new URL(value);
             requireRule(url.protocol === 'https:' && !url.username && !url.password && !url.hash && !url.search, 'invalid', 'HTTPS endpoints required');
         }
@@ -39,7 +39,7 @@ export class McpCredentialVault implements McpCredentials {
             const decipher = createDecipheriv('aes-256-gcm', this.key, bytes.subarray(0, 12));
             decipher.setAuthTag(bytes.subarray(12, 28)); decipher.setAAD(Buffer.from(this.binding(s)));
             const secret = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString()) as Secret;
-            requireRule(typeof secret.token === 'string' && Number.isFinite(Date.parse(secret.expiresAt)) && (!active || Date.parse(secret.expiresAt) > Date.now()), 'blocked');
+            requireRule(typeof secret.url === 'string' && typeof secret.tokenId === 'string' && (!active || secret.enabled === true), 'blocked');
             return secret;
         } catch { throw new RuleError('blocked', 'MCP credential missing, expired or unreadable; reconnect required'); }
     }
@@ -53,18 +53,17 @@ export class McpCredentialVault implements McpCredentials {
     }
     async connect(s: CredentialScope, loginToken: string) {
         const c = this.connection(s.connection); requireRule(c.issuer === s.issuer && !!loginToken, 'forbidden');
-        const result = await this.request(c.issueEndpoint, loginToken, { execution_id: s.executionId });
-        requireRule(result.user_id === s.subject && result.execution_id === s.executionId && result.token_type === 'Bearer' && typeof result.access_token === 'string' && result.access_token.length > 0 && typeof result.token_id === 'string' && result.token_id.length > 0 && typeof result.expires_at === 'string' && Date.parse(result.expires_at) > Date.now(), 'forbidden', 'MCP credential identity or expiry mismatch');
-        const secret = { token: result.access_token, tokenId: result.token_id, expiresAt: result.expires_at };
+        const result = await this.request(c.issueEndpoint, loginToken, {});
+        requireRule(result.user_id === s.subject && result.expires_at === null && typeof result.path === 'string' && typeof result.token_id === 'string' && result.token_id.length > 0, 'forbidden', 'MCP credential identity mismatch');
+        const base = new URL(c.endpoint); const target = new URL(result.path, base);
+        requireRule(target.origin === base.origin && !target.username && !target.password && !target.search && !target.hash && target.pathname.startsWith(base.pathname.replace(/\/$/, '') + '/'), 'forbidden', 'MCP link outside configured endpoint');
+        const secret = { url: target.href, tokenId: result.token_id, enabled: true };
         await this.save(s, secret);
-        return { tokenId: secret.tokenId, expiresAt: secret.expiresAt };
+        return { tokenId: secret.tokenId, expiresAt: null };
     }
-    async revoke(s: CredentialScope, loginToken: string) {
+    async disconnect(s: CredentialScope, _loginToken: string) {
         const c = this.connection(s.connection); requireRule(c.issuer === s.issuer, 'forbidden');
-        const secret = await this.read(s, false);
-        // Disable local use before attempting remote revoke. Retry remote revocation by its stable token ID.
-        await this.save(s, { ...secret, expiresAt: new Date(0).toISOString() });
-        const result = await this.request(c.revokeEndpoint, loginToken, { token_id: secret.tokenId });
-        requireRule(result.user_id === s.subject && result.status === 'revoked', 'forbidden', 'revocation identity mismatch');
+        // Disconnect this execution only; the user's shared link remains valid for other clients.
+        await unlink(this.path(s)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; });
     }
 }

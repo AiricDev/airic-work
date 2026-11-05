@@ -4880,7 +4880,10 @@
         "type": "object",
         "properties": {
           "expiresAt": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

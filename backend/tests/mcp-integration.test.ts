@@ -12,28 +12,29 @@ let fixture: Awaited<ReturnType<typeof httpsIdentityFixture>>;
 let directory: string;
 let rejectCalls = false;
 let wrongSubject = false;
-let expiresAt: string;
 let writes = 0;
-let issuedExecution = '';
+const sharedToken = 'cll_' + 'x'.repeat(43);
+const sharedPath = '/mcp/link/' + sharedToken;
+let issuedPath = sharedPath;
 beforeAll(async () => { fixture = await httpsIdentityFixture(); });
 afterAll(async () => { if (fixture) await fixture.close(); });
 beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), 'airic-mcp-')); rejectCalls = false; wrongSubject = false; writes = 0;
-    expiresAt = new Date(Date.now() + 60000).toISOString(); fixture.received.length = 0;
+    directory = await mkdtemp(join(tmpdir(), 'airic-mcp-')); rejectCalls = false; wrongSubject = false; writes = 0; issuedPath = sharedPath;
+    fixture.received.length = 0;
     fixture.handler = (req, res) => {
         const chunks: Buffer[] = [];
         req.on('data', b => chunks.push(Buffer.from(b)));
         req.on('end', () => {
             const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
             res.setHeader('Content-Type', 'application/json');
-            if (req.url === '/issue') { issuedExecution = body.execution_id; res.end(JSON.stringify({ access_token: 'clm_synthetic_secret', token_type: 'Bearer', token_id: 'grant-id', user_id: wrongSubject ? 'foreign' : 'owner', execution_id: issuedExecution, expires_at: expiresAt })); return; }
+            if (req.url === '/issue') { res.end(JSON.stringify({ path: issuedPath, token_id: 'grant-id', user_id: wrongSubject ? 'foreign' : 'owner', expires_at: null })); return; }
             if (req.url === '/revoke') { rejectCalls = true; res.end(JSON.stringify({ status: 'revoked', user_id: wrongSubject ? 'foreign' : 'owner' })); return; }
-            if (req.headers.authorization !== 'Bearer clm_synthetic_secret' || req.headers['x-airic-execution-id'] !== issuedExecution || rejectCalls) { res.statusCode = 401; res.end('{}'); return; }
+            if (req.url !== sharedPath || req.headers.authorization || rejectCalls) { res.statusCode = 401; res.end('{}'); return; }
             if (!body.id) { res.statusCode = 202; res.end(); return; }
             let result: object = {};
             if (body.method === 'initialize') result = { protocolVersion: body.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'business', version: '1' } };
             if (body.method === 'tools/list') result = { tools: [{ name: 'record.update', description: 'Update', inputSchema: { type: 'object', properties: {} }, _meta: { 'ai.airic/execution': { kind: 'command' } } }] };
-            if (body.method === 'tools/call') { writes++; result = { content: [{ type: 'text', text: JSON.stringify({ saved: true, access_token: 'secret-in-content' }) }], structuredContent: { saved: true, token: 'remote-secret', echoed: 'clm_synthetic_secret' } }; }
+            if (body.method === 'tools/call') { writes++; result = { content: [{ type: 'text', text: JSON.stringify({ saved: true, access_token: 'secret-in-content' }) }], structuredContent: { saved: true, token: 'remote-secret', echoed: sharedPath } }; }
             res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
         });
     };
@@ -51,7 +52,7 @@ const fetcher: typeof fetch = async (input, init) => new Promise((resolve, rejec
 async function setup() {
     const h = harness(); const { u, e } = await h.running(); const connection = (await h.store.settings()).connections[0];
     const origin = new URL(fixture.options.endpoint).origin;
-    const options = { directory, key: randomBytes(32), connections: [{ id: connection, issuer: u.issuer, endpoint: origin + '/mcp', issueEndpoint: origin + '/issue', revokeEndpoint: origin + '/revoke' }], fetch: fetcher };
+    const options = { directory, key: randomBytes(32), connections: [{ id: connection, issuer: u.issuer, endpoint: origin + '/mcp', issueEndpoint: origin + '/issue' }], fetch: fetcher };
     const integration = createMcpIntegration(options, h.store);
     h.d.mcp.tools = integration.gateway.tools.bind(integration.gateway);
     h.d.mcp.call = integration.gateway.call.bind(integration.gateway);
@@ -62,32 +63,30 @@ async function setup() {
 it('issues for the creator, encrypts/reopens the grant, discovers schemas and calls with only the MCP credential', async () => {
     const { h, u, e, connection, integration, options } = await setup();
     const metadata = await integration.credentials.connect(u.id, e.id, connection, 'web-access');
-    expect(metadata).toEqual({ tokenId: 'grant-id', expiresAt });
+    expect(metadata).toEqual({ tokenId: 'grant-id', expiresAt: null });
     const bytes = await readFile(join(directory, (await readdir(directory))[0]));
-    expect(bytes.toString()).not.toContain('clm_synthetic_secret');
+    expect(bytes.toString()).not.toContain(sharedToken);
     const reopened = createMcpIntegration(options, h.store);
     const definitions = await reopened.gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation });
     expect(definitions[0]).toMatchObject({ name: 'record.update', classification: 'write', inputSchema: { type: 'object' } });
     const result = await h.app.mcpCases.callMcp(u.id, e.id, e.generation, connection, definitions[0].name, {}, 'call-1', definitions[0].schemaRevision);
     expect(result.status).toBe('unknown');
-    expect(JSON.stringify(result)).not.toContain('synthetic_secret');
+    expect(JSON.stringify(result)).not.toContain(sharedToken);
     expect(JSON.stringify(result)).not.toContain('remote-secret');
     expect(JSON.stringify(result)).not.toContain('secret-in-content');
     await h.app.mcpCases.callMcp(u.id, e.id, e.generation, connection, definitions[0].name, {}, 'call-1', definitions[0].schemaRevision);
     expect(writes).toBe(1);
-    expect(fixture.received.filter(r => r.url === '/mcp').every(r => r.authorization === 'Bearer clm_synthetic_secret')).toBe(true);
+    expect(fixture.received.filter(r => r.url === sharedPath).every(r => !r.authorization)).toBe(true);
 });
 
-it('rejects foreign ownership, grant subject, expiry, disabled users and stopped generations', async () => {
+it('rejects foreign ownership, grant subject, disabled users and stopped generations', async () => {
     const { h, u, e, connection, integration } = await setup();
     wrongSubject = true;
     await expect(integration.credentials.connect(u.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
-    wrongSubject = false; expiresAt = new Date(0).toISOString();
-    await expect(integration.credentials.connect(u.id, e.id, connection, 'web')).rejects.toThrow();
-    expiresAt = new Date(Date.now() + 60000).toISOString();
+    wrongSubject = false;
     await integration.credentials.connect(u.id, e.id, connection, 'web');
     const foreign = await h.app.account.ensureUser('foreign');
-    await expect(integration.credentials.revoke(foreign.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(integration.credentials.disconnect(foreign.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
     h.store.u.set(u.id, { ...u, enabled: false });
     await expect(integration.gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).rejects.toThrow();
     h.store.u.set(u.id, u);
@@ -95,17 +94,17 @@ it('rejects foreign ownership, grant subject, expiry, disabled users and stopped
     expect(writes).toBe(0);
 });
 
-it('revokes locally before remote acknowledgement and never retries a rejected write', async () => {
+it('disconnects locally and never retries a rejected write', async () => {
     const { u, e, connection, integration } = await setup();
     await integration.credentials.connect(u.id, e.id, connection, 'web');
     rejectCalls = true;
     await expect(integration.gateway.call({ userId: u.id, executionId: e.id, sessionId: e.sessionId, generation: e.generation }, connection, 'record.update', {})).rejects.toThrow();
     expect(writes).toBe(0);
     rejectCalls = false;
-    await integration.credentials.revoke(u.id, e.id, connection, 'web');
+    await integration.credentials.disconnect(u.id, e.id, connection, 'web');
     await expect(integration.gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).rejects.toThrow();
-    // Revocation can be retried by the same stable token ID even though local use is disabled.
-    await integration.credentials.revoke(u.id, e.id, connection, 'web');
+    // Disconnect is idempotent and does not revoke the shared business link.
+    await integration.credentials.disconnect(u.id, e.id, connection, 'web');
 });
 
 it('connects a real Pi Worker through discovery and the gateway without exposing credentials to its Session', async () => {
@@ -131,7 +130,7 @@ it('connects a real Pi Worker through discovery and the gateway without exposing
         expect((await application.query.queryMcpCalls(u.id, e.id, 'write')).items).toHaveLength(1);
         const history = JSON.stringify(await application.query.querySession(u.id, e.id));
         expect(history).not.toContain('web-access');
-        expect(history).not.toContain('clm_synthetic_secret');
+        expect(history).not.toContain(sharedToken);
         expect(history).toContain('Business response received');
     } finally { await worker.close(); await backend.dispose(); }
 });
@@ -147,12 +146,33 @@ it('does not reuse encrypted credentials after changing connection authority or 
     await expect(new McpCredentialVault(directory, options.key, options.connections.map(c => ({ ...c, endpoint: c.endpoint + '-other' })), fetcher).secret(identity)).rejects.toThrow();
 });
 
-it('keeps local credentials disabled when remote revocation responds with another identity', async () => {
+it('disconnects one execution without revoking the shared business URL', async () => {
     const { u, e, connection, integration } = await setup();
     await integration.credentials.connect(u.id, e.id, connection, 'web');
-    wrongSubject = true;
-    await expect(integration.credentials.revoke(u.id, e.id, connection, 'foreign-web')).rejects.toMatchObject({ code: 'forbidden' });
+    await integration.credentials.disconnect(u.id, e.id, connection, 'web');
+    expect(fixture.received.some(r => r.url === '/revoke')).toBe(false);
     await expect(integration.gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).rejects.toThrow();
-    wrongSubject = false;
-    await integration.credentials.revoke(u.id, e.id, connection, 'owner-web');
+});
+
+it('uses the same personal URL across executions and disconnects only the selected copy', async () => {
+    const { u, e, connection, options } = await setup();
+    const { McpCredentialVault } = await import('../src/adapters/driven/mcp/credentials');
+    const vault = new McpCredentialVault(directory, options.key, options.connections, fetcher);
+    const first = { userId: u.id, executionId: e.id, connection, issuer: u.issuer, subject: u.subject };
+    const second = { ...first, executionId: 'another-execution' };
+    await vault.connect(first, 'web');
+    await vault.connect(second, 'web');
+    expect((await vault.secret(first)).url).toBe((await vault.secret(second)).url);
+    await vault.disconnect(first, 'web');
+    await expect(vault.secret(first)).rejects.toThrow();
+    expect((await vault.secret(second)).url).toContain(sharedPath);
+});
+
+
+it('rejects a credential URL outside the configured MCP service', async () => {
+    const { u, e, connection, integration } = await setup();
+    issuedPath = 'https://elsewhere.example/mcp/link/token';
+    await expect(integration.credentials.connect(u.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
+    issuedPath = '/other/link/token';
+    await expect(integration.credentials.connect(u.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
 });

@@ -97,7 +97,7 @@ export const contracts = {
     methodHistory: { method: 'get', path: '/om/history', response: z.strictObject({ source: text, scope: text, commits: z.array(z.strictObject({ sha: text, parents: z.array(text), at: text, subject: text })), complete: z.boolean(), limitations: z.array(text) }) },
     methodCommit: { method: 'get', path: '/om/commits/{sha}', response: z.strictObject({ sha: text, parents: z.array(text), at: text, subject: text, files: z.array(text), diff: text }) },
     methodSync: { method: 'post', path: '/om/sync', response: methodDto },
-    connect: { method: 'post', path: '/executions/{id}/connections/{connection}/credential', response: z.strictObject({ expiresAt: text }) },
+    connect: { method: 'post', path: '/executions/{id}/connections/{connection}/credential', response: z.strictObject({ expiresAt: text.nullable() }) },
     revoke: { method: 'delete', path: '/executions/{id}/connections/{connection}/credential', response: z.strictObject({ ok: z.literal(true) }) },
     connections: { method: 'get', path: '/executions/{id}/connections', response: z.array(text) },
 } as const;

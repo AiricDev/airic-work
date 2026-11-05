@@ -99,11 +99,11 @@ cd backend
 AIRIC_QA_PORT=8059 node --env-file=../.env --import tsx tests/support/http-qa.ts --configured-services --directory ../.airic-data/certlab-link
 ```
 
-当前 CertLab 的身份地址为 `https://127.0.0.1:8443/api/v1/auth/me`，subject/name 字段是 `actor_id/display_name`；issuer/source/connection 都为 `certlab`。MCP 配置 HTTPS `/mcp`、`/api/v1/auth/mcp-token` 与 `/api/v1/auth/mcp-token/revoke`；保留原凭据加密密钥。身份 CA 文件还会在此测试宿主创建客户端之前加入 Node 默认信任，以覆盖同一 CertLab 的 MCP 请求；Node `--env-file` 中的 `NODE_EXTRA_CA_CERTS` 初始化太晚，不能单独依赖它。未关闭证书验证，不修改系统信任。
+当前 CertLab 的身份地址为 `https://127.0.0.1:8443/api/v1/auth/me`，subject/name 字段是 `actor_id/display_name`；issuer/source/connection 都为 `certlab`。MCP 配置 HTTPS `/mcp`、`/api/v1/auth/mcp-link`；保留原凭据加密密钥。身份 CA 文件还会在此测试宿主创建客户端之前加入 Node 默认信任，以覆盖同一 CertLab 的 MCP 请求；Node `--env-file` 中的 `NODE_EXTRA_CA_CERTS` 初始化太晚，不能单独依赖它。未关闭证书验证，不修改系统信任。
 
 根 `.env` 的 `AIRIC_API_TARGET=http://127.0.0.1:8059` 供前端 Vite 代理读取；HTTP origins 精确包含5217和5180的地址，本地 HTTP 才设置 Secure Cookie=false。CertLab 的 `/airic-work/api` 代理与页面地址配置见其 frontend/README.md。当前同主机不同端口的 HttpOnly Cookie 交接不构成通用跨域 SSO。
 
-2026-10-31 合成联调：仅对隔离副本授权演示工程师访问合成项目；验证真实用户自动建档、稳定幂等创建、Execution 凭据签发、会话交接、44个 MCP 工具发现与报告只读上下文。调用前从 `integration.info` 获取 `domain.release`，按工具 schema 传 `domain_release`；平台不注入 CertLab 专有业务参数。浏览器创建的测试任务保持 new；专用连接探针经替身 Runtime 后结束，不代表真实模型完成业务。旧业务数据库与服务保留。
+2026-10-31 合成联调：仅对隔离副本授权演示工程师访问合成项目；验证真实用户自动建档、稳定幂等创建、个人 MCP 链接连接、会话交接、44个 MCP 工具发现与报告只读上下文。调用前从 `integration.info` 获取 `domain.release`，按工具 schema 传 `domain_release`；平台不注入 CertLab 专有业务参数。浏览器创建的测试任务保持 new；专用连接探针经替身 Runtime 后结束，不代表真实模型完成业务。旧业务数据库与服务保留。
 
 待决列表现在使用独立 summary；旧请求从首段生成最多40字符的显示标题，原 question 不变。详情保留完整 Markdown 问题与分节 Context。summary 的持久化迁移、重开和幂等合同见 decision-summary.test.ts；呈现与安全 Markdown 验证见 frontend/tests/decision-summary.test.tsx。
 

@@ -17,16 +17,20 @@ export class HttpMcpGateway implements Mcp {
     private async client<T>(scope: Scope, connection: string, run: (client: McpClient) => Promise<T>) {
         const config = this.vault.connection(connection);
         const secrets = new Set<string>();
+        const identity = await this.check(scope, connection);
+        const initial = await this.vault.secret(identity);
+        const endpoint = new URL(initial.url);
+        requireRule(endpoint.origin === new URL(config.endpoint).origin && endpoint.pathname.startsWith(new URL(config.endpoint).pathname.replace(/\/$/, '') + '/'), 'forbidden');
+        secrets.add(initial.url); secrets.add(endpoint.pathname.split('/').at(-1)!);
         const client = new McpClient({ name: 'airic-work', version: '1.0.0', requestTimeoutMs: 15000 });
         try {
-            await client.connect(new StreamableHttpTransport({ url: config.endpoint, openGetStream: false, reconnect: { maxRetries: 0 }, fetch: async (url, init) => {
-                requireRule(new URL(String(url)).origin === new URL(config.endpoint).origin && new URL(String(url)).pathname === new URL(config.endpoint).pathname, 'forbidden');
+            await client.connect(new StreamableHttpTransport({ url: endpoint.href, openGetStream: false, reconnect: { maxRetries: 0 }, fetch: async (url, init) => {
+                requireRule(new URL(String(url)).href === endpoint.href, 'forbidden');
                 const identity = await this.check(scope, connection);
                 requireRule(identity.issuer === config.issuer, 'forbidden');
                 const secret = await this.vault.secret(identity);
-                secrets.add(secret.token);
+                requireRule(secret.url === endpoint.href, 'forbidden');
                 const headers = new Headers(init?.headers);
-                headers.set('Authorization', `Bearer ${secret.token}`); headers.set('X-Airic-Execution-Id', scope.executionId);
                 return this.fetcher(url, { ...init, headers, redirect: 'error', credentials: 'omit', signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
             } }));
             const redact = (value: Json): Json => {

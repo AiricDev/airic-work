@@ -1,7 +1,7 @@
 import type { ControlStore, McpCredentials } from './ports';
 import { own, requireRule } from '../domain/model';
 
-/** Execution owner alone can provision/revoke credentials. The login token is transient, not an Input. */
+/** Execution owner alone can connect/disconnect credentials. The login token is transient, not an Input. */
 export class McpCredentialUseCases {
     constructor(private readonly store: ControlStore, private readonly credentials: McpCredentials) {}
     private async scope(userId: string, executionId: string, connection: string) {
@@ -14,7 +14,7 @@ export class McpCredentialUseCases {
     async connect(userId: string, executionId: string, connection: string, loginToken: string) {
         return this.credentials.connect(await this.scope(userId, executionId, connection), loginToken);
     }
-    async revoke(userId: string, executionId: string, connection: string, loginToken: string) {
-        await this.credentials.revoke(await this.scope(userId, executionId, connection), loginToken);
+    async disconnect(userId: string, executionId: string, connection: string, loginToken: string) {
+        await this.credentials.disconnect(await this.scope(userId, executionId, connection), loginToken);
     }
 }

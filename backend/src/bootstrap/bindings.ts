@@ -211,7 +211,7 @@ export function loadConfiguration(file?: string, environment: NodeJS.ProcessEnv 
     if (!Object.hasOwn(sources, omSource)) fail('AIRIC_OM_SOURCE');
     const root = parse('AIRIC_OM_ROOT', text, 'om.md');
     try { runtimePath(root); } catch { fail('AIRIC_OM_ROOT'); }
-    const connections = json('AIRIC_MCP_CONNECTIONS', z.array(z.strictObject({ id: text, issuer: text, endpoint: https, issueEndpoint: https, revokeEndpoint: https })), '[]');
+    const connections = json('AIRIC_MCP_CONNECTIONS', z.array(z.strictObject({ id: text, issuer: text, endpoint: https, issueEndpoint: https })), '[]');
     if (new Set(connections.map(c => c.id)).size !== connections.length) fail('AIRIC_MCP_CONNECTIONS');
     const key = parse('AIRIC_MCP_ENCRYPTION_KEY', z.string().regex(/^[a-fA-F0-9]{64}$/));
     let ca: string | undefined;

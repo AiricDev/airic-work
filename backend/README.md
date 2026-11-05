@@ -50,7 +50,7 @@ const { identity } = createIdentity({
 - 返回 UTF-8 JSON，映射两个必需的顶层字符串字段（稳定用户 ID、显示名）。不回退到 email/name 合并身份，不接受返回正文中的 issuer/admin/enabled 作为本地权限。
 - TLS 证书/主机名验证开启；可通过可信配置 `ca` 提供企业 CA，不能关闭验证。不接受 HTTP、URL 凭据、查询或片段，不跟随重定向。超时覆盖 DNS/TLS/完整正文；不重试、不缓存成功认证。
 - 本地 User 首次启用但非管理员；重复认证保留本地显示名、资格、管理员权限和偏好。停用用户即使外部验证成功仍被拒绝。
-- 身份 token 仅用于本次验证，不写入数据库、日志、Session 或 Workspace。业务 MCP 另由凭据用例向固定 issue endpoint 换取并加密托管专用凭据，合同见 `src/adapters/driven/mcp/README.md`。
+- 身份 token 仅用于本次验证，不写入数据库、日志、Session 或 Workspace。业务 MCP 另由凭据用例向固定 issue endpoint 获取并加密托管个人 MCP 链接，合同见 `src/adapters/driven/mcp/README.md`。
 
 已有用户先通过有效身份接入，再由持有数据库 OS 权限的操作员运行：
 

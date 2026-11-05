@@ -38,7 +38,7 @@ it('maps fixed MCP endpoints, CA, provider credentials and all resource limits w
     const before = process.env.AIRIC_MODEL_API_KEY;
     const config = loadConfiguration(file, {
         AIRIC_IDENTITY_CA_FILE: 'ca.pem', AIRIC_GIT_TIMEOUT_MS: '1200', AIRIC_MODEL_API_KEY: 'synthetic-key',
-        AIRIC_MCP_CONNECTIONS: JSON.stringify([{ id: 'business', issuer: 'business', endpoint: 'https://business.example/mcp', issueEndpoint: 'https://business.example/issue', revokeEndpoint: 'https://business.example/revoke' }]),
+        AIRIC_MCP_CONNECTIONS: JSON.stringify([{ id: 'business', issuer: 'business', endpoint: 'https://business.example/mcp', issueEndpoint: 'https://business.example/issue' }]),
     });
     expect(config.identity.ca).toBe('private-ca');
     expect(config.methods.limits.commandTimeoutMs).toBe(1200);
@@ -52,13 +52,13 @@ it.each([
     ['AIRIC_PORT', '65536'], ['AIRIC_IDENTITY_ENDPOINT', 'http://untrusted.example'], ['AIRIC_IDENTITY_ENDPOINT', 'private-not-a-url'],
     ['AIRIC_MCP_ENCRYPTION_KEY', 'secret-that-must-not-be-printed'], ['AIRIC_OM_SOURCES', '{invalid-json-secret'],
     ['AIRIC_OM_SOURCE', 'missing'], ['AIRIC_OM_ROOT', '.ome/private.md'], ['AIRIC_GIT_TIMEOUT_MS', '0'],
-    ['AIRIC_MCP_CONNECTIONS', '[{"id":"secret","issuer":"x","endpoint":"http://x","issueEndpoint":"http://x","revokeEndpoint":"http://x"}]'],
+    ['AIRIC_MCP_CONNECTIONS', '[{"id":"secret","issuer":"x","endpoint":"http://x","issueEndpoint":"http://x"}]'],
 ])('rejects invalid %s without echoing its contents', (name, value) => {
     try { loadConfiguration(file, { [name]: value }); throw new Error('expected rejection'); }
     catch (error) { expect((error as Error).message).toContain(name); expect((error as Error).message).not.toContain(value); }
 });
 it('rejects duplicate connection IDs and missing explicit dotenv files', () => {
-    const c = { id: 'same', issuer: 'business', endpoint: 'https://x/mcp', issueEndpoint: 'https://x/issue', revokeEndpoint: 'https://x/revoke' };
+    const c = { id: 'same', issuer: 'business', endpoint: 'https://x/mcp', issueEndpoint: 'https://x/issue' };
     expect(() => loadConfiguration(file, { AIRIC_MCP_CONNECTIONS: JSON.stringify([c, c]) })).toThrow('AIRIC_MCP_CONNECTIONS');
     expect(() => loadConfiguration(join(directory, 'missing'), {})).toThrow('DOTENV_FILE');
 });

@@ -29,7 +29,7 @@ export function BusinessSection() {
       </Typography>
       <Typography variant="body2" color="text.secondary">
         业务 MCP、Git 与只读轨迹 MCP
-        分开配置。每个执行使用归属人的专用后台凭据。
+        分开配置。每个执行使用归属人的个人 MCP 链接加密副本。
       </Typography>
       <Alert severity="info">
         MCP Endpoint、签发/撤销接口、身份来源和密钥统一由宿主 dotenv

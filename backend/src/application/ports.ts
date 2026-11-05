@@ -410,8 +410,8 @@ export interface Mcp {
 }
 export type { Creation };
 
-/** 后台凭据只由宿主签发/保存，应用只返回可显示元数据，不向 Agent 暴露秘密。 */
+/** 宿主获取并保存业务系统的链接，应用只返回可显示元数据，不向 Agent 暴露秘密。 */
 export interface McpCredentials {
-    connect(scope: { userId: string; executionId: string; connection: string; issuer: string; subject: string }, loginToken: string): Promise<{ tokenId: string; expiresAt: string }>;
-    revoke(scope: { userId: string; executionId: string; connection: string; issuer: string; subject: string }, loginToken: string): Promise<void>;
+    connect(scope: { userId: string; executionId: string; connection: string; issuer: string; subject: string }, loginToken: string): Promise<{ tokenId: string; expiresAt: string | null }>;
+    disconnect(scope: { userId: string; executionId: string; connection: string; issuer: string; subject: string }, loginToken: string): Promise<void>;
 }
