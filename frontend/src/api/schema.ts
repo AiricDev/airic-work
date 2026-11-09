@@ -528,6 +528,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrationRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integrationRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}/user-decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrationAnswer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integrationUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/input-files/{id}/content": {
         parameters: {
             query?: never;
@@ -1164,6 +1228,67 @@ export interface components {
             ok: true;
         };
         Schema39: string[];
+        Schema40: {
+            items: {
+                id: string;
+                /** @enum {string} */
+                status: "pending" | "answered";
+                createdAt: string;
+                summary: string;
+            }[];
+            cursor?: string;
+        };
+        Schema41: {
+            request: {
+                id: string;
+                executionId: string;
+                summary?: string;
+                question: string;
+                options: {
+                    id: string;
+                    label: string;
+                    description: string;
+                }[];
+                contexts: {
+                    revision: number;
+                    content: components["schemas"]["Schema41___schema0"];
+                    sources: {
+                        system: string;
+                        objectId: string;
+                        version?: string;
+                        location?: string;
+                    }[];
+                }[];
+                /** @enum {string} */
+                status: "pending" | "answered";
+                createdAt: string;
+                answeredAt?: string;
+                version: number;
+            };
+            decisions: {
+                id: string;
+                requestId: string;
+                userId: string;
+                text: string;
+                optionId?: string;
+                contextRevision: number;
+                files: string[];
+                correctionOf?: string;
+                at: string;
+            }[];
+            inputs: {
+                id: string;
+                executionId: string;
+                sourceId: string;
+                /** @enum {string} */
+                kind: "start" | "user-decision" | "steering";
+                sequence: number;
+                /** @enum {string} */
+                status: "pending" | "delivered";
+                files: string[];
+            }[];
+        };
+        Schema41___schema0: JsonValue;
     };
     responses: never;
     parameters: never;
@@ -2490,6 +2615,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Schema39"];
+                };
+            };
+            /** @description Request failed or outcome unknown */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema2"];
+                };
+            };
+        };
+    };
+    integrationRequests: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                status?: "pending" | "answered";
+            };
+            header?: never;
+            path: {
+                externalProjectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved or current representation, not proof of background execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema40"];
+                };
+            };
+            /** @description Request failed or outcome unknown */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema2"];
+                };
+            };
+        };
+    };
+    integrationRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externalProjectId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved or current representation, not proof of background execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema41"];
+                };
+            };
+            /** @description Request failed or outcome unknown */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema2"];
+                };
+            };
+        };
+    };
+    integrationAnswer: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                externalProjectId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Schema18"];
+            };
+        };
+        responses: {
+            /** @description Saved or current representation, not proof of background execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema19"];
+                };
+            };
+            /** @description Request failed or outcome unknown */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema2"];
+                };
+            };
+        };
+    };
+    integrationUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externalProjectId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved or current representation, not proof of background execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema21"];
                 };
             };
             /** @description Request failed or outcome unknown */

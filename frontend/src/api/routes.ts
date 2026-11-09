@@ -163,5 +163,21 @@ export const routes = {
   "connections": {
     "path": "/api/v1/executions/{id}/connections",
     "method": "GET"
+  },
+  "integrationRequests": {
+    "path": "/api/v1/integration/projects/{externalProjectId}/decision-requests",
+    "method": "GET"
+  },
+  "integrationRequest": {
+    "path": "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}",
+    "method": "GET"
+  },
+  "integrationAnswer": {
+    "path": "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}/user-decisions",
+    "method": "POST"
+  },
+  "integrationUpload": {
+    "path": "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}/uploads",
+    "method": "POST"
   }
 } as const;

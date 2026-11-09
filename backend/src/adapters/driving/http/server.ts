@@ -98,11 +98,9 @@ export async function createHttpServer(options: HttpOptions) {
         // Query strings must never be used for identity handoff.
         if (/[?&](?:token|access_token|ticket)=/i.test(request.url)) throw new HttpError(400, 'invalid-input', '不允许通过 URL 提交身份凭据');
         const token = bearer(request);
+        if (request.routeOptions.url.startsWith('/api/v1/integration/') && !token)
+            throw new HttpError(401, 'invalid-identity', '需要集成方身份凭据');
         const sessionId = request.cookies[cookieName];
-        if (token && sessionId) {
-            if (!sessions.get(sessionId)) reply.clearCookie(cookieName, cookieOptions);
-            throw new HttpError(400, 'ambiguous-identity', '请只使用一种身份凭据');
-        }
         const login = request.method === 'POST' && request.url.split('?')[0] === '/api/v1/auth/session';
         if (request.headers.origin && !origins.has(request.headers.origin)) throw new HttpError(403, 'invalid-origin', '请求来源不被允许');
         if (login) {
@@ -112,6 +110,10 @@ export async function createHttpServer(options: HttpOptions) {
             return;
         }
         const session = sessions.get(sessionId);
+        if (token && sessionId) {
+            if (!sessions.get(sessionId)) reply.clearCookie(cookieName, cookieOptions);
+            throw new HttpError(400, 'ambiguous-identity', '请只使用一种身份凭据');
+        }
         if (!token && !session) {
             if (sessionId) reply.clearCookie(cookieName, cookieOptions);
             throw new HttpError(401, 'session-required', '请从业务系统重新进入工作台');
@@ -137,7 +139,7 @@ export async function createHttpServer(options: HttpOptions) {
         if (error instanceof HttpError) { status = error.status; code = error.code; message = error.message; }
         else if (error instanceof InputValidationError) { status = 400; code = error.code; message = error.message; }
         else if (error instanceof RuleError) {
-            const scoped = /^\/api\/v1\/(?:executions\/|decision-requests\/|episodes\/|projects\/|input-files\/)/.test(request.url)
+            const scoped = /^\/api\/v1\/(?:executions\/|decision-requests\/|integration\/|episodes\/|projects\/|input-files\/)/.test(request.url)
                 || (request.url.startsWith('/api/v1/om/') && !!(request.query as Record<string, unknown>).executionId);
             status = error.code === 'invalid' ? 400 : error.code === 'not-found' || (error.code === 'forbidden' && scoped) ? 404 : error.code === 'forbidden' ? 403 : error.code === 'conflict' || error.code === 'blocked' ? 409 : 503;
             code = status === 404 ? 'not-found' : error.code;
@@ -164,6 +166,22 @@ export async function createHttpServer(options: HttpOptions) {
         return { items: selected, ...(sorted.length > q.limit ? { cursor: Buffer.from(JSON.stringify({ scope, after: selected.at(-1)!.id })).toString('base64url') } : {}) };
     }
     type ContractName = keyof typeof contracts;
+    const externalProject = (r: FastifyRequest) =>
+        parseInput(z.object({ externalProjectId: z.string().min(1).max(200) }), r.params).externalProjectId;
+    const integrationRequest = (r: FastifyRequest) =>
+        app.query.queryIntegrationRequest(actor(r).user.id, options.source, externalProject(r), idOf(r));
+    async function uploadFor(r: FastifyRequest, executionId: string) {
+        let upload: { name: string; bytes: Buffer } | undefined;
+        for await (const part of r.parts()) {
+            if (part.type !== 'file' || upload) throw new HttpError(400, 'invalid-input', '需要且只允许一个文件');
+            const name = parseInput(z.string().min(1).max(255).refine(s => !/[\u0000-\u001f/\\]/.test(s)), part.filename);
+            const bytes = await part.toBuffer();
+            if (part.file.truncated) throw new HttpError(413, 'too-large', '文件超过允许大小');
+            upload = { name, bytes };
+        }
+        if (!upload) throw new HttpError(400, 'invalid-input', '需要一个文件');
+        return app.input.upload(actor(r).user.id, executionId, upload.name, upload.bytes);
+    }
     const handlers: Record<ContractName, (request: FastifyRequest) => Promise<unknown>> = {
         session: async r => {
             if (!actor(r).sessionId) throw new HttpError(401, 'session-required', '需要工作台会话');
@@ -171,6 +189,8 @@ export async function createHttpServer(options: HttpOptions) {
         },
         login: async r => {
             const a = actor(r), created = sessions.create(a.token, a.user.id);
+            const previous = r.cookies[cookieName];
+            if (previous) sessions.delete(previous);
             // Cookie emission is handled below to keep application handlers framework-independent.
             actors.set(r, { ...a, sessionId: created.id, csrf: created.session.csrf });
             return { user: a.user, csrfToken: created.session.csrf };
@@ -193,19 +213,25 @@ export async function createHttpServer(options: HttpOptions) {
         answer: async r => commands.submitUserDecision(identity(r), idOf(r), keyOf(r), r.body),
         inputs: async r => app.query.queryInputs(actor(r).user.id, idOf(r)),
         upload: async r => {
-            // Authorize before consuming file bytes.
             await app.query.queryExecution(actor(r).user.id, idOf(r));
-            let upload: { name: string; bytes: Buffer } | undefined;
-            for await (const part of r.parts()) {
-                if (part.type !== 'file' || upload) throw new HttpError(400, 'invalid-input', '需要且只允许一个文件');
-                const name = parseInput(z.string().min(1).max(255).refine(s => !/[\u0000-\u001f/\\]/.test(s)), part.filename);
-                const bytes = await part.toBuffer();
-                if (part.file.truncated) throw new HttpError(413, 'too-large', '文件超过允许大小');
-                upload = { name, bytes };
-            }
-            if (!upload) throw new HttpError(400, 'invalid-input', '需要一个文件');
-            return app.input.upload(actor(r).user.id, idOf(r), upload.name, upload.bytes);
+            return uploadFor(r, idOf(r));
         },
+        integrationRequests: async r => {
+            const q = parseInput(listQuery.omit({ projectId: true }), r.query);
+            const items = await app.query.queryIntegrationRequests(actor(r).user.id, options.source, externalProject(r));
+            return page(r, items.filter(item => !q.status || item.status === q.status).map(item => ({
+                id: item.id, summary: item.summary?.trim() || '待回应的问题', status: item.status, createdAt: item.createdAt,
+            })));
+        },
+        integrationRequest: async r => {
+            await integrationRequest(r);
+            return app.query.queryEpisode(actor(r).user.id, idOf(r));
+        },
+        integrationAnswer: async r => {
+            await integrationRequest(r);
+            return commands.submitUserDecision(identity(r), idOf(r), keyOf(r), r.body);
+        },
+        integrationUpload: async r => uploadFor(r, (await integrationRequest(r)).executionId),
         file: async r => app.query.queryUpload(actor(r).user.id, idOf(r)),
         history: async r => {
             const q = parseInput(z.strictObject({ cursor: z.string().max(4096).optional() }), r.query);

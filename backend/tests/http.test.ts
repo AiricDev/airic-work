@@ -92,6 +92,17 @@ describe('HTTP delivery contract', () => {
         expect(response.json()).not.toHaveProperty('token');
         expect(response.headers['cache-control']).toBe('no-store');
     });
+    it('reopens a decision link with a fresh session even when an old cookie exists', async () => {
+        const { server } = await setup();
+        const first = await login(server);
+        const response = await server.inject({
+            method: 'POST', url: '/api/v1/auth/session',
+            headers: { origin, authorization: 'Bearer owner', cookie: first.cookie },
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.json().csrfToken).not.toBe(first.csrf);
+        expect((await server.inject({ url: '/api/v1/me', headers: { cookie: first.cookie } })).statusCode).toBe(401);
+    });
     it('checks CSRF and origin on every cookie write, and rejects mixed identities', async () => {
         const { server } = await setup();
         const s = await login(server);
@@ -124,6 +135,46 @@ describe('HTTP delivery contract', () => {
         expect(episode.request.status).toBe('answered');
         expect(episode.inputs[0].status).toBe('pending');
         expect(episode.inputs[0]).not.toHaveProperty('receipt');
+    });
+    it('offers business apps a project-scoped summary, briefing, attachment and replayable answer', async () => {
+        const { server, h } = await setup();
+        const { u, e } = await h.running();
+        const request = await h.app.decision.createDecisionRequest(u.id, e.id, e.generation, 'integration-request',
+            'Detailed question', [{ id: 'ok', label: 'Use this reading', description: 'Observed' }],
+            { revision: 1, content: { context: 'Original evidence' }, sources: [] }, 'Field reading');
+        const headers = { authorization: 'Bearer owner' };
+        const list = '/api/v1/integration/projects/p/decision-requests';
+        const detail = `${list}/${request.id}`;
+        expect((await server.inject({ url: list + '?status=pending', headers })).json().items).toEqual([
+            { id: request.id, summary: 'Field reading', status: 'pending', createdAt: request.createdAt },
+        ]);
+        expect((await server.inject({ url: detail, headers: { authorization: 'Bearer other' } })).statusCode).toBe(404);
+        expect((await server.inject({ url: detail.replace('/p/', '/other/'), headers })).statusCode).toBe(404);
+        const otherApp = await createHttpServer({ application: h.app, source: 'another-app', origins: [origin] });
+        servers.push(otherApp);
+        expect((await otherApp.inject({ url: list, headers })).json().items).toEqual([]);
+        expect((await otherApp.inject({ url: detail, headers })).statusCode).toBe(404);
+        expect((await server.inject({ url: detail, headers })).json().request.question).toBe('Detailed question');
+        const upload = await server.inject({
+            method: 'POST', url: detail + '/uploads',
+            headers: { ...headers, 'content-type': 'multipart/form-data; boundary=field' },
+            payload: '--field\r\nContent-Disposition: form-data; name="file"; filename="reading.txt"\r\nContent-Type: text/plain\r\n\r\nPE-1\r\n--field--\r\n',
+        });
+        expect(upload.statusCode).toBe(200);
+        const command = {
+            method: 'POST' as const, url: detail + '/user-decisions',
+            headers: { ...headers, 'idempotency-key': 'field-answer' },
+            payload: { optionId: 'ok', contextRevision: 1, files: [upload.json().id] },
+        };
+        const answer = await server.inject(command);
+        expect(answer.statusCode).toBe(200);
+        expect((await server.inject(command)).json()).toEqual(answer.json());
+        expect((await server.inject({ url: list + '?status=pending', headers })).json().items).toEqual([]);
+        const saved = (await server.inject({ url: detail, headers })).json();
+        expect(saved.request.status).toBe('answered');
+        expect(saved.decisions).toHaveLength(1);
+        expect(saved.inputs).toHaveLength(1);
+        expect(saved.inputs[0].status).toBe('pending');
     });
     it('does not let administrators read another user or distinguish missing scoped objects', async () => {
         const { server, h } = await setup();

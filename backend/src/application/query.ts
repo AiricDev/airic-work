@@ -55,6 +55,18 @@ export class QueryUseCases {
         const executions = (executionId ? [await this.policy.owned(userId, executionId)] : await this.queryExecutions(userId)).filter(e => !projectId || e.projectId === projectId);
         return (await Promise.all(executions.map(e => this.store.requests(e.id)))).flat();
     }
+    /** Business-app scope uses the issuer/source and the app's own project ID. */
+    async queryIntegrationRequests(userId: string, source: string, externalProjectId: string) {
+        const executions = (await this.queryExecutions(userId)).filter(e =>
+            e.creation.source === source && e.creation.project_id === externalProjectId);
+        return (await Promise.all(executions.map(e => this.store.requests(e.id)))).flat();
+    }
+    async queryIntegrationRequest(userId: string, source: string, externalProjectId: string, requestId: string) {
+        const request = await this.queryDecisionRequest(userId, requestId);
+        const execution = await this.policy.owned(userId, request.executionId);
+        requireRule(execution.creation.source === source && execution.creation.project_id === externalProjectId, 'not-found');
+        return request;
+    }
     /** 查询输入保存/交付事实，不据此推断 Agent 已继续或完成业务。 */
     async queryInputs(userId: string, executionId: string) {
         await this.policy.owned(userId, executionId);

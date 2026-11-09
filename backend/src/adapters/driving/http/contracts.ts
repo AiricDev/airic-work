@@ -100,6 +100,10 @@ export const contracts = {
     connect: { method: 'post', path: '/executions/{id}/connections/{connection}/credential', response: z.strictObject({ expiresAt: text.nullable() }) },
     revoke: { method: 'delete', path: '/executions/{id}/connections/{connection}/credential', response: z.strictObject({ ok: z.literal(true) }) },
     connections: { method: 'get', path: '/executions/{id}/connections', response: z.array(text) },
+    integrationRequests: { method: 'get', path: '/integration/projects/{externalProjectId}/decision-requests', response: pageDto(requestDto.pick({ id: true, status: true, createdAt: true }).extend({ summary: text })) },
+    integrationRequest: { method: 'get', path: '/integration/projects/{externalProjectId}/decision-requests/{id}', response: episodeDto.pick({ request: true, decisions: true, inputs: true }) },
+    integrationAnswer: { method: 'post', path: '/integration/projects/{externalProjectId}/decision-requests/{id}/user-decisions', body: userDecisionSchema, response: decisionDto },
+    integrationUpload: { method: 'post', path: '/integration/projects/{externalProjectId}/decision-requests/{id}/uploads', response: uploadDto },
 } as const;
 
 export function projectDtoValue<T extends z.ZodType>(schema: T, value: unknown): z.output<T> {

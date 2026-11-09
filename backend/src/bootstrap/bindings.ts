@@ -1,3 +1,4 @@
+import { mcpWorkerOutput } from '../adapters/driven/runtime/mcp-worker-tools';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { parseEnv } from 'node:util';
@@ -138,7 +139,7 @@ export function createMcpIntegration(options: McpIntegrationOptions, store: Cont
             defineTool({ name: 'work_call_mcp', description: 'Call a discovered business MCP tool using its exact schema/revision. Preserve original business operation identity on recovery.', parameters: Type.Object({ connection: Type.String(), tool: Type.String(), schemaRevision: Type.String(), parameters: Type.Record(Type.String(), Type.Unknown()) }), replay: 'safe', execute: async (args, api) => {
                 const current = await application.query.queryExecution(e.ownerId, e.id);
                 const result = await application.mcpCases.callMcp(e.ownerId, e.id, current.generation, args.connection, args.tool, args.parameters as Json, `pi:${e.sessionId}:${api.taskId}`, args.schemaRevision);
-                return { output: [{ type: 'text', text: JSON.stringify(result) }] };
+                return mcpWorkerOutput(result);
             } }),
         ],
     };

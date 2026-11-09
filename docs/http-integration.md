@@ -117,3 +117,12 @@ VITE_REFERENCE_TEMPLATES='{"certlab-mcp":{"report":"http://127.0.0.1:5180/report
 ```
 
 `{id}` 来自引用 objectId 的类型后部分，其他占位符来自调用方 task 的字符串字段（前端 Execution.scope 投影）；所有值 URL 编码。此配置会公开到前端，只放路由，不放 token、用户信息或其他秘密；更改后由 Vite 重新加载。来源缺少路由所需字段时不造链接。Git 引用使用其明确的 Commit（没有注明时用执行固定版本）打开 OM 文件；不使用最新版本替换引用版本。原始 system/objectId/version/location 仍可展开查看。
+
+## 业务应用内处理 Decision Request
+
+集成应用使用其现有用户的 Bearer 身份调用 `/api/v1/integration/projects/{externalProjectId}/decision-requests`。项目标识是调用方业务系统的项目 ID。服务按已配置的接入来源、该项目和原 Execution 的归属校验访问。列表响应只返回标识、标题、状态和创建时间。无需建立 Airic Work 浏览器会话。
+
+- `GET` 列表支持 `status`、`cursor`、`limit`。`GET /{id}` 读取完整问题、选项、固定的 Context 修订、回答与该请求对应的投递状态。
+- `POST /{id}/uploads` 上传一份附件，返回可用于回答的固定文件标识。文件归属原执行。
+- `POST /{id}/user-decisions` 提交所读的 Context 修订、选项或文字、附件标识及可选的更正关联。未知结果沿用原 `Idempotency-Key` 和原正文重试。
+- 回答保存后可重新读取详情。已保存、已投递至原执行和 Agent 实际续行分别记录；集成应用的界面由该应用自行实现。

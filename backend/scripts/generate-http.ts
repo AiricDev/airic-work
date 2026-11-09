@@ -27,7 +27,7 @@ const paths: Record<string, Record<string, unknown>> = {};
 for (const [id, contract] of Object.entries(contracts)) {
     const path = '/api/v1' + contract.path;
     const parameters: unknown[] = [...contract.path.matchAll(/\{(\w+)\}/g)].map(m => ({ name: m[1], in: 'path', required: true, schema: { type: 'string' } }));
-    const querySchema = ['projects', 'executions', 'requests', 'executionRequests', 'users'].includes(id) ? listQuery
+    const querySchema = id === 'integrationRequests' ? listQuery.omit({ projectId: true }) : ['projects', 'executions', 'requests', 'executionRequests', 'users'].includes(id) ? listQuery
         : ['methodSnapshot', 'methodTree', 'methodFile', 'methodSearch', 'methodCommit'].includes(id) ? methodQuery
         : id === 'calls' ? z.object({ type: z.enum(['read', 'write', 'unknown']).optional(), cursor: z.string().optional() })
         : id === 'history' ? z.object({ cursor: z.string().optional() }) : undefined;
@@ -36,12 +36,12 @@ for (const [id, contract] of Object.entries(contracts)) {
         for (const [name, value] of Object.entries(query.properties ?? {}))
             parameters.push({ name, in: 'query', required: (id === 'methodFile' && name === 'path') || (id === 'methodSearch' && name === 'q'), schema: value });
     }
-    if (['create', 'answer', 'steering'].includes(id)) parameters.push({ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', minLength: 1, maxLength: 200 } });
+    if (['create', 'answer', 'integrationAnswer', 'steering'].includes(id)) parameters.push({ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', minLength: 1, maxLength: 200 } });
     (paths[path] ??= {})[contract.method] = {
         operationId: id, parameters,
-        security: id === 'login' ? [{ bearerAuth: [] }] : contract.method === 'get' ? [{ bearerAuth: [] }, { cookieAuth: [] }] : [{ bearerAuth: [] }, { cookieAuth: [], csrf: [] }],
+        security: (id === 'login' || id.startsWith('integration')) ? [{ bearerAuth: [] }] : contract.method === 'get' ? [{ bearerAuth: [] }, { cookieAuth: [] }] : [{ bearerAuth: [] }, { cookieAuth: [], csrf: [] }],
         ...('body' in contract ? { requestBody: { required: true, content: { 'application/json': { schema: schema(contract.body, 'input') } } } } : {}),
-        ...(id === 'upload' ? { requestBody: { required: true, content: { 'multipart/form-data': { schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } } } } } } : {}),
+        ...((id === 'upload' || id === 'integrationUpload') ? { requestBody: { required: true, content: { 'multipart/form-data': { schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } } } } } } : {}),
         responses: {
             200: { description: 'Saved or current representation, not proof of background execution', content: { 'application/json': { schema: schema(contract.response) } } },
             default: { description: 'Request failed or outcome unknown', content: { 'application/json': { schema: schema(errorDto) } } },

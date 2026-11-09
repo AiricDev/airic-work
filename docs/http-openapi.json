@@ -2210,6 +2210,269 @@
         }
       }
     },
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests": {
+      "get": {
+        "operationId": "integrationRequests",
+        "parameters": [
+          {
+            "name": "externalProjectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "answered"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema40"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}": {
+      "get": {
+        "operationId": "integrationRequest",
+        "parameters": [
+          {
+            "name": "externalProjectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema41"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}/user-decisions": {
+      "post": {
+        "operationId": "integrationAnswer",
+        "parameters": [
+          {
+            "name": "externalProjectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schema18"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema19"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/projects/{externalProjectId}/decision-requests/{id}/uploads": {
+      "post": {
+        "operationId": "integrationUpload",
+        "parameters": [
+          {
+            "name": "externalProjectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved or current representation, not proof of background execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema21"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed or outcome unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/input-files/{id}/content": {
       "get": {
         "parameters": [
@@ -4909,6 +5172,302 @@
         "items": {
           "type": "string"
         }
+      },
+      "Schema40": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "answered"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "status",
+                "createdAt",
+                "summary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Schema41": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "executionId": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "question": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "description"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "contexts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "revision": {
+                      "type": "number"
+                    },
+                    "content": {
+                      "$ref": "#/components/schemas/Schema41___schema0"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "system": {
+                            "type": "string"
+                          },
+                          "objectId": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "location": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "system",
+                          "objectId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "revision",
+                    "content",
+                    "sources"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "answered"
+                ]
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "answeredAt": {
+                "type": "string"
+              },
+              "version": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "id",
+              "executionId",
+              "question",
+              "options",
+              "contexts",
+              "status",
+              "createdAt",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "optionId": {
+                  "type": "string"
+                },
+                "contextRevision": {
+                  "type": "number"
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "correctionOf": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "requestId",
+                "userId",
+                "text",
+                "contextRevision",
+                "files",
+                "at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "executionId": {
+                  "type": "string"
+                },
+                "sourceId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "start",
+                    "user-decision",
+                    "steering"
+                  ]
+                },
+                "sequence": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "delivered"
+                  ]
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "executionId",
+                "sourceId",
+                "kind",
+                "sequence",
+                "status",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "request",
+          "decisions",
+          "inputs"
+        ],
+        "additionalProperties": false
+      },
+      "Schema41___schema0": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schema41___schema0"
+            }
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Schema41___schema0"
+            }
+          }
+        ]
       }
     },
     "securitySchemes": {
