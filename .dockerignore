@@ -9,7 +9,8 @@
 .agents
 .codex
 spikes
-docs
+docs/*
+!docs/openapi.yaml
 **/coverage
 **/*.log
 backend/tests

@@ -13,6 +13,7 @@ function snapshot<T>(row: unknown): T {
     return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== null)) as T;
 }
 const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
+type TaskOutput = { fileId: string; path: string; name: string; hash: string; size: number; contentRef: string };
 
 /** 命名提交各自拥有同步 IMMEDIATE 事务；不接受外部事务回调。连接生命周期归组合根。 */
 export class SqliteControlStore implements ControlStore {
@@ -38,6 +39,56 @@ export class SqliteControlStore implements ControlStore {
     }
     private enabled(id: string): User { const u = this.userNow(id); requireRule(u.enabled, 'forbidden'); return u; }
     private owned(userId: string, id: string): Execution { const e = this.executionNow(id); own(this.enabled(userId), e); return e; }
+    workerSkill() {
+        return this.access(() => (this.connection.prepare('SELECT content FROM task_worker_skill WHERE id = 1').get() as { content: string } | undefined)?.content);
+    }
+    pinWorkerSkill(content: string) {
+        return this.commit(() => {
+            this.connection.prepare('INSERT OR IGNORE INTO task_worker_skill VALUES (1, ?)').run(content);
+            return this.workerSkill()!;
+        });
+    }
+    taskUpdatedAt(userId: string, executionId: string) {
+        return this.access(() => {
+            this.owned(userId, executionId);
+            const row = this.connection.prepare('SELECT updated_at FROM execution_activity WHERE execution_id = ?')
+                .get(executionId) as { updated_at: string } | undefined;
+            return row?.updated_at;
+        });
+    }
+    taskOutputs(userId: string, executionId: string) {
+        return this.access(() => {
+            this.owned(userId, executionId);
+            return this.connection.prepare('SELECT fileId, name FROM task_outputs WHERE executionId = ? ORDER BY rowid')
+                .all(executionId) as Pick<TaskOutput, 'fileId' | 'name'>[];
+        });
+    }
+    taskOutput(userId: string, executionId: string, fileId: string) {
+        return this.access(() => {
+            this.owned(userId, executionId);
+            return this.connection.prepare('SELECT * FROM task_outputs WHERE executionId = ? AND fileId = ?')
+                .get(executionId, fileId) as TaskOutput | undefined;
+        });
+    }
+    replayTaskOutput(userId: string, executionId: string, key: string, path: string) {
+        return this.access(() => {
+            this.owned(userId, executionId);
+            const previous = this.connection.prepare('SELECT * FROM task_outputs WHERE executionId = ? AND commandKey = ?')
+                .get(executionId, key) as TaskOutput | undefined;
+            requireRule(!previous || previous.path === path, 'conflict');
+            return previous;
+        });
+    }
+    saveTaskOutput(userId: string, executionId: string, generation: number, key: string, output: TaskOutput) {
+        return this.commit(() => {
+            const previous = this.replayTaskOutput(userId, executionId, key, output.path);
+            if (previous) return previous;
+            active(this.owned(userId, executionId), generation);
+            this.connection.prepare('INSERT INTO task_outputs (fileId, executionId, commandKey, path, name, hash, size, contentRef) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                .run(output.fileId, executionId, key, output.path, output.name, output.hash, output.size, output.contentRef);
+            return output;
+        });
+    }
     private admin(id: string): void { requireRule(this.enabled(id).admin, 'forbidden'); }
     private files(userId: string, executionId: string, ids: string[]): void {
         for (const id of ids) {
@@ -75,7 +126,8 @@ export class SqliteControlStore implements ControlStore {
         requireRule(next.version === old.version + 1, 'conflict');
     }
     private updateExecution(e: Execution): void {
-        this.db.update(t.executions).set({ phase: e.phase, generation: e.generation, version: e.version }).where(eq(t.executions.id, e.id)).run();
+        this.db.update(t.executions).set({ phase: e.phase, generation: e.generation, version: e.version,
+            stopRequestedAt: e.stopRequestedAt ?? null, stopConfirmedAt: e.stopConfirmedAt ?? null }).where(eq(t.executions.id, e.id)).run();
     }
     private updateRequest(r: DecisionRequest): void {
         this.db.update(t.requests).set({ contexts: r.contexts, status: r.status, answeredAt: r.answeredAt ?? null, version: r.version }).where(eq(t.requests.id, r.id)).run();
@@ -164,14 +216,18 @@ export class SqliteControlStore implements ControlStore {
             const old = this.requestNow(r.id);
             const e = this.owned(k.userId, old.executionId);
             requireRule(d.userId === k.userId, 'forbidden');
-            requireRule(old.version === expected && d.requestId === old.id, 'conflict');
+            requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict', 'task_stopped');
+            requireRule(d.requestId === old.id, 'conflict');
+            const answered = answer(old, d);
+            requireRule(old.version === expected, 'conflict');
             this.files(k.userId, e.id, d.files);
-            if (d.correctionOf) {
-                const original = this.db.select().from(t.decisions).where(eq(t.decisions.id, d.correctionOf)).get();
+            const related = d.correctionOf ?? d.supplements;
+            if (related) {
+                const original = this.db.select().from(t.decisions).where(eq(t.decisions.id, related)).get();
                 requireRule(original?.requestId === r.id, 'invalid');
             }
-            requireRule(same(r, answer(old, d)), 'conflict');
-            requireRule(input.text === (d.text || d.optionId || ''), 'conflict');
+            requireRule(same(r, answered), 'conflict');
+            requireRule(input.text === (d.text || d.optionId || d.intent || '') && same(input.references ?? [], d.references ?? []), 'conflict');
             this.db.insert(t.decisions).values(d).run();
             this.updateRequest(r);
             this.saveInput(e, input, 'user-decision', d.id, d.files);
@@ -184,14 +240,38 @@ export class SqliteControlStore implements ControlStore {
             if (replay) return replay;
             const e = this.owned(k.userId, s.executionId);
             requireRule(s.userId === k.userId, 'forbidden');
-            requireRule(s.text.trim() || s.files.length, 'invalid');
-            requireRule(input.text === s.text, 'conflict');
+            requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict', 'task_stopped');
+            requireRule(s.text.trim() || s.files.length || s.references?.length, 'invalid');
+            requireRule(input.text === s.text && same(input.references ?? [], s.references ?? []), 'conflict');
             this.files(k.userId, e.id, s.files);
             this.db.insert(t.steering).values(s).run();
             this.saveInput(e, input, 'steering', s.id, s.files);
             return this.remember('steering', k, e.id, s);
         });
     }
+    inputFacts(userId: string, executionId: string) {
+        return this.access(() => {
+            const execution = this.owned(userId, executionId);
+            const paused = execution.phase === 'stopping' || execution.phase === 'stopped';
+            return this.db.select({
+                id: t.inputs.id, status: t.inputs.status, decisionId: t.decisions.id,
+                requestId: t.decisions.requestId, answeredAt: t.decisions.at, steeredAt: t.steering.at,
+            }).from(t.inputs)
+                .leftJoin(t.decisions, and(eq(t.inputs.kind, 'user-decision'), eq(t.inputs.sourceId, t.decisions.id)))
+                .leftJoin(t.steering, and(eq(t.inputs.kind, 'steering'), eq(t.inputs.sourceId, t.steering.id)))
+                .where(eq(t.inputs.executionId, executionId)).orderBy(asc(t.inputs.sequence)).all()
+                .flatMap(row => {
+                    const savedAt = row.answeredAt ?? row.steeredAt;
+                    if (!savedAt) return [];
+                    return [{
+                        inputId: row.id, savedAt, kind: row.decisionId ? 'decision' as const : 'steering' as const,
+                        ...(row.decisionId ? { decisionId: row.decisionId, requestId: row.requestId! } : {}),
+                        delivery: { state: row.status === 'pending' && paused ? 'paused' as const : row.status },
+                    }];
+                });
+        });
+    }
+
     async markDelivered(userId: string, inputId: string, receipt: string): Promise<void> {
         this.commit(() => {
             const input = this.inputNow(inputId);
@@ -215,8 +295,8 @@ export class SqliteControlStore implements ControlStore {
             switch (e.phase) {
                 case 'running': next = beginRun(old); break;
                 case 'ended': next = endRun(old, e.generation); break;
-                case 'stopping': next = beginStop(old); break;
-                case 'stopped': next = recordStopped(old); break;
+                case 'stopping': next = beginStop(old, e.stopRequestedAt); break;
+                case 'stopped': next = recordStopped(old, e.stopConfirmedAt); break;
                 case 'failed': next = { ...old, phase: 'failed', version: old.version + 1 }; break;
                 default: throw new RuleError('blocked');
             }
@@ -235,6 +315,10 @@ export class SqliteControlStore implements ControlStore {
             this.db.insert(t.uploads).values(f).run();
             return this.uploadNow(f.id);
         });
+    }
+    hasInputFile(executionId: string, uploadId: string) {
+        return this.access(() => Boolean(this.db.select({ id: t.inputFiles.inputId }).from(t.inputFiles)
+            .where(and(eq(t.inputFiles.executionId, executionId), eq(t.inputFiles.uploadId, uploadId))).limit(1).get()));
     }
     async updatePreferences(userId: string, expected: number, preferences: Preferences): Promise<User> {
         return this.commit(() => {

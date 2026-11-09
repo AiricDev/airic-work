@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Method } from '../src/domain/model';
+import { GitMethods } from '../src/adapters/driven/methods/git-methods';
 import { createMethods } from '../src/bootstrap/bindings';
 import * as runner from '../src/adapters/driven/methods/git';
 import * as storage from '../src/adapters/driven/methods/storage';
@@ -47,6 +48,20 @@ describe('real Git Methods', () => {
         expect(await methods.read(current, 'om.md')).toBe('new-root-only 新版本');
         expect(await methods.search(old, 'new-root-only')).toEqual([]);
         expect((await methods.search(current, 'new-root-only')).map(r => r.path)).toEqual(['om.md']);
+    });
+
+    it('pins the requested tag or full commit independently of the current branch', async () => {
+        const adapter = await GitMethods.open(settings);
+        const old = await git(source, 'rev-parse', 'HEAD');
+        await git(source, 'tag', 'v1');
+        await file(source, 'om.md', 'New content');
+        await commit(source, 'Advance branch');
+        const selection = { source: 'repo', entry: 'om.md' };
+        const tagged = await adapter.pinRevision({ ...selection, revision: 'v1' });
+        expect(tagged.sha).toBe(old);
+        expect(await adapter.read(tagged, 'om.md')).toContain('Root marker alpha');
+        expect(await adapter.pinRevision({ ...selection, revision: old })).toEqual(tagged);
+        await expect(adapter.pinRevision({ ...selection, revision: 'missing' })).rejects.toThrow();
     });
 
     it('never returns cached latest when the configured origin becomes unreachable', async () => {

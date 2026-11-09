@@ -107,11 +107,12 @@ describe('phase 1 product contract', () => {
         await h.app.input.submitSteering(u.id, e.id, 's', 'continue');
         await expect(h.app.execution.finishExecution(u.id, e.id, e.generation)).rejects.toMatchObject({ code: 'blocked' });
     });
-    it('C08 queues during cancellation and fences old runtime generation', async () => {
+    it('C08 retains queued inputs and fences old runtime generation', async () => {
         const h = harness();
         const { u, e } = await h.running();
-        await h.app.execution.requestCancellation(u.id, e.id);
         await h.app.input.submitSteering(u.id, e.id, 's', 'continue');
+        await h.app.execution.requestCancellation(u.id, e.id);
+        await expect(h.app.input.submitSteering(u.id, e.id, 'late', 'late')).rejects.toMatchObject({ code: 'conflict' });
         const i = (await h.store.inputs(e.id)).at(-1)!;
         await expect(h.app.input.dispatchInput(u.id, i.id)).rejects.toMatchObject({ code: 'blocked' });
         h.flags.stopped = false;

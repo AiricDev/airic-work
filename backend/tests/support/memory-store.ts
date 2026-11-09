@@ -121,9 +121,11 @@ export class MemoryStore implements ControlStore {
         const previous = this.get(this.r, r.id);
         const e = this.owns(k.userId, previous.executionId);
         requireRule(d.userId === k.userId, 'forbidden');
+        requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict', 'task_stopped');
         requireRule(previous.version === v && d.requestId === r.id && !this.d.has(d.id), 'conflict');
         requireRule(canonical(r) === canonical(answer(previous, d)), 'conflict');
-        if (d.correctionOf) requireRule(this.d.get(d.correctionOf)?.requestId === r.id, 'invalid');
+        const related = d.correctionOf ?? d.supplements;
+        if (related) requireRule(this.d.get(related)?.requestId === r.id, 'invalid');
         this.inputCheck(e, i, 'user-decision', d.id, d.files);
         this.check();
         this.r.set(r.id, clone(r));
@@ -137,6 +139,7 @@ export class MemoryStore implements ControlStore {
             return old;
         const e = this.owns(k.userId, s.executionId);
         requireRule(s.userId === k.userId, 'forbidden');
+        requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict', 'task_stopped');
         requireRule(!this.s.has(s.id), 'conflict');
         this.inputCheck(e, i, 'steering', s.id, s.files);
         this.check();
@@ -160,8 +163,8 @@ export class MemoryStore implements ControlStore {
         switch (e.phase) {
             case 'running': next = beginRun(old); break;
             case 'ended': next = endRun(old, e.generation); break;
-            case 'stopping': next = beginStop(old); break;
-            case 'stopped': next = recordStopped(old); break;
+            case 'stopping': next = beginStop(old, e.stopRequestedAt); break;
+            case 'stopped': next = recordStopped(old, e.stopConfirmedAt); break;
             case 'failed': next = { ...old, phase: 'failed', version: old.version + 1 }; break;
             default: requireRule(false, 'blocked');
         }

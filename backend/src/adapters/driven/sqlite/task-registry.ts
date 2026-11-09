@@ -38,6 +38,18 @@ export class SqliteTaskRegistry implements TaskRegistry {
         });
     }
 
+    allReadyIds(): string[] {
+        return databaseAccess(() => (this.db.prepare(
+            "SELECT task_id FROM task_reservations WHERE state = 'ready' ORDER BY rowid",
+        ).all() as { task_id: string }[]).map(row => row.task_id));
+    }
+
+    readyIds(scope: string, actor: string): string[] {
+        return databaseAccess(() => (this.db.prepare(
+            "SELECT task_id FROM task_reservations WHERE scope = ? AND actor = ? AND state = 'ready' ORDER BY rowid",
+        ).all(scope, actor) as { task_id: string }[]).map(row => row.task_id));
+    }
+
     get(taskId: string): TaskReservation | undefined {
         return databaseAccess(() => {
             const row = this.db.prepare('SELECT task_id, state FROM task_reservations WHERE task_id = ?').get(taskId) as { task_id: string; state: 'reserved' | 'ready' } | undefined;

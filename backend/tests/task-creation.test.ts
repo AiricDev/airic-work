@@ -16,6 +16,7 @@ it('repairs an interrupted task reservation and preserves the first creation rec
         let attempts = 0;
         let ids = 0;
         const service = new TaskCreationUseCases(registry, {
+            read: taskId => initializer.read(taskId),
             initialize(record) {
                 const result = initializer.initialize(record);
                 if (attempts++ === 0) throw new Error('interrupted after commit');
@@ -29,6 +30,9 @@ it('repairs an interrupted task reservation and preserves the first creation rec
         expect(result).toMatchObject({ taskId: 'task-1', acceptedAt: 'time-0' });
         expect(registry.get('task-1')?.state).toBe('ready');
         expect(service.create('tenant', 'engineer', 'key', creation)).toEqual(result);
+        expect(service.get('tenant', 'engineer', result.taskId)).toEqual(result);
+        expect(() => service.get('tenant', 'other', result.taskId)).toThrow();
+        expect(() => service.get('other-tenant', 'engineer', result.taskId)).toThrow();
         expect(() => service.create('tenant', 'engineer', 'key', { ...creation, instruction: 'Changed' })).toThrow();
     } finally { db.close(); rmSync(directory, { recursive: true, force: true }); }
 });

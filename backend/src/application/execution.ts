@@ -25,12 +25,18 @@ export class ExecutionUseCases {
     /**
      * 事务外确认最新 OM，再通过执行版本和设置版本 CAS 固定 Method 与开始输入。已固定的方法直接沿用，不重新解析最新版本；此步骤不等于 Runtime 已实际启动。
      */
-    async prepareExecution(userId: string, id: string) {
+    async prepareExecution(userId: string, id: string, revision?: string) {
         const e = await this.policy.owned(userId, id);
         if (e.method)
             return e;
         const settings = await this.store.settings();
-        const method = await this.methods.latest(settings);
+        let method;
+        if (revision === undefined) {
+            method = await this.methods.latest(settings);
+        } else {
+            requireRule(this.methods.pinRevision, 'blocked', 'method revision selection unavailable');
+            method = await this.methods.pinRevision({ source: settings.omSource, revision, entry: settings.root });
+        }
         runtimePath(method.root);
         requireRule(method.source === settings.omSource && !!method.sha, 'blocked', 'unconfirmed OM');
         return this.store.prepare(userId, e.version, settings.version, { ...e, method, version: e.version + 1 }, this.policy.envelope(e, e.id, 'start', e.creation.instruction, []));
@@ -53,13 +59,17 @@ export class ExecutionUseCases {
     /**
      * 先持久设置停止栅栏，再调用可重试 stop。stop 失败保留 stopping 供恢复；请求被接受不等于停止完成，也不回滚已有业务效果。
      */
+    async acceptCancellation(userId: string, id: string) {
+        const e = await this.policy.owned(userId, id);
+        if (e.phase === 'stopping' || e.phase === 'stopped') return e;
+        return this.store.transition(userId, e.version, beginStop(e, this.support.now()));
+    }
+
     async requestCancellation(userId: string, id: string) {
-        let e = await this.policy.owned(userId, id);
-        if (e.phase !== 'stopping' && e.phase !== 'stopped')
-            e = await this.store.transition(userId, e.version, beginStop(e));
-        if (e.phase === 'stopped')
-            return e;
-        await this.runtime.stop(e); // repeat-safe; phase is the durable stop intent if the call fails
+        const e = await this.acceptCancellation(userId, id);
+        if (e.phase === 'stopping') {
+            await Promise.all([this.workspace.stop?.(e), e.method && this.runtime.stop(e)]);
+        }
         return e;
     }
     /**
@@ -69,6 +79,6 @@ export class ExecutionUseCases {
         const e = await this.policy.owned(userId, id);
         requireRule(e.phase === 'stopping', 'conflict');
         requireRule(await this.runtime.stopped(e) && await this.workspace.stopped(e), 'blocked');
-        return this.store.transition(userId, e.version, recordStopped(e));
+        return this.store.transition(userId, e.version, recordStopped(e, this.support.now()));
     }
 }

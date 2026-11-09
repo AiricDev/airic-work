@@ -48,7 +48,7 @@ export interface FileStorageOptions {
 }
 
 /** 没有常驻句柄或后台进程，无须空的 close/dispose；每次操作自行关闭文件。 */
-export async function createFileStorage(options: FileStorageOptions): Promise<{ files: Files }> {
+export async function createFileStorage(options: FileStorageOptions): Promise<{ files: LocalBlobFiles }> {
     return { files: await LocalBlobFiles.open(options.directory) };
 }
 
@@ -58,7 +58,7 @@ export function createIdentity(options: HttpsUserInfoOptions): { identity: Ident
 }
 
 /** 宿主配置 URL 受管 clone 或直接复用本地 Git 目录；不自动同步本地仓库，不装配 Agent/控制记录或持有常驻句柄。 */
-export async function createMethods(options: GitMethodsOptions): Promise<{ methods: Methods }> {
+export async function createMethods(options: GitMethodsOptions): Promise<{ methods: GitMethods }> {
     return { methods: await GitMethods.open(options) };
 }
 
@@ -70,7 +70,7 @@ export interface PersistenceOptions {
 }
 
 export interface PersistenceResources {
-    store: ControlStore;
+    store: SqliteControlStore;
     support: Support;
     close(): void;
 }
@@ -101,6 +101,7 @@ export interface WorkerOptions {
     models: Models;
     model: { provider: string; modelId: string };
     skillPath: string;
+    loadSkill?: () => Promise<string>;
     tools?: (e: Execution) => Promise<ToolRegistration[]>;
 }
 
@@ -118,7 +119,7 @@ export type { HttpsUserInfoOptions, GitMethodsOptions, McpConnection };
 /** Composition boundary: callers supply models/credentials and already configured infrastructure. */
 export function createWorker(options: WorkerOptions, store: ControlStore, methods: Methods, support: Support) {
     const decisions = new DecisionUseCases(store, support, new ApplicationPolicy(store, support));
-    const host = new ApplicationWorkerHost(store, methods, decisions, options.skillPath, options.tools);
+    const host = new ApplicationWorkerHost(store, methods, decisions, options.skillPath, options.tools, options.loadSkill);
     const runtime = new PiRuntime(options.directory, options.models, options.model, host);
     return { runtime, history: new PiHistory(runtime, async sessionId => { const e = (await store.executions()).find(e => e.sessionId === sessionId); requireRule(e, 'not-found'); await runtime.ensure(e); }), runner: (application: Application) => new ExecutionRunner(application, store, runtime), close: () => runtime.close() };
 }
@@ -127,8 +128,11 @@ export function createWorker(options: WorkerOptions, store: ControlStore, method
 export function createMcpIntegration(options: McpIntegrationOptions, store: ControlStore) {
     const vault = new McpCredentialVault(options.directory, options.key, options.connections, options.fetch);
     const gateway = new HttpMcpGateway(store, vault, options.fetch);
-    return { gateway, credentials: new McpCredentialUseCases(store, vault),
-        tools: (application: Application, e: Execution) => [
+    return { gateway, credentials: new McpCredentialUseCases(store, vault), tools: mcpWorkerTools };
+}
+
+export function mcpWorkerTools(application: Application, e: Execution): ToolRegistration[] {
+    return [
             defineTool({ name: 'work_discover_mcp', description: 'List current business MCP tools and their exact input schemas and revisions. Credentials remain with the host.', parameters: Type.Object({ connection: Type.String() }), replay: 'safe', execute: async ({ connection }) => {
                 const current = await application.query.queryExecution(e.ownerId, e.id);
                 const definitions = await application.mcpCases.discoverMcpTools(e.ownerId, e.id, current.generation, connection);
@@ -139,8 +143,7 @@ export function createMcpIntegration(options: McpIntegrationOptions, store: Cont
                 const result = await application.mcpCases.callMcp(e.ownerId, e.id, current.generation, args.connection, args.tool, args.parameters as Json, `pi:${e.sessionId}:${api.taskId}`, args.schemaRevision);
                 return mcpWorkerOutput(result);
             } }),
-        ],
-    };
+        ];
 }
 
 /** 部署配置只在组合根读取。路径相对于 .env 所在目录，系统环境变量优先；不修改 process.env。 */

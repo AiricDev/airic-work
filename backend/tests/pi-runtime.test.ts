@@ -130,6 +130,47 @@ it('reuses one continuation when two questions block the same work', async () =>
     expect(new Set((await r.records(e.sessionId)).map(record => record.conversationId)).size).toBe(2);
 });
 
+it('holds answers for shared work until all its Decision Requests are answered', async () => {
+    const { harness } = await import('./support/harness');
+    const { createWorker } = await import('../src/bootstrap/bindings');
+    const { createBackend } = await import('../src/bootstrap/container');
+    const h = harness();
+    const dir = await mkdtemp(join(tmpdir(), 'airic-shared-work-')); directories.push(dir);
+    const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
+    const worker = createWorker({ directory: dir, models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../skills/airic-work-worker/SKILL.md') }, h.store, h.d.methods, h.d.support);
+    runtimes.push(worker.runtime);
+    const backend = createBackend({ ...h.d, runtime: worker.runtime, history: worker.history });
+    try {
+        const app = backend.application;
+        const owner = await app.account.ensureUser('owner');
+        const execution = await app.execution.createExecution(owner.id, 'create', { source: 'test', project_id: 'p', project_name: 'P', task: {}, instruction: 'Review A and B' });
+        const runner = worker.runner(app);
+        faux.setResponses([ask('A'), async () => {
+            const requestId = (await h.store.requests(execution.id))[0].id;
+            return fauxAssistantMessage([fauxToolCall('work_request_decision', { question: 'B', scope: 'A', continuationId: requestId }, { id: 'B' })], { stopReason: 'toolUse' });
+        }, text('Waiting')]);
+        await runner.run(owner.id, execution.id);
+        const requests = await app.query.queryPending(owner.id);
+        expect(requests.map(r => r.question)).toEqual(['A', 'B']);
+        const [a, b] = requests;
+        const answer = { contextRevision: 1, files: [] };
+        await app.decision.submitUserDecision(owner.id, b.id, 'b', { ...answer, text: 'Answer B' });
+        const waiting = await runner.run(owner.id, execution.id);
+        expect(waiting.phase).toBe('ended');
+        expect((await h.store.inputs(execution.id)).filter(i => i.status === 'pending')).toHaveLength(1);
+        await app.decision.submitUserDecision(owner.id, a.id, 'a', { ...answer, text: 'Answer A' });
+        let firstContinuation = '';
+        faux.setResponses([context => {
+            firstContinuation = JSON.stringify(context.messages);
+            return text('B delivered after both answers');
+        }, text('A delivered after both answers')]);
+        await runner.run(owner.id, execution.id);
+        expect(firstContinuation).toContain('Answer A');
+        expect(firstContinuation).toContain('Answer B');
+        expect((await h.store.inputs(execution.id)).every(i => i.status === 'delivered')).toBe(true);
+    } finally { await backend.dispose(); }
+});
+
 it('rejects an unknown continuation before saving a request so a corrected tool call creates only one question', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'airic-invalid-continuation-')); directories.push(dir);
     const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);

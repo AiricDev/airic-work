@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import type { Context, Creation, Method, Option, Preferences } from '../../../domain/model';
+import type { Context, Creation, MaterialReference, Method, Option, Preferences } from '../../../domain/model';
 
 // SQL 约束及索引见 migrations.ts；此处只提供外层查询映射。
 export const users = sqliteTable('users', {
@@ -16,6 +16,7 @@ export const executions = sqliteTable('executions', {
     creation: text({ mode: 'json' }).$type<Creation>().notNull(), method: text({ mode: 'json' }).$type<Method>(),
     phase: text({ enum: ['new', 'running', 'ended', 'stopping', 'stopped', 'failed'] }).notNull(),
     generation: integer().notNull(), version: integer().notNull(),
+    stopRequestedAt: text('stop_requested_at'), stopConfirmedAt: text('stop_confirmed_at'),
 });
 export const requests = sqliteTable('decision_requests', {
     id: text().primaryKey(), executionId: text('execution_id').notNull(), summary: text().notNull().default(''), question: text().notNull(),
@@ -24,15 +25,21 @@ export const requests = sqliteTable('decision_requests', {
     answeredAt: text('answered_at'), version: integer().notNull(),
 });
 export const decisions = sqliteTable('user_decisions', {
+    intent: text({ enum: ['investigate'] }),
+    supplements: text(),
+    references: text('material_references', { mode: 'json' }).$type<MaterialReference[]>(),
+    callerId: text('caller_id'),
     id: text().primaryKey(), requestId: text('request_id').notNull(), userId: text('user_id').notNull(),
     text: text().notNull(), optionId: text('option_id'), contextRevision: integer('context_revision').notNull(),
     files: text({ mode: 'json' }).$type<string[]>().notNull(), correctionOf: text('correction_of'), at: text().notNull(),
 });
 export const steering = sqliteTable('steering_inputs', {
+    references: text('material_references', { mode: 'json' }).$type<MaterialReference[]>(),
     id: text().primaryKey(), executionId: text('execution_id').notNull(), userId: text('user_id').notNull(),
     text: text().notNull(), files: text({ mode: 'json' }).$type<string[]>().notNull(), at: text().notNull(),
 });
 export const inputs = sqliteTable('inputs', {
+    references: text('material_references', { mode: 'json' }).$type<MaterialReference[]>(),
     id: text().primaryKey(), executionId: text('execution_id').notNull(), sessionId: text('session_id').notNull(),
     userId: text('user_id').notNull(), kind: text({ enum: ['start', 'user-decision', 'steering'] }).notNull(),
     sourceId: text('source_id').notNull(), text: text().notNull(), files: text({ mode: 'json' }).$type<string[]>().notNull(),

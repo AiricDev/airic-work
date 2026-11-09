@@ -17,4 +17,5 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm ci --prefix backend
       - run: npm run check
-      - run: docker build -t airic-work:foundation .
+      - run: docker build -t airic-work:task .
+      - run: python3 backend/tests/deploy/smoke.py

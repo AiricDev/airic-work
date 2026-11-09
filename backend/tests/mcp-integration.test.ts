@@ -6,13 +6,18 @@ import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { httpsIdentityFixture } from './support/https-identity';
 import { harness } from './support/harness';
+import { HttpMcpGateway } from '../src/adapters/driven/mcp/http-mcp';
+import { TaskCredentialStore } from '../src/adapters/driven/mcp/task-credentials';
+import { openSqliteDatabase } from '../src/adapters/driven/sqlite/database';
 import { createMcpIntegration } from '../src/bootstrap/bindings';
+import { taskTrace } from '../src/adapters/driven/runtime/task-trace';
 
 let fixture: Awaited<ReturnType<typeof httpsIdentityFixture>>;
 let directory: string;
 let rejectCalls = false;
 let wrongSubject = false;
 let writes = 0;
+let expectedBearer: string | undefined;
 const sharedToken = 'cll_' + 'x'.repeat(43);
 const sharedPath = '/mcp/link/' + sharedToken;
 let issuedPath = sharedPath;
@@ -21,6 +26,7 @@ afterAll(async () => { if (fixture) await fixture.close(); });
 beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'airic-mcp-')); rejectCalls = false; wrongSubject = false; writes = 0; issuedPath = sharedPath;
     fixture.received.length = 0;
+    expectedBearer = undefined;
     fixture.handler = (req, res) => {
         const chunks: Buffer[] = [];
         req.on('data', b => chunks.push(Buffer.from(b)));
@@ -29,7 +35,7 @@ beforeEach(async () => {
             res.setHeader('Content-Type', 'application/json');
             if (req.url === '/issue') { res.end(JSON.stringify({ path: issuedPath, token_id: 'grant-id', user_id: wrongSubject ? 'foreign' : 'owner', expires_at: null })); return; }
             if (req.url === '/revoke') { rejectCalls = true; res.end(JSON.stringify({ status: 'revoked', user_id: wrongSubject ? 'foreign' : 'owner' })); return; }
-            if (req.url !== sharedPath || req.headers.authorization || rejectCalls) { res.statusCode = 401; res.end('{}'); return; }
+            if (req.url !== sharedPath || req.headers.authorization !== expectedBearer || rejectCalls) { res.statusCode = 401; res.end('{}'); return; }
             if (!body.id) { res.statusCode = 202; res.end(); return; }
             let result: object = {};
             if (body.method === 'initialize') result = { protocolVersion: body.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'business', version: '1' } };
@@ -77,6 +83,46 @@ it('issues for the creator, encrypts/reopens the grant, discovers schemas and ca
     await h.app.mcpCases.callMcp(u.id, e.id, e.generation, connection, definitions[0].name, {}, 'call-1', definitions[0].schemaRevision);
     expect(writes).toBe(1);
     expect(fixture.received.filter(r => r.url === sharedPath).every(r => !r.authorization)).toBe(true);
+});
+
+it('uses a stored Task bearer and replays a recorded write without fresh network access', async () => {
+    const { h, u, e, connection } = await setup();
+    const token = 'task-credential-for-mcp-only';
+    expectedBearer = `Bearer ${token}`;
+    const db = openSqliteDatabase(join(directory, 'registry.sqlite'));
+    try {
+        const origin = new URL(fixture.options.endpoint).origin;
+        const credentials = new TaskCredentialStore(db, randomBytes(32), [origin + '/mcp'], {});
+        credentials.initialize('task-test', [{
+            id: connection, endpoint: origin + sharedPath, auth: { type: 'bearer', token },
+        }]);
+        const gateway = new HttpMcpGateway(h.store, {
+            connection: () => ({ issuer: u.issuer }),
+            async secret(scope) { return credentials.lease('task-test', scope.connection); },
+            observe(id, revision, status) { credentials.observe('task-test', id, revision, status); },
+        }, fetcher);
+        h.d.mcp.tools = gateway.tools.bind(gateway);
+        h.d.mcp.call = gateway.call.bind(gateway);
+        h.d.mcp.sanitize = gateway.sanitize.bind(gateway);
+        const invoke = () => h.app.mcpCases.callMcp(u.id, e.id, e.generation, connection, 'record.update', {}, 'task-call');
+        const result = await invoke();
+        expect(result.status).toBe('unknown');
+        expect(credentials.status('task-test', connection)).toBe('available');
+        const requests = fixture.received.length;
+        rejectCalls = true;
+        expect(await invoke()).toEqual(result);
+        expect(fixture.received).toHaveLength(requests);
+        expect(writes).toBe(1);
+        await expect(gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).rejects.toThrow();
+        expect(credentials.status('task-test', connection)).toBe('authorization_failed');
+        expect(fixture.received.filter(r => r.url === sharedPath).every(r => r.authorization === expectedBearer)).toBe(true);
+        const row = db.prepare('SELECT ciphertext FROM task_credentials').get() as { ciphertext: Buffer };
+        expect(row.ciphertext.includes(Buffer.from(token))).toBe(false);
+        const oldRevision = credentials.lease('task-test', connection).revision;
+        credentials.replace('task-test', connection, 'rotate', { type: 'bearer', token: 'new-credential' });
+        credentials.observe('task-test', connection, oldRevision, 'authorization_failed');
+        expect(credentials.status('task-test', connection)).toBe('unchecked');
+    } finally { db.close(); }
 });
 
 it('rejects foreign ownership, grant subject, disabled users and stopped generations', async () => {
@@ -132,6 +178,13 @@ it('connects a real Pi Worker through discovery and the gateway without exposing
         expect(history).not.toContain('web-access');
         expect(history).not.toContain(sharedToken);
         expect(history).toContain('Business response received');
+        const trace = taskTrace(await worker.runtime.records(e.sessionId));
+        const tools = trace.filter(event => event.tool);
+        expect(tools).toMatchObject([
+            { kind: 'tool_call', tool: { name: 'record.update', classification: 'write', outcome: 'sent' } },
+            { kind: 'tool_result', tool: { name: 'record.update', classification: 'write', outcome: 'unknown' } },
+        ]);
+        expect(JSON.stringify(tools)).not.toContain(sharedToken);
     } finally { await worker.close(); await backend.dispose(); }
 });
 

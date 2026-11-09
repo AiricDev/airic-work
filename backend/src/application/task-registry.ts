@@ -7,5 +7,7 @@ export interface TaskReservation {
 export interface TaskRegistry {
     reserve(scope: string, actor: string, key: string, fingerprint: string, taskId: string): TaskReservation;
     markReady(taskId: string): void;
+    allReadyIds(): string[];
+    readyIds(scope: string, actor: string): string[];
     get(taskId: string): TaskReservation | undefined;
 }

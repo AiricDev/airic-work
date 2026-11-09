@@ -13,4 +13,4 @@
 | MCP 和身份 | `backend/src/application/mcp.ts`、`backend/src/adapters/driven/mcp/`、`identity/` | `backend/tests/mcp-integration.test.ts`、`identity-https.test.ts` |
 | 端口和装配 | `backend/src/application/ports.ts`、`backend/src/bootstrap/` | `backend/tests/architecture.test.ts`、`bootstrap-config.test.ts` |
 
-旧前端、HTTP 和管理命令已清理。Task API、每 Task 存储、受限 Workspace、正式派发和发布入口仍待实现。现有用例保留的方法设置和身份模型需要随 Task 合同替换。
+旧前端、HTTP 和管理命令已清理。Task API、每 Task 存储、Worker 派发和 Compose 发布入口已接入。Workspace 命令由受限容器执行，容器只挂载当前 Task 的工作目录、输入和固定 OM。两条 Swagger 路径已在隔离环境验证，完整的 OpenAPI 合同核对和发布切换仍待完成。

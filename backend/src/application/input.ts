@@ -1,6 +1,7 @@
 import { beginRun, active, nonempty, requireRule } from '../domain/model';
 import type { Files, Runtime, ControlStore, Support, Workspace } from './ports';
 import { ApplicationPolicy } from './policy';
+import type { MaterialReference } from '../domain/model';
 /**
  * 工作消息、上传和 Session 投递能力。接收与交付分别持久化，原执行续行沿用同一 Session/Workspace；不把文件或消息等同业务完成。
  */
@@ -10,16 +11,17 @@ export class InputUseCases {
     /**
      * 保存 DecisionRequest 流程外的一般输入及交付意图。允许已结束或取消中的 Execution 接收消息，后者等待停止确认；不改变任何请求的已回答状态。
      */
-    async submitSteering(userId: string, id: string, key: string, text: string, files: string[] = []) {
+    async submitSteering(userId: string, id: string, key: string, text: string, files: string[] = [], references: MaterialReference[] = []) {
         const e = await this.policy.owned(userId, id);
-        requireRule(text.trim() || files.length, 'invalid');
+        requireRule(text.trim() || files.length || references.length, 'invalid');
         await this.policy.files(userId, e, files);
-        const k = this.policy.key(userId, key, { id, text, files });
+        const materials = references.length ? { references } : {};
+        const k = this.policy.key(userId, key, { id, text, files, ...materials });
         const old = await this.store.replay<import('../domain/model').SteeringInput>('steering', k);
         if (old)
             return old;
-        const input = { id: this.support.id(), executionId: id, userId, text, files, at: this.support.now() };
-        return this.store.submitSteering(k, input, this.policy.envelope(e, input.id, 'steering', text, files));
+        const input = { id: this.support.id(), executionId: id, userId, text, files, ...materials, at: this.support.now() };
+        return this.store.submitSteering(k, input, { ...this.policy.envelope(e, input.id, 'steering', text, files), ...materials });
     }
     /**
      * 先固定真实字节，再保存当前用户/执行范围的 Upload。存储失败可能留下可清理孤立 Blob，不能绑定不存在内容；本用例不解析文件或登记外部业务资料。

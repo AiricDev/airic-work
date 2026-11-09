@@ -14,9 +14,14 @@ export interface WorkerHost {
     check(e: Execution): Promise<void>;
     input(e: Execution, input: Input): Promise<{ content: string; requestId?: string }>;
     request(e: Execution, key: string, question: string, options?: Option[], decisionContext?: Context, summary?: string): Promise<string>;
+    pendingRequests?(e: Execution): Promise<string[]>;
+    relatedAnswers?(e: Execution, requestIds: string[]): Promise<Json>;
     tools?(e: Execution): Promise<ToolRegistration[]>;
 }
-type SliceInput = { target: ConversationId; content: string; kind: string; scope: string; generation: number };
+type SliceInput = {
+    target: ConversationId; content: string; kind: string; scope: string; generation: number;
+    continuation?: { inputId: string; requestId: string; workId: string };
+};
 type Link = { parent?: string; source: ConversationId; at?: EntryId; target?: ConversationId; scope: string };
 const State = defineDoc<{
     execution: string; assembly: string; generation: number; stopped: boolean; quiescing: boolean;
@@ -80,7 +85,7 @@ export class PiRuntime implements Runtime {
                     run: async (t, api, c) => {
                         await guard();
                         const target = (await api.conversation(t.input.target, c))!;
-                        const submission = await target.submit({ type: 'input', content: t.input.content, requestId: `aw-slice:${t.id}`, whenBusy: 'reject', entry: { kind: t.input.kind, data: { scope: t.input.scope } } }, c);
+                        const submission = await target.submit({ type: 'input', content: t.input.content, requestId: `aw-slice:${t.id}`, whenBusy: 'reject', entry: { kind: t.input.kind, data: { scope: t.input.scope, recordedAt: new Date().toISOString(), ...(t.input.kind === 'aw.user-decision' ? t.input.continuation : {}) } } }, c);
                         const settled = await submission.wait(c);
                         requireRule(settled.status === 'done', 'blocked', 'model run unanswered');
                         await api.commit(() => ({ status: 'running', checkpoint: { phase: 'finalize' } }), c);
@@ -149,6 +154,19 @@ export class PiRuntime implements Runtime {
         if (!a.requestId || !b.requestId || !state?.links[a.requestId] || !state.links[b.requestId]) return false;
         return (state.links[a.requestId].parent ?? a.requestId) !== (state.links[b.requestId].parent ?? b.requestId);
     }
+    async answerReady(e: Execution, input: Input) {
+        if (input.kind !== 'user-decision') return true;
+        await this.ensure(e);
+        const { requestId } = await this.host.input(e, input);
+        const state = await this.session(e.sessionId).h.snapshot(State, context);
+        if (!state || !requestId) return false;
+        if (state.receipts[input.id]) return true;
+        const link = state.links[requestId];
+        const workId = link?.parent ?? requestId;
+        if (!link?.at || !state.links[workId]?.at) return false;
+        const pending = await this.host.pendingRequests?.(e) ?? [];
+        return !pending.some(id => (state.links[id]?.parent ?? id) === workId);
+    }
     /** 同代次幂等恢复；新代次才可越过成功收尾栅栏，旧工具仍受应用当前代次复查。 */
     async start(e: Execution) {
         await this.ensure(e);
@@ -159,6 +177,20 @@ export class PiRuntime implements Runtime {
         session.h.resume();
     }
     /** 查 Session 级接收记录；读取错误直接传播，不能解释成未接收。 */
+    async decisionScopes(e: Execution) {
+        await this.ensure(e);
+        const state = await this.session(e.sessionId).h.snapshot(State, context);
+        return new Map(Object.entries(state?.links ?? {}).map(([requestId, link]) => [
+            requestId, { workId: link.parent ?? requestId, label: link.scope },
+        ]));
+    }
+
+    async decisionScope(e: Execution, requestId: string) {
+        const scope = (await this.decisionScopes(e)).get(requestId);
+        requireRule(scope, 'blocked', 'decision anchor is not ready');
+        return scope;
+    }
+
     async accepted(sessionId: string, inputId: string) {
         const s = await this.session(sessionId).h.snapshot(State, context);
         return s?.receipts[inputId] ? String(s.receipts[inputId].task) : undefined;
@@ -169,12 +201,20 @@ export class PiRuntime implements Runtime {
         await this.host.check(e);
         const envelope = await this.host.input(e, input);
         const digest = canonical(input);
+        let sharedAnswers: Json | undefined;
+        if (envelope.requestId && this.host.relatedAnswers) {
+            const state = await h.snapshot(State, context);
+            const workId = state?.links[envelope.requestId]?.parent ?? envelope.requestId;
+            const siblings = Object.entries(state?.links ?? {}).flatMap(([id, link]) =>
+                id !== envelope.requestId && (link.parent ?? id) === workId ? [id] : []);
+            if (siblings.length) sharedAnswers = await this.host.relatedAnswers(e, siblings);
+        }
         // A fork restores historical context, not the world. Supply bounded current progress with exact entry references.
         const updates = envelope.requestId ? (await this.records(e.sessionId)).slice(-30).map(entry => ({
             entryId: entry.id, conversationId: entry.conversationId,
             text: (entry.model ?? []).filter(m => m.role !== 'system').map(m => typeof m.content === 'string' ? m.content : m.content.filter(part => part.type === 'text').map(part => part.text).join('')).join('\n').slice(0, 2000),
         })) : [];
-        const content = JSON.stringify({ input: envelope.content, recentProgress: updates, limitations: updates.length ? ['Bounded recent progress only; recheck current business state before effects.'] : [] });
+        const content = JSON.stringify({ input: envelope.content, sharedAnswers, recentProgress: updates, limitations: updates.length ? ['Bounded recent progress only; recheck current business state before effects.'] : [] });
         const root = await h.root(context);
         const task = await root.commit(async tx => {
             const s = await tx.doc(State);
@@ -183,11 +223,13 @@ export class PiRuntime implements Runtime {
             if (old) { requireRule(old.digest === digest, 'conflict'); return old.task; }
             let target = root.id;
             let scope = e.creation.instruction;
+            let continuation: SliceInput['continuation'];
             if (envelope.requestId) {
                 const origin = s.links[envelope.requestId];
                 const link = origin?.parent ? s.links[origin.parent] : origin;
                 requireRule(link?.at, 'blocked', 'question anchor not ready');
                 scope = link.scope;
+                continuation = { inputId: input.id, requestId: envelope.requestId, workId: origin.parent ?? envelope.requestId };
                 if (!link.target) {
                     const anchor = await tx.createTask(Anchor, null, { ownership: { kind: 'conversation' }, background: true });
                     const branch = await tx.forkConversation(link.source, link.at, { ownership: { kind: 'task', taskId: anchor } });
@@ -196,7 +238,7 @@ export class PiRuntime implements Runtime {
                 }
                 target = link.target;
             }
-            const id = await this.session(e.sessionId).enqueue(tx, { target, scope, content, kind: `aw.${input.kind}`, generation: e.generation });
+            const id = await this.session(e.sessionId).enqueue(tx, { target, scope, content, kind: `aw.${input.kind}`, generation: e.generation, ...(continuation ? { continuation } : {}) });
             s.receipts[input.id] = { task: id, digest };
             return id;
         }, context);

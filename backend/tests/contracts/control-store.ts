@@ -158,9 +158,10 @@ export function controlStoreContract(name: string, factory: () => Promise<{ stor
         it('retains queued inputs after cancellation without answering pending requests', async () => {
             const e = await running(store);
             const r = await request(store, e);
+            await steer(store, e, 'before-stop');
             const stopping = await store.transition('owner', e.version, beginStop(e));
-            await steer(store, stopping, 'during-stop');
-            await steer(store, stopping, 'during-stop');
+            await steer(store, stopping, 'before-stop');
+            await expect(steer(store, stopping, 'during-stop')).rejects.toMatchObject({ code: 'conflict' });
             expect((await store.request(r.id)).status).toBe('pending');
             const stopped = await store.transition('owner', stopping.version, recordStopped(stopping));
             expect(() => beginRun(stopped)).toThrow();

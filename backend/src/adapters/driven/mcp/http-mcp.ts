@@ -2,12 +2,18 @@ import { createHash } from 'node:crypto';
 import { McpClient, StreamableHttpTransport } from '@earendil-works/pi-mcp';
 import type { ControlStore, Mcp } from '../../../application/ports';
 import { active, own, requireRule, RuleError, canonical, type Json } from '../../../domain/model';
-import { McpCredentialVault, type CredentialScope } from './credentials';
+import type { CredentialScope } from './credentials';
+import type { TaskConnectionStatus } from '../../../application/task-connections';
 
 type Scope = { userId: string; executionId: string; sessionId: string; generation: number };
+export interface McpEndpointCredentials {
+    connection(id: string): { issuer: string; endpoint?: string };
+    secret(scope: CredentialScope): Promise<{ url: string; token?: string; revision?: string }>;
+    observe?(connection: string, revision: string, status: TaskConnectionStatus): void;
+}
 /** Per-operation client, per-request identity checks, no shared-user sessions or automatic write retries. */
 export class HttpMcpGateway implements Mcp {
-    constructor(private readonly store: ControlStore, private readonly vault: McpCredentialVault, private readonly fetcher: typeof fetch = fetch) {}
+    constructor(private readonly store: ControlStore, private readonly vault: McpEndpointCredentials, private readonly fetcher: typeof fetch = fetch) {}
     private async check(scope: Scope, connection: string): Promise<CredentialScope> {
         const e = await this.store.execution(scope.executionId); const user = await this.store.user(scope.userId);
         own(user, e); active(e, scope.generation);
@@ -20,27 +26,49 @@ export class HttpMcpGateway implements Mcp {
         const identity = await this.check(scope, connection);
         const initial = await this.vault.secret(identity);
         const endpoint = new URL(initial.url);
-        requireRule(endpoint.origin === new URL(config.endpoint).origin && endpoint.pathname.startsWith(new URL(config.endpoint).pathname.replace(/\/$/, '') + '/'), 'forbidden');
-        secrets.add(initial.url); secrets.add(endpoint.pathname.split('/').at(-1)!);
+        if (config.endpoint) {
+            const base = new URL(config.endpoint);
+            requireRule(endpoint.origin === base.origin && endpoint.pathname.startsWith(base.pathname.replace(/\/$/, '') + '/'), 'forbidden');
+        }
+        secrets.add(initial.url);
+        const pathParts = endpoint.pathname.split('/').filter(Boolean);
+        const pathSecret = config.endpoint || (!initial.token && pathParts.length >= 3) ? pathParts.at(-1) : undefined;
+        for (const value of [initial.token, pathSecret, ...endpoint.searchParams.values()])
+            if (value) secrets.add(value);
         const client = new McpClient({ name: 'airic-work', version: '1.0.0', requestTimeoutMs: 15000 });
+        let connected = false;
+        let authorizationFailed = false;
+        const observe = (status: TaskConnectionStatus) => {
+            if (initial.revision) this.vault.observe?.(connection, initial.revision, status);
+        };
         try {
             await client.connect(new StreamableHttpTransport({ url: endpoint.href, openGetStream: false, reconnect: { maxRetries: 0 }, fetch: async (url, init) => {
                 requireRule(new URL(String(url)).href === endpoint.href, 'forbidden');
                 const identity = await this.check(scope, connection);
                 requireRule(identity.issuer === config.issuer, 'forbidden');
                 const secret = await this.vault.secret(identity);
-                requireRule(secret.url === endpoint.href, 'forbidden');
+                requireRule(secret.url === endpoint.href && secret.token === initial.token && secret.revision === initial.revision, 'forbidden');
                 const headers = new Headers(init?.headers);
-                return this.fetcher(url, { ...init, headers, redirect: 'error', credentials: 'omit', signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
+                if (secret.token) headers.set('Authorization', `Bearer ${secret.token}`);
+                const response = await this.fetcher(url, { ...init, headers, redirect: 'error', credentials: 'omit', signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
+                if (response.status === 401 || (!connected && response.status === 403)) authorizationFailed = true;
+                return response;
             } }));
+            connected = true;
             const redact = (value: Json): Json => {
                 if (typeof value === 'string') { for (const secret of secrets) value = value.replaceAll(secret, '[REDACTED]'); return value; }
                 if (Array.isArray(value)) return value.map(redact);
                 if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redact(v)]));
                 return value;
             };
-            return redact(JSON.parse(JSON.stringify(await run(client))) as Json) as T;
-        } catch (error) { if (error instanceof RuleError) throw error; throw new RuleError('blocked', 'MCP authentication or transport failed; no automatic write retry'); }
+            const result = redact(JSON.parse(JSON.stringify(await run(client))) as Json) as T;
+            observe('available');
+            return result;
+        } catch (error) {
+            if (error instanceof RuleError) throw error;
+            observe(authorizationFailed ? 'authorization_failed' : 'unavailable');
+            throw new RuleError('blocked', 'MCP authentication or transport failed; no automatic write retry');
+        }
         finally { await client.close().catch(() => {}); }
     }
     async tools(userId: string, connection: string, scope?: Omit<Scope, 'userId'>) {

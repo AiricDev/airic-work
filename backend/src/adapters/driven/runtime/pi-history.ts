@@ -50,6 +50,6 @@ export class PiHistory implements History {
     }
     async finishCall(sessionId: string, id: string, status: CallRecord['status'], result: Json) {
         requireRule(await this.call(sessionId, id), 'not-found');
-        await this.runtime.append(sessionId, 'aw.mcp-finish', { id, status, result });
+        await this.runtime.append(sessionId, 'aw.mcp-finish', { id, status, result, finishedAt: new Date().toISOString() });
     }
 }

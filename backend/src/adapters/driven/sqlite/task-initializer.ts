@@ -9,6 +9,16 @@ import { databaseCommit } from './operations';
 export class SqliteTaskInitializer implements TaskInitializer {
     constructor(private readonly directory: string) {}
 
+    read(taskId: string): TaskCreationRecord {
+        requireRule(/^[A-Za-z0-9_-]{1,128}$/.test(taskId), 'invalid');
+        const db = openSqliteDatabase(resolve(this.directory, taskId, 'control.sqlite'), { fileMustExist: true });
+        try {
+            const row = db.prepare('SELECT record FROM task_creation WHERE id = 1').get() as { record: string } | undefined;
+            requireRule(row, 'not-found');
+            return JSON.parse(row.record) as TaskCreationRecord;
+        } finally { db.close(); }
+    }
+
     initialize(record: TaskCreationRecord): TaskCreationRecord {
         requireRule(/^[A-Za-z0-9_-]{1,128}$/.test(record.taskId), 'invalid');
         const path = resolve(this.directory, record.taskId);

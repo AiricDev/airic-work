@@ -10,6 +10,7 @@ The target HTTP API is described by OpenAPI. Import the YAML into Swagger Editor
 
 ## Current implementation
 
-The legacy frontend and HTTP delivery have been removed. The repository retains the Pi Durable runtime and application core as the foundation for the Task refactor. The headless Task API, Worker, isolated Workspace and Swagger UI are not implemented yet. The Dockerfile builds a foundation image that exits with this status rather than starting a service.
+The container starts the Task HTTP service and serves Swagger UI at `/docs/`. The Worker uses Pi Durable, a pinned OM, configured model access, and isolated Docker commands for each Task Workspace. See the [acceptance record](deploy/README.md#acceptance-record) for the tested Swagger and recovery paths.
 
+- [Container deployment](deploy/README.md)
 - [Architecture index](architecture-map.md) · [Technical design](docs/technical-design.md) · [Worker runtime](docs/worker-runtime-design.md)

@@ -216,6 +216,7 @@ export interface Workspace {
      * 把固定 Upload 字节交付到该执行可读位置，校验内容/路径及范围；重复物化安全，失败不伪报可读。
      */
     materialize(e: Execution, files: Upload[]): Promise<void>;
+    stop?(e: Execution): Promise<void>;
     /**
      * 确认旧代次的文件/Bash/容器进程已退出；Runtime 停止不自动证明工具也退出。
      */
@@ -248,6 +249,8 @@ export interface MethodSourceStatus {
 
 /** 固定版本 OM 出口；受管来源确认远端，本地来源确认本地配置分支，不把缓存冒充最新或访问作者材料。 */
 export interface Methods {
+    /** Resolve a requested immutable OM version or release tag. */
+    pinRevision?(selection: { source: string; revision: string; entry: string }): Promise<Method>;
     /** Offline browsing of an available fixed snapshot; never fetches or silently substitutes another SHA. */
     browse?(settings: Settings, sha?: string): Promise<Method>;
     /** 固定快照的允许文件列表，排除作者材料、链接与子模块；不触发同步。 */

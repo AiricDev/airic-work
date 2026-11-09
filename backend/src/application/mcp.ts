@@ -18,14 +18,15 @@ export class McpUseCases {
         const e = await this.policy.owned(userId, id);
         active(e, generation);
         requireRule((await this.store.settings()).connections.includes(connection), 'forbidden');
-        const definition = (await this.mcp.tools(userId, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).find(t => t.name === tool);
-        requireRule(definition, 'invalid');
-        requireRule(expectedSchemaRevision === undefined || definition.schemaRevision === expectedSchemaRevision, 'conflict', 'MCP schema changed');
         const existing = await this.history.call(e.sessionId, callId);
         if (existing) {
             requireRule(existing.connection === connection && existing.tool === tool && canonical(existing.parameters) === canonical(this.mcp.sanitize(connection, parameters)), 'conflict');
+            requireRule(expectedSchemaRevision === undefined || existing.schemaRevision === expectedSchemaRevision, 'conflict');
             return { callId, status: existing.status === 'calling' ? 'unknown' : existing.status, result: existing.result };
         }
+        const definition = (await this.mcp.tools(userId, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).find(t => t.name === tool);
+        requireRule(definition, 'invalid');
+        requireRule(expectedSchemaRevision === undefined || definition.schemaRevision === expectedSchemaRevision, 'conflict', 'MCP schema changed');
         const call = { id: callId, sessionId: e.sessionId, connection, tool, at: this.support.now(), type: definition.classification ?? 'unknown' as const, classificationSource: definition.classificationSource, schemaRevision: definition.schemaRevision, parameters: this.mcp.sanitize(connection, parameters), status: 'calling' as const };
         await this.history.appendCall(call); // a failed history write MUST prevent external dispatch
         active(await this.policy.owned(userId, id), generation);

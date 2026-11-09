@@ -13,5 +13,10 @@ COPY --from=dependencies /app/backend/node_modules ./backend/node_modules
 COPY backend/package.json ./backend/package.json
 COPY backend/src ./backend/src
 COPY backend/skills ./backend/skills
+COPY docs/openapi.yaml ./docs/openapi.yaml
+RUN install -d -m 0700 -o node -g node /var/lib/airic-work
+ENV AIRIC_TASK_HOST=0.0.0.0 AIRIC_TASK_PORT=8080 AIRIC_TASK_DATA=/var/lib/airic-work AIRIC_DATA_DIR=/var/lib/airic-work
 USER node
-CMD ["node", "-e", "console.error('Task API and Worker are not implemented'); process.exit(1)"]
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s CMD ["node", "-e", "fetch('http://127.0.0.1:' + process.env.AIRIC_TASK_PORT + '/healthz').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+CMD ["npm", "--prefix", "backend", "run", "task:http"]

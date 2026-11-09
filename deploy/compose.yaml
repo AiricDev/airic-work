@@ -1,0 +1,43 @@
+services:
+  airic-work:
+    image: airic-work:task
+    build:
+      context: ..
+    init: true
+    user: "${AIRIC_DEPLOY_UID:?Use deploy/up.mjs}:${AIRIC_DEPLOY_GID:?Use deploy/up.mjs}"
+    env_file:
+      - ${AIRIC_TASK_ENV_FILE:-.env.task}
+    environment:
+      AIRIC_TASK_HOST: 0.0.0.0
+      AIRIC_TASK_PORT: 8080
+      AIRIC_TASK_DATA: /var/lib/airic-work
+      AIRIC_DATA_DIR: /var/lib/airic-work
+      AIRIC_WORKSPACE_HOST_DATA: ${AIRIC_DEPLOY_DATA:?Use deploy/up.mjs}
+      AIRIC_OM_REPOSITORY: ${AIRIC_OM_REPOSITORY:?Set an absolute Git path or URL}
+    ports:
+      - "127.0.0.1:${AIRIC_TASK_PUBLISHED_PORT:-8080}:8080"
+    volumes:
+      - type: bind
+        source: ${AIRIC_DEPLOY_DATA:?Use deploy/up.mjs}
+        target: /var/lib/airic-work
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${AIRIC_DOCKER_SOCKET:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+      - type: bind
+        source: ${AIRIC_DEPLOY_OM_MOUNT:?Use deploy/up.mjs}
+        target: /om
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    group_add:
+      - ${AIRIC_DOCKER_SOCKET_GID:-0}
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+

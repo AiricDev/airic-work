@@ -31,7 +31,7 @@ export class DecisionUseCases {
         const e = await this.policy.owned(userId, r.executionId);
         active(e, generation);
         requireRule(context.revision === r.contexts.at(-1)!.revision + 1, 'conflict');
-        return this.store.refreshContext(userId, generation, r.version, { ...r, contexts: [...r.contexts, context], version: r.version + 1 });
+        return this.store.refreshContext(userId, generation, r.version, { ...r, contexts: [...r.contexts, { ...context, recordedAt: this.support.now() }], version: r.version + 1 });
     }
     /**
      * 检查归属、阅读版本、选项、文件和更正关联，再原子保存 UserDecision、已回答请求及待投递消息。
@@ -42,7 +42,11 @@ export class DecisionUseCases {
         optionId?: string;
         contextRevision: number;
         files: string[];
+        references?: import('../domain/model').MaterialReference[];
         correctionOf?: string;
+        supplements?: string;
+        intent?: 'investigate';
+        callerId?: string;
     }) {
         const r = await this.store.request(requestId);
         const e = await this.policy.owned(userId, r.executionId);
@@ -50,10 +54,13 @@ export class DecisionUseCases {
         const old = await this.store.replay<Awaited<ReturnType<typeof this.store.decisions>>[number]>('decision', k);
         if (old)
             return old;
+        requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict', 'task_stopped');
         await this.policy.files(userId, e, payload.files);
-        if (payload.correctionOf)
-            requireRule((await this.store.decisions(r.id)).some(d => d.id === payload.correctionOf), 'invalid');
+        const related = payload.correctionOf ?? payload.supplements;
+        if (related) requireRule((await this.store.decisions(r.id)).some(d => d.id === related), 'invalid');
         const decision = { ...payload, id: this.support.id(), requestId, userId, at: this.support.now() };
-        return this.store.submitDecision(k, r.version, answer(r, decision), decision, this.policy.envelope(e, decision.id, 'user-decision', payload.text || payload.optionId || '', payload.files));
+        const input = this.policy.envelope(e, decision.id, 'user-decision', payload.text || payload.optionId || payload.intent || '', payload.files);
+        return this.store.submitDecision(k, r.version, answer(r, decision), decision,
+            { ...input, ...(payload.references ? { references: payload.references } : {}) });
     }
 }

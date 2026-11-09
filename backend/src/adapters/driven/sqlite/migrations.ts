@@ -92,7 +92,37 @@ CREATE TRIGGER immutable_upload BEFORE UPDATE ON uploads
 BEGIN SELECT RAISE(ABORT, 'immutable upload'); END;
 `;
 
-const migrations = [initial, `ALTER TABLE decision_requests ADD COLUMN summary TEXT NOT NULL DEFAULT '' CHECK(length(summary) <= 80);`];
+const migrations = [initial, `ALTER TABLE decision_requests ADD COLUMN summary TEXT NOT NULL DEFAULT '' CHECK(length(summary) <= 80);`,
+    `ALTER TABLE executions ADD COLUMN stop_requested_at TEXT;
+     ALTER TABLE executions ADD COLUMN stop_confirmed_at TEXT;`,
+    `ALTER TABLE user_decisions ADD COLUMN caller_id TEXT;`,
+    `CREATE TABLE task_outputs (
+        fileId TEXT PRIMARY KEY NOT NULL, executionId TEXT NOT NULL REFERENCES executions(id),
+        commandKey TEXT NOT NULL, path TEXT NOT NULL, name TEXT NOT NULL, hash TEXT NOT NULL,
+        size INTEGER NOT NULL CHECK(size >= 0), contentRef TEXT NOT NULL,
+        UNIQUE(executionId, commandKey)
+    ) STRICT;`,
+    `ALTER TABLE inputs ADD COLUMN material_references TEXT CHECK(json_valid(material_references) OR material_references IS NULL);
+     ALTER TABLE steering_inputs ADD COLUMN material_references TEXT CHECK(json_valid(material_references) OR material_references IS NULL);
+     ALTER TABLE user_decisions ADD COLUMN material_references TEXT CHECK(json_valid(material_references) OR material_references IS NULL);`,
+    `ALTER TABLE user_decisions ADD COLUMN intent TEXT CHECK(intent = 'investigate');
+     ALTER TABLE user_decisions ADD COLUMN supplements TEXT REFERENCES user_decisions(id);`,
+    `CREATE TABLE execution_activity (
+        execution_id TEXT PRIMARY KEY NOT NULL REFERENCES executions(id), updated_at TEXT NOT NULL
+     ) STRICT;
+     CREATE TABLE task_worker_skill (id INTEGER PRIMARY KEY CHECK(id = 1), content TEXT NOT NULL) STRICT;
+     ${[
+        ['execution', 'UPDATE', 'executions', 'NEW.id'],
+        ['request_created', 'INSERT', 'decision_requests', 'NEW.execution_id'],
+        ['request_updated', 'UPDATE', 'decision_requests', 'NEW.execution_id'],
+        ['input_created', 'INSERT', 'inputs', 'NEW.execution_id'],
+        ['input_updated', 'UPDATE', 'inputs', 'NEW.execution_id'],
+        ['output_created', 'INSERT', 'task_outputs', 'NEW.executionId'],
+    ].map(([name, event, table, id]) => `CREATE TRIGGER task_activity_${name} AFTER ${event} ON ${table}
+        BEGIN
+            INSERT INTO execution_activity VALUES (${id}, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            ON CONFLICT(execution_id) DO UPDATE SET updated_at = max(updated_at, excluded.updated_at);
+        END;`).join('\n')}`];
 
 function appliedMigrations(connection: Database.Database): number {
     const applied = connection.prepare('SELECT version, hash FROM schema_migrations ORDER BY version').all() as { version: number; hash: string }[];

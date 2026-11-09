@@ -126,6 +126,8 @@ export interface Execution {
      * 运行控制阶段，不是业务完成状态；ended/stopped/failed 后仍可接受续行输入。
      */
     phase: 'new' | 'running' | 'ended' | 'stopping' | 'stopped' | 'failed';
+    stopRequestedAt?: string;
+    stopConfirmedAt?: string;
     /**
      * 每次新运行递增的栅栏代次，旧 worker 不能借旧代次恢复动作资格。
      */
@@ -140,6 +142,7 @@ export interface Execution {
  */
 export interface Context {
     revision: number;
+    recordedAt?: string;
     content: Json;
     sources: {
         system: string;
@@ -184,7 +187,18 @@ export interface DecisionRequest {
 /**
  * 用户对一个 DecisionRequest 的不可覆盖提交。保存成功即已回答；消息到达、Agent 采纳及业务成功均是另外的事实。补充/更正追加记录。
  */
+export interface MaterialReference {
+    object: { system: string; kind: string; id: string };
+    revision?: string;
+    location?: string;
+    label?: string;
+}
+
 export interface UserDecision {
+    references?: MaterialReference[];
+    intent?: 'investigate';
+    supplements?: string;
+    callerId?: string;
     id: string;
     requestId: string;
     userId: string;
@@ -208,6 +222,7 @@ export interface UserDecision {
  * DecisionRequest 流程之外的一次任意工作消息，可带文件并触发原执行续行，不自动转为 UserDecision 或解除待回答请求。
  */
 export interface SteeringInput {
+    references?: MaterialReference[];
     id: string;
     executionId: string;
     userId: string;
@@ -219,6 +234,7 @@ export interface SteeringInput {
  * 向同一 Session 投递的技术信封，并非新增业务工作实体。与 UserDecision/Steering Input 原始记录分开；稳定 id 支持去重和接收结果查回。
  */
 export interface Input {
+    references?: MaterialReference[];
     /**
      * 稳定 Runtime 输入去重键；网络重试及丢确认查回必须沿用。
      */
@@ -313,7 +329,9 @@ export function canonical(value: unknown): string {
  * 验证回答引用的历史 Context 和可选选项，返回新的已回答请求快照。允许基于旧修订回答，保留首次 answeredAt；本函数不写库或发送消息。
  */
 export function answer(r: DecisionRequest, d: UserDecision): DecisionRequest {
-    nonempty(d.text || d.optionId || (d.files.length ? 'file' : ''));
+    nonempty(d.text || d.optionId || d.intent || (d.files.length ? 'file' : ''));
+    requireRule(!(d.supplements && d.correctionOf), 'invalid');
+    requireRule(r.status !== 'answered' || d.supplements || d.correctionOf, 'conflict', 'decision_already_answered');
     requireRule(r.contexts.some(c => c.revision === d.contextRevision), 'invalid', 'unknown reading version');
     if (d.optionId)
         requireRule(r.options.some(o => o.id === d.optionId), 'invalid');
@@ -333,8 +351,14 @@ export function endRun(e: Execution, generation: number): Execution { active(e, 
 /**
  * 生成取消中的控制快照以先关闭新动作资格。它既不停止进程，也不撤回已发出的业务请求。
  */
-export function beginStop(e: Execution): Execution { return { ...e, phase: 'stopping', version: e.version + 1 }; }
+export function beginStop(e: Execution, at?: string): Execution {
+    requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict');
+    return { ...e, phase: 'stopping', ...(at ? { stopRequestedAt: at } : {}), version: e.version + 1 };
+}
 /**
  * 仅从 stopping 记录已停止；实际 Runtime 和容器退出事实必须由调用用例先取得，不能只凭调用 stop 成功。
  */
-export function recordStopped(e: Execution): Execution { requireRule(e.phase === 'stopping', 'conflict'); return { ...e, phase: 'stopped', version: e.version + 1 }; }
+export function recordStopped(e: Execution, at?: string): Execution {
+    requireRule(e.phase === 'stopping', 'conflict');
+    return { ...e, phase: 'stopped', ...(at ? { stopConfirmedAt: at } : {}), version: e.version + 1 };
+}

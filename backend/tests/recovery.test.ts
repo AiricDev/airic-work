@@ -34,6 +34,24 @@ it('preparation commit detects changed settings and leaves no start message', as
     await expect(h.app.execution.prepareExecution(u.id, e.id)).rejects.toMatchObject({ code: 'conflict' });
     expect(await h.store.inputs(e.id)).toHaveLength(0);
 });
+it('pins the requested revision once and reuses it during preparation replay', async () => {
+    const h = harness();
+    const user = await h.app.account.ensureUser('owner');
+    const execution = await h.app.execution.createExecution(user.id, 'pin', {
+        source: 'business', project_id: 'p', project_name: 'p', task: {}, instruction: 'do',
+    });
+    const settings = await h.store.settings();
+    const pinned = { ...await h.d.methods.latest(settings), sha: 'a'.repeat(40) };
+    h.d.methods.pinRevision = async selection => {
+        expect(selection).toEqual({ source: settings.omSource, revision: 'v1', entry: settings.root });
+        return pinned;
+    };
+    h.d.methods.latest = async () => { throw new Error('must not fall back to latest'); };
+    expect((await h.app.execution.prepareExecution(user.id, execution.id, 'v1')).method).toEqual(pinned);
+    h.d.methods.pinRevision = async () => { throw new Error('must not resolve again'); };
+    expect((await h.app.execution.prepareExecution(user.id, execution.id, 'v1')).method).toEqual(pinned);
+    expect(await h.store.inputs(execution.id)).toHaveLength(1);
+});
 it('later inputs cannot overtake an earlier undelivered input', async () => {
     const h = harness();
     const { u, e } = await h.running();

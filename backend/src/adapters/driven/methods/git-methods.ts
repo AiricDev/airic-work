@@ -156,6 +156,27 @@ export class GitMethods implements Methods {
     async latest(settings: Settings): Promise<Method> {
         return this.protect(() => this.serial(settings.omSource, () => this.prepare(settings, false)));
     }
+    /** Resolve an exact commit or tag without falling back to a branch tip. */
+    async pinRevision(selection: { source: string; revision: string; entry: string }): Promise<Method> {
+        const { source, revision, entry } = selection;
+        return this.protect(() => this.serial(source, async () => {
+            methodPath(entry);
+            const repository = await this.repositories.open(source);
+            const gitDir = `--git-dir=${repository.gitDir}`;
+            const tag = `refs/tags/${revision}`;
+            const exact = shaValid(revision);
+            if (!exact) await this.git(['check-ref-format', tag]);
+            if (repository.kind === 'managed') {
+                if (exact) await this.repositories.fetch(repository);
+                else await this.git([gitDir, 'fetch', '--no-tags', '--no-recurse-submodules', '--',
+                    repository.repository!, `+${tag}:${tag}`]);
+            }
+            const ref = exact ? revision : tag;
+            const sha = (await this.git([gitDir, 'rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`])).toString().trim();
+            requireRule(shaValid(sha) && (!exact || sha === revision), 'blocked', 'method revision unavailable');
+            return this.pinned({ omSource: source, root: entry }, repository.gitDir, sha);
+        }));
+    }
     async status(settings: Settings) { return this.protect(() => this.repositories.status(settings)); }
     async sync(settings: Settings): Promise<Method> {
         return this.protect(() => this.serial(settings.omSource, () => this.prepare(settings, true)));
@@ -206,6 +227,10 @@ export class GitMethods implements Methods {
             return (await this.snapshot(method)).manifest.files.map(({ path, size, text }) => ({ path, size, text }));
         });
     }
+    /** Trusted host mount source for the already pinned, filtered snapshot. */
+    async runtimeDirectory(method: Method) {
+        return this.protect(async () => join((await this.snapshot(method)).directory, 'runtime'));
+    }
     async commit(method: Method): Promise<Json> {
         return this.protect(async () => {
             await this.read(method, method.root);
@@ -217,7 +242,7 @@ export class GitMethods implements Methods {
             return { sha: raw[0], parents: raw[1].split(' ').filter(Boolean), at: raw[2], subject: raw[3].trim(), files, diff };
         });
     }
-    private async pinned(settings: Settings, gitDir: string, sha: string): Promise<Method> {
+    private async pinned(settings: Pick<Settings, 'omSource' | 'root'>, gitDir: string, sha: string): Promise<Method> {
         await this.exportSnapshot(settings.omSource, sha, gitDir);
         const method = { source: settings.omSource, sha, root: settings.root, runtimeVersion: this.options.runtimeVersion, skillVersion: this.options.skillVersion };
         await this.read(method, method.root);
