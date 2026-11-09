@@ -47,7 +47,7 @@ export class InputUseCases {
         let e = await this.policy.owned(userId, input.executionId);
         if (input.status === 'delivered')
             return input;
-        requireRule(e.method && e.phase !== 'stopping', 'blocked');
+        requireRule(e.method && e.phase !== 'stopping' && e.phase !== 'stopped', 'blocked');
         const queue = await this.store.inputs(e.id);
         for (const earlier of queue.filter(i => i.sequence < input.sequence && i.status !== 'delivered')) {
             const independent = earlier.kind === 'user-decision' && input.kind === 'user-decision'

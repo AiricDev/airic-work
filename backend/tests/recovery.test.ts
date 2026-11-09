@@ -47,6 +47,17 @@ it('atomic stale version protection cannot overwrite a cancellation', async () =
     await h.app.execution.requestCancellation(u.id, e.id);
     await expect(h.store.transition(u.id, e.version, { ...e, phase: 'ended', version: e.version + 1 })).rejects.toMatchObject({ code: 'conflict' });
 });
+it('does not dispatch a pending input after cancellation is confirmed', async () => {
+    const h = harness();
+    const { u, e } = await h.running();
+    await h.app.input.submitSteering(u.id, e.id, 'pending-before-stop', 'continue');
+    const input = (await h.store.inputs(e.id)).find(item => item.kind === 'steering')!;
+    await h.app.execution.requestCancellation(u.id, e.id);
+    await h.app.execution.confirmStopped(u.id, e.id);
+    await expect(h.app.input.dispatchInput(u.id, input.id)).rejects.toMatchObject({ code: 'blocked' });
+    expect((await h.store.execution(e.id)).phase).toBe('stopped');
+    expect((await h.store.input(input.id)).status).toBe('pending');
+});
 it('unprepared execution can be cancelled without inventing an OM snapshot', async () => {
     const h = harness();
     const u = await h.app.account.ensureUser('owner');

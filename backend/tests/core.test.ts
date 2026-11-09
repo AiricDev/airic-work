@@ -118,7 +118,7 @@ describe('phase 1 product contract', () => {
         await expect(h.app.execution.confirmStopped(u.id, e.id)).rejects.toMatchObject({ code: 'blocked' });
         h.flags.stopped = true;
         await h.app.execution.confirmStopped(u.id, e.id);
-        await h.app.input.dispatchInput(u.id, i.id);
+        await expect(h.app.input.dispatchInput(u.id, i.id)).rejects.toMatchObject({ code: 'blocked' });
         await expect(h.app.decision.createDecisionRequest(u.id, e.id, e.generation, 'old', '?', [], context)).rejects.toMatchObject({ code: 'blocked' });
     });
     it('C09 rejects another execution file and preserves saved input on materialization failure', async () => {

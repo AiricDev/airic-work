@@ -155,7 +155,7 @@ export function controlStoreContract(name: string, factory: () => Promise<{ stor
             expect(await store.upload(f.id)).toEqual(f);
         });
 
-        it('queues during cancellation and after ending without answering pending requests', async () => {
+        it('retains queued inputs after cancellation without answering pending requests', async () => {
             const e = await running(store);
             const r = await request(store, e);
             const stopping = await store.transition('owner', e.version, beginStop(e));
@@ -163,8 +163,8 @@ export function controlStoreContract(name: string, factory: () => Promise<{ stor
             await steer(store, stopping, 'during-stop');
             expect((await store.request(r.id)).status).toBe('pending');
             const stopped = await store.transition('owner', stopping.version, recordStopped(stopping));
-            const resumed = await store.transition('owner', stopped.version, beginRun(stopped));
-            expect(resumed.generation).toBe(e.generation + 1);
+            expect(() => beginRun(stopped)).toThrow();
+            expect((await store.execution(e.id)).phase).toBe('stopped');
             expect((await store.inputs(e.id)).map(i => i.sequence)).toEqual([1, 2]);
         });
 

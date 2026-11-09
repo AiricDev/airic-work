@@ -10,7 +10,7 @@ import { HttpsUserInfoIdentity, type HttpsUserInfoOptions } from '../adapters/dr
 import { GitMethods, type GitMethodsOptions } from '../adapters/driven/methods/git-methods';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { requireRule, RuleError, runtimePath, type Settings, type Execution, type Json } from '../domain/model';
-import { openControlDatabase, openSqliteDatabase } from '../adapters/driven/sqlite/database';
+import { openControlDatabase } from '../adapters/driven/sqlite/database';
 import { migrate } from '../adapters/driven/sqlite/migrations';
 import { SqliteControlStore } from '../adapters/driven/sqlite/store';
 import { settings } from '../adapters/driven/sqlite/schema';
@@ -27,8 +27,6 @@ import { ApplicationPolicy } from '../application/policy';
 import { McpCredentialUseCases } from '../application/mcp-credentials';
 import { McpCredentialVault, type McpConnection } from '../adapters/driven/mcp/credentials';
 import { HttpMcpGateway } from '../adapters/driven/mcp/http-mcp';
-import { AccountMaintenanceUseCases } from '../application/account-maintenance';
-import { SqliteAccountAdministration } from '../adapters/driven/sqlite/account-maintenance';
 
 /** 仅组合根使用的适配器注册表；不作为业务能力的服务定位器。 */
 export interface AdapterBindings {
@@ -142,15 +140,6 @@ export function createMcpIntegration(options: McpIntegrationOptions, store: Cont
                 return mcpWorkerOutput(result);
             } }),
         ],
-    };
-}
-
-/** 仅现存文件；不执行 migrate、初始化 Settings、注册到普通容器或提供服务入口。 */
-export function createAccountMaintenance(filename: string) {
-    const connection = openSqliteDatabase(filename, { fileMustExist: true });
-    return {
-        administration: new AccountMaintenanceUseCases(new SqliteAccountAdministration(connection)),
-        close() { if (connection.open) connection.close(); },
     };
 }
 

@@ -1,12 +1,14 @@
 # DecisionRequest 驱动的局部续行与分支调度
 
+本文记录以 Execution 命名的局部续行机制。headless Task 的 API、数据归属与停止语义以[目标技术设计](technical-design.md)为准。
+
 | 项 | 内容 |
 | --- | --- |
 | 状态 | 2026-10-30；产品集成仍为设计提案；锁定 Pi 源码的 258 项上游测试与 6 项机制实验已通过，不代表完整 Airic Work 合同已验证 |
 | 上游 | [PRD](prd.md)、[Worker Skill](../backend/skills/airic-work-worker/SKILL.md)、[运行环境设计](worker-runtime-design.md) |
 | 本轮确定的行为 | 遇到问题只暂停受影响部分；一次运行可积累多个 DecisionRequest；用户分别回应后，相关工作能带着提问时的上下文继续 |
 | 本文建议 | 一个 Execution / Session 内保留多个上下文分支，按需建立局部续行记录；首版串行调度，后续再验证并发 |
-| Pi 落地依据 | [Pi Durable 能力核实与具体接入](pi-durable-capability-review.md)；固定 commit、API、原生 Task/ownership 方案与可复现实验 |
+| Pi 落地依据 | 现有 Pi 运行模块；固定 commit、API、原生 Task/ownership 方案与可复现实验 |
 | 评审边界 | 以下内部记录、默认路由与调度策略是可评审方案，不是已发布的端口或产品实体；本轮不修改实现代码 |
 
 ## 1. 执行模型需要纠正的地方
@@ -110,7 +112,7 @@ flowchart LR
 4. 正常注册工具统一返回 `control.terminate: true`，由 Pi 在本轮结果提交后终结当前 run。持久的 `aw.run-slice` 任务随后进入 finalize，在 Session commit 中固化安全锚点并更新来源，再安排后续片段。
 5. 原路径继续处理不受影响的部分。用户回答可先保存；若锚点尚未固化，相关续行等待准备完成，其已回答事实不受影响。
 
-`afterTools` 是 observer，抛错后会报告并继续，不能作为可靠写入门禁；实验 P05 已证实这一点。可靠顺序由 run-slice 的原生 checkpoint phases 保持。`terminate` 要求同轮所有工具结果都同意，且终结记录的 answer 不一定是最后一个工具结果；具体适配和异常轮限制见[能力核实第 5—6 节](pi-durable-capability-review.md#5-基于原生任务的串行片段方案)。
+`afterTools` 是 observer，抛错后会报告并继续，不能作为可靠写入门禁；实验 P05 已证实这一点。可靠顺序由 run-slice 的原生 checkpoint phases 保持。`terminate` 要求同轮所有工具结果都同意，且终结记录的 answer 不一定是最后一个工具结果；具体适配和异常轮限制见现有 Pi 运行测试。
 
 请求已保存、锚点未完成时进程崩溃，恢复用原调用键找回请求再补绑定。工具轮被取消时按原始调用与真实的终结记录固化可解释边界；不能为在途业务调用补造成功。实在无法构造协议有效的恢复点则只阻塞相关续行，显示具体原因；不得静默改用最新 root 上下文或创建重复请求。
 
@@ -211,7 +213,7 @@ Decision Episode 仍以一个 DecisionRequest 为中心，可定位其提出现�
 
 ## 10. Pi 候选映射与证据边界
 
-实际验证基线为 v1.4.0 / `4a080252f06caf63a525d7873c5d94d3c23887e0`。已下载官方源码并运行选定测试与场景实验，记录见[Pi 能力核实](pi-durable-capability-review.md)。多 Conversation、fork、Session docs、terminate、Task waiting、SQLite reopen 及 background ownership 取消已有机制证据；完整应用集成与资源隔离仍待验证。
+实际验证基线为 v1.4.0 / `4a080252f06caf63a525d7873c5d94d3c23887e0`。已下载官方源码并运行选定测试与场景实验，记录见现有 Pi 运行测试。多 Conversation、fork、Session docs、terminate、Task waiting、SQLite reopen 及 background ownership 取消已有机制证据；完整应用集成与资源隔离仍待验证。
 
 P03 已验证原子分支绑定与输入去重范围。应用仍须落实 Session 级 receipt 和跨存储恢复，不能用 Conversation requestId 替代全局路由；同一输入随机 fork 后再 submit 会重复执行。源码类型、方法和阶段的具体映射以能力核实文档为准。
 

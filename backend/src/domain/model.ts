@@ -323,7 +323,7 @@ export function answer(r: DecisionRequest, d: UserDecision): DecisionRequest {
  * 在已固定方法、且非运行/取消中的执行上开启新运行代次。沿用原 Session/Workspace；实际进程互斥及停止确认由用例和 Runtime 端口负责。
  */
 export function beginRun(e: Execution): Execution {
-    requireRule(e.method && ['new', 'ended', 'stopped', 'failed'].includes(e.phase), 'blocked');
+    requireRule(e.method && ['new', 'ended', 'failed'].includes(e.phase), 'blocked');
     return { ...e, phase: 'running', generation: e.generation + 1, version: e.version + 1 };
 }
 /**

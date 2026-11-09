@@ -1,6 +1,6 @@
 /**
  * Pi v1.4.0 capability probes, not production adapters or Agent-quality tests.
- * Run in the pinned upstream checkout as documented in docs/pi-durable-capability-review.md.
+ * Historical upstream experiment; application runtime tests live in backend/tests/pi-runtime.test.ts.
  * Every model response comes from fauxProvider; no real model or business service is called.
  */
 import { mkdtemp, rm } from 'node:fs/promises';

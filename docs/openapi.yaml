@@ -1,0 +1,1043 @@
+openapi: 3.1.0
+info:
+  title: Airic Work API
+  version: 0.1.0-draft
+  description: |
+    Headless OM Worker 的目标接口。实际服务部署后可通过 Swagger UI 调用。
+    使用一个固定版本的 OM 创建 Task。MCP 连接可省略。
+    查 Task 状态和待决请求，按所读上下文版本作答，再查输入回执和 Session 轨迹。
+    API 返回的任务状态和工具回执可用于核对执行，业务结果以业务系统为准。
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+  - bearerAuth: []
+    actorDelegation: []
+tags:
+  - name: Tasks
+    description: 委托、补充输入与停止
+  - name: Decisions
+    description: 人工待办、问题、回答与续行记录
+  - name: Session
+    description: 执行轨迹与输入回执
+  - name: Files
+    description: 输入文件和工作产出
+  - name: Connections
+    description: 任务级 MCP 连接
+paths:
+  /tasks:
+    post:
+      tags: [Tasks]
+      operationId: createTask
+      summary: 创建 Task
+      description: |
+        保存委托后返回。后台自动装配和运行，OM 的实际固定版本从任务详情读取。
+        上传文件时先调用暂存接口，也可引用已有资料。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTask'
+            examples:
+              withoutMcp:
+                summary: 独立文档核查
+                value:
+                  instruction: 检查交付清单。需要专家判断时发出请求，并继续核对其他材料。
+                  om: {source: document-review, revision: v1.2.0, entry: om.md}
+                  materials:
+                    - {kind: upload, uploadId: upl_checklist}
+              withMcp:
+                summary: 通过 CertLab MCP 评估报告
+                value:
+                  instruction: 核对报告中的证据，保存有依据的评估草稿。
+                  om: {source: certlab-om, revision: v0.19.0, entry: om.md}
+                  externalRefs:
+                    - {system: certlab, kind: project, id: project-demo}
+                    - {system: certlab, kind: report, id: report-demo}
+                  connections:
+                    - id: certlab
+                      endpoint: https://certlab.example.invalid/mcp
+                      auth: {type: secret_ref, ref: certlab-report-review}
+      responses:
+        '201':
+          description: 委托已持久保存。重试返回原创建回执。
+          headers:
+            Location:
+              schema: {type: string, format: uri-reference}
+              example: /api/v1/tasks/task_demo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskReceipt'
+        default:
+          $ref: '#/components/responses/Error'
+    get:
+      tags: [Tasks]
+      operationId: listTasks
+      summary: 查询可访问的 Task
+      parameters:
+        - $ref: '#/components/parameters/ExternalRef'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 按创建时间倒序分页
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Tasks]
+      operationId: getTask
+      summary: 查询 Task 状态、阻碍和结果
+      responses:
+        '200':
+          description: 当前任务详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/steering:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: addSteeringInput
+      summary: 向原 Task 补充指令或材料
+      description: 已正常结束的 Task 可以开启新一轮。停止中或已停止时返回 409。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SteeringInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/InputSaved'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: cancelTask
+      summary: 请求停止 Task
+      description: |
+        重复请求返回同一停止意图的当前状态。
+        accepted 表示已持久化停止意图，confirmed 表示 Worker 和沙箱已确认停止。
+        已停止的 Task 不会因迟到输入或重启自动续行。已发出的外部调用按原回执核对。
+      responses:
+        '200':
+          description: 停止意图及当前确认状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StopReceipt'
+        default:
+          $ref: '#/components/responses/Error'
+  /decision-requests:
+    get:
+      tags: [Decisions]
+      operationId: listDecisionInbox
+      summary: 查询跨 Task 的决策待办
+      description: |
+        省略 status 时，返回 pending 且当前操作者可作答的请求。
+        指定 answered 可查询有权查看的已答请求。停止中的和主动停止的 Task 不进入默认待办。
+        Task 内查询提供完整历史。外部引用用于筛选，访问权限由服务端校验。
+      parameters:
+        - $ref: '#/components/parameters/DecisionStatus'
+        - $ref: '#/components/parameters/ExternalRef'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/DecisionPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/decision-requests:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Decisions]
+      operationId: listTaskDecisions
+      summary: 查询 Task 的决策请求
+      parameters:
+        - $ref: '#/components/parameters/DecisionStatus'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/DecisionPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /decision-requests/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    get:
+      tags: [Decisions]
+      operationId: getDecisionRequest
+      summary: 获取问题和可作答上下文
+      responses:
+        '200':
+          description: 最新上下文及当前操作者的作答权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionRequest'
+        default:
+          $ref: '#/components/responses/Error'
+  /decision-requests/{requestId}/episode:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    get:
+      tags: [Decisions]
+      operationId: getDecisionEpisode
+      summary: 追溯问题、回答和相关续行
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 问题详情及按记录顺序分页的协作历史
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionEpisode'
+        default:
+          $ref: '#/components/responses/Error'
+  /decision-requests/{requestId}/user-decisions:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [Decisions]
+      operationId: submitUserDecision
+      summary: 回答、补充或更正一个 Decision Request
+      description: |
+        提交已读的上下文版本。仍可读取的旧版允许作答，适用范围由 Agent 按当前证据重新核对。
+        首次回答后，如需追加内容，使用 supplements 或 corrects 指向本请求已有回答。
+        原回答保持可查。回执表示保存完成，交付和续行可查询输入或 Episode。
+        停止后新提交返回 409。停止前已提交的同键重试仍返回原回执。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitDecision'
+            examples:
+              conditionalAnswer:
+                summary: 带适用条件的专业回答
+                value:
+                  contextRevision: 2
+                  text: 生产工况下没有残余压力。维护工况下可能有，需按维护配置核验。
+              chooseOption:
+                summary: 选择已有选项
+                value: {contextRevision: 2, optionId: inspect}
+      responses:
+        '201':
+          description: 回答与待投递输入已原子保存
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionReceipt'
+        '409':
+          $ref: '#/components/responses/DecisionConflict'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/session:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Session]
+      operationId: listSessionEvents
+      summary: 查询 Session 轨迹
+      description: 按持久记录顺序分页。共享工作可以关联多个请求。轨迹内容按权限投影并脱敏。
+      parameters:
+        - $ref: '#/components/parameters/RequestFilter'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 轨迹和覆盖限制
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPage'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/inputs:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Session]
+      operationId: listInputs
+      summary: 查询已保存输入和各工作范围的续行状态
+      parameters:
+        - name: inputId
+          in: query
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 输入记录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InputPage'
+              example:
+                items:
+                  - inputId: inp_demo
+                    taskId: task_demo
+                    savedAt: '2026-11-09T03:00:00Z'
+                    kind: decision
+                    requestId: dr_demo
+                    decisionId: ans_demo
+                    delivery: {state: delivered, deliveredAt: '2026-11-09T03:00:01Z'}
+                    continuations:
+                      - {workId: scope_a, state: resumed, resumedAt: '2026-11-09T03:00:02Z', eventId: evt_demo}
+                      - {workId: scope_b, state: waiting}
+        default:
+          $ref: '#/components/responses/Error'
+  /uploads:
+    post:
+      tags: [Files]
+      operationId: stageUpload
+      summary: 暂存一个输入文件
+      description: 创建或作答时提交 uploadId。未绑定的文件在回执给出的时间过期。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        '201':
+          description: 文件已持久暂存
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadReceipt'
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/files/{fileId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+    get:
+      tags: [Files]
+      operationId: downloadTaskFile
+      summary: 下载 Task 文件
+      responses:
+        '200':
+          description: 以附件返回文件字节
+          headers:
+            Content-Disposition:
+              schema: {type: string}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        default:
+          $ref: '#/components/responses/Error'
+  /tasks/{taskId}/connections/{connectionId}/credential:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - name: connectionId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+    put:
+      tags: [Connections]
+      operationId: replaceConnectionCredential
+      summary: 更新现有 MCP 连接的认证配置
+      description: |
+        保留原连接标识、业务授权范围和目标服务。若凭据包含在链接中，可更换经宿主验证的同一服务链接。
+        授权身份或范围发生变化时需创建新 Task。主动停止的 Task 不会因此重新运行。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionAuth'
+      responses:
+        '204':
+          description: 连接认证配置已保存，Worker 会重新核验可用性
+        default:
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Airic Work 信任的调用凭据。MCP 凭据通过任务连接配置提供。
+    actorDelegation:
+      type: apiKey
+      in: header
+      name: X-Airic-Actor-Assertion
+      description: |
+        业务后端代用户操作时必填。由受信任集成方签名，绑定调用方、实际操作者、受众、有效期和授权范围。
+        直接用户调用仅使用 Bearer。委托型调用凭据缺少有效声明时，服务端拒绝请求。
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    RequestFilter:
+      name: requestId
+      in: query
+      schema:
+        $ref: '#/components/schemas/Id'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 同一已验证调用方、操作者和操作下，原键与相同输入返回原回执。改变输入返回 409。
+      schema: {type: string, minLength: 1, maxLength: 200}
+    Cursor:
+      name: cursor
+      in: query
+      description: 使用上一页的 nextCursor，沿用原筛选条件。
+      schema: {type: string, minLength: 1}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 25}
+    DecisionStatus:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/DecisionStatus'
+    ExternalRef:
+      name: externalRef
+      in: query
+      style: deepObject
+      explode: true
+      description: 同时匹配系统、对象类型与标识。例如按 CertLab 项目过滤。
+      schema:
+        $ref: '#/components/schemas/ExternalRef'
+      example: {system: certlab, kind: project, id: project-demo}
+  responses:
+    DecisionConflict:
+      description: |
+        task_stopped 表示任务已接受停止。decision_already_answered 表示需明确补充或更正关系。
+        context_revision_unknown 表示指定版本不可用。idempotency_conflict 表示同键已绑定其他内容。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: {code: decision_already_answered, message: 请指定要补充或更正的回答, retryable: false}
+    Error:
+      description: |
+        400 请求无效，401 身份无效，403 操作未授权，404 对象不存在或不可见，
+        409 状态或幂等冲突，413 文件过大，429 超出限额，503 暂时不可用。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: {code: task_stopped, message: Task 已停止, retryable: false}
+    InputSaved:
+      description: 输入已持久保存
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InputReceipt'
+    DecisionPage:
+      description: 决策请求列表，按创建时间倒序分页
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DecisionPage'
+  schemas:
+    Id:
+      type: string
+      minLength: 1
+      description: 稳定标识。Airic Work 资源 ID 由服务端分配。
+    Timestamp:
+      type: string
+      format: date-time
+    ExternalRef:
+      type: object
+      additionalProperties: false
+      required: [system, kind, id]
+      properties:
+        system: {type: string, minLength: 1}
+        kind: {type: string, minLength: 1}
+        id: {type: string, minLength: 1}
+    SourceRef:
+      type: object
+      required: [object]
+      properties:
+        object:
+          $ref: '#/components/schemas/ExternalRef'
+        revision: {type: string}
+        location: {type: string}
+        label: {type: string}
+    Material:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind, uploadId]
+          properties:
+            kind: {const: upload}
+            uploadId:
+              $ref: '#/components/schemas/Id'
+        - type: object
+          additionalProperties: false
+          required: [kind, source]
+          properties:
+            kind: {const: reference}
+            source:
+              $ref: '#/components/schemas/SourceRef'
+    OmSelection:
+      type: object
+      additionalProperties: false
+      required: [source, revision, entry]
+      properties:
+        source: {type: string, minLength: 1, description: 宿主授权的 OM 来源标识}
+        revision: {type: string, minLength: 1}
+        entry: {type: string, minLength: 1, example: om.md}
+    PinnedOm:
+      type: object
+      required: [source, resolvedRevision, entry, workerSkillVersion]
+      properties:
+        source: {type: string}
+        resolvedRevision: {type: string, description: 实际使用的不可变版本}
+        entry: {type: string}
+        workerSkillVersion: {type: string}
+    ConnectionAuth:
+      description: 仅在写请求使用。若端点本身含凭据，创建时使用 none，轮换时使用 signed_endpoint。
+      writeOnly: true
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type]
+          properties:
+            type: {const: none}
+        - type: object
+          additionalProperties: false
+          required: [type, token]
+          properties:
+            type: {const: bearer}
+            token: {type: string, minLength: 1, format: password}
+        - type: object
+          additionalProperties: false
+          required: [type, ref]
+          properties:
+            type: {const: secret_ref}
+            ref: {type: string, minLength: 1}
+        - type: object
+          additionalProperties: false
+          required: [type, endpoint]
+          properties:
+            type: {const: signed_endpoint}
+            endpoint: {type: string, format: uri}
+    McpConnection:
+      type: object
+      additionalProperties: false
+      required: [id, endpoint]
+      not:
+        required: [auth]
+        properties:
+          auth:
+            required: [type]
+            properties:
+              type: {const: signed_endpoint}
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        endpoint:
+          type: string
+          format: uri
+          writeOnly: true
+          description: 受宿主策略约束的 Streamable HTTP 地址。完整地址按秘密处理。
+        auth:
+          $ref: '#/components/schemas/ConnectionAuth'
+    CreateTask:
+      type: object
+      additionalProperties: false
+      required: [instruction, om]
+      properties:
+        instruction: {type: string, minLength: 1}
+        om:
+          $ref: '#/components/schemas/OmSelection'
+        context:
+          type: object
+          additionalProperties: true
+          description: 调用方的非敏感业务上下文
+        externalRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalRef'
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/Material'
+        connections:
+          type: array
+          description: 连接 ID 在同一 Task 内唯一。省略时使用零个连接。
+          items:
+            $ref: '#/components/schemas/McpConnection'
+    TaskReceipt:
+      type: object
+      required: [taskId, acceptedAt, phase]
+      properties:
+        taskId:
+          $ref: '#/components/schemas/Id'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        phase: {const: queued, description: 创建时的状态。实时状态从 Task 详情读取。}
+    TaskSummary:
+      type: object
+      required: [taskId, createdAt, updatedAt, phase, stop, externalRefs, pendingRequestCount]
+      properties:
+        taskId:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        phase:
+          type: string
+          enum: [queued, preparing, running, waiting, blocked, ended, failed]
+          description: 本轮工作状态。是否正在停止或已经停止通过 stop 读取。
+        stop:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/StopReceipt'
+        externalRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalRef'
+        pendingRequestCount: {type: integer, minimum: 0}
+    Task:
+      allOf:
+        - $ref: '#/components/schemas/TaskSummary'
+        - type: object
+          required: [instruction, requestedOm, blockers, work, outputs, connections]
+          properties:
+            sessionId:
+              $ref: '#/components/schemas/Id'
+            instruction: {type: string}
+            requestedOm:
+              $ref: '#/components/schemas/OmSelection'
+            pinnedOm:
+              $ref: '#/components/schemas/PinnedOm'
+            blockers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Blocker'
+            work:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkScope'
+            outputs:
+              type: array
+              items:
+                $ref: '#/components/schemas/OutputRef'
+            connections:
+              type: array
+              items:
+                type: object
+                required: [id, status]
+                properties:
+                  id:
+                    $ref: '#/components/schemas/Id'
+                  status: {type: string, enum: [unchecked, available, unavailable, authorization_failed]}
+    Blocker:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string, examples: [om_unavailable, mcp_authorization_failed]}
+        message: {type: string}
+        workIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+        recoveryHint: {type: string}
+    WorkScope:
+      type: object
+      required: [workId, label, waitingOn]
+      properties:
+        workId:
+          $ref: '#/components/schemas/Id'
+        label: {type: string}
+        waitingOn:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          description: 当前仍阻塞该范围的 Decision Request ID。
+    OutputRef:
+      oneOf:
+        - type: object
+          required: [kind, fileId, name]
+          properties:
+            kind: {const: file}
+            fileId:
+              $ref: '#/components/schemas/Id'
+            name: {type: string}
+        - type: object
+          required: [kind, source]
+          properties:
+            kind: {const: reference}
+            source:
+              $ref: '#/components/schemas/SourceRef'
+            receiptId: {type: string}
+    StopReceipt:
+      type: object
+      required: [taskId, state, requestedAt]
+      properties:
+        taskId:
+          $ref: '#/components/schemas/Id'
+        state: {type: string, enum: [accepted, confirmed]}
+        requestedAt:
+          $ref: '#/components/schemas/Timestamp'
+        confirmedAt:
+          $ref: '#/components/schemas/Timestamp'
+    DecisionStatus:
+      type: string
+      enum: [pending, answered]
+    DecisionSummary:
+      type: object
+      required: [requestId, taskId, status, title, createdAt, externalRefs]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Id'
+        taskId:
+          $ref: '#/components/schemas/Id'
+        status:
+          $ref: '#/components/schemas/DecisionStatus'
+        title: {type: string}
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        externalRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalRef'
+    DecisionRequest:
+      allOf:
+        - $ref: '#/components/schemas/DecisionSummary'
+        - type: object
+          required: [context, canAnswer]
+          properties:
+            context:
+              $ref: '#/components/schemas/DecisionContext'
+            canAnswer: {type: boolean, description: 结合当前操作者权限和任务停止状态计算}
+    DecisionContext:
+      type: object
+      required: [revision, question, reason, sources, affectedWork]
+      properties:
+        revision: {type: integer, minimum: 1}
+        question: {type: string}
+        reason: {type: string}
+        evidence: {type: string}
+        gap: {type: string}
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRef'
+        affectedWork:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WorkScope'
+        options:
+          type: array
+          items:
+            type: object
+            required: [optionId, label, impact]
+            properties:
+              optionId:
+                $ref: '#/components/schemas/Id'
+              label: {type: string}
+              impact: {type: string}
+    SubmitDecision:
+      type: object
+      additionalProperties: false
+      required: [contextRevision]
+      anyOf:
+        - required: [text]
+        - required: [optionId]
+        - required: [intent]
+      not:
+        required: [supplements, corrects]
+      properties:
+        contextRevision: {type: integer, minimum: 1}
+        text: {type: string, minLength: 1}
+        optionId:
+          $ref: '#/components/schemas/Id'
+        intent: {type: string, enum: [investigate], description: 请求进一步调查}
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/Material'
+        supplements:
+          $ref: '#/components/schemas/Id'
+        corrects:
+          $ref: '#/components/schemas/Id'
+    SteeringInput:
+      type: object
+      additionalProperties: false
+      anyOf:
+        - required: [text]
+        - required: [materials]
+      properties:
+        text: {type: string, minLength: 1}
+        materials:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Material'
+    InputReceipt:
+      type: object
+      required: [inputId, taskId, savedAt]
+      properties:
+        inputId:
+          $ref: '#/components/schemas/Id'
+        taskId:
+          $ref: '#/components/schemas/Id'
+        savedAt:
+          $ref: '#/components/schemas/Timestamp'
+    DecisionReceipt:
+      allOf:
+        - $ref: '#/components/schemas/InputReceipt'
+        - type: object
+          required: [requestId, decisionId, callerId, actorId]
+          properties:
+            requestId:
+              $ref: '#/components/schemas/Id'
+            decisionId:
+              $ref: '#/components/schemas/Id'
+            callerId:
+              $ref: '#/components/schemas/Id'
+            actorId:
+              $ref: '#/components/schemas/Id'
+    Input:
+      allOf:
+        - $ref: '#/components/schemas/InputReceipt'
+        - type: object
+          required: [kind, delivery, continuations]
+          properties:
+            kind: {type: string, enum: [decision, steering]}
+            requestId:
+              $ref: '#/components/schemas/Id'
+            decisionId:
+              $ref: '#/components/schemas/Id'
+            delivery:
+              type: object
+              required: [state]
+              properties:
+                state: {type: string, enum: [pending, delivered, failed, unknown, paused]}
+                deliveredAt:
+                  $ref: '#/components/schemas/Timestamp'
+                blocker:
+                  $ref: '#/components/schemas/Blocker'
+            continuations:
+              type: array
+              items:
+                type: object
+                required: [workId, state]
+                properties:
+                  workId:
+                    $ref: '#/components/schemas/Id'
+                  state: {type: string, enum: [waiting, ready, resumed, blocked, paused]}
+                  resumedAt:
+                    $ref: '#/components/schemas/Timestamp'
+                  eventId:
+                    $ref: '#/components/schemas/Id'
+    DecisionEpisode:
+      type: object
+      required: [request, items]
+      properties:
+        request:
+          $ref: '#/components/schemas/DecisionRequest'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EpisodeItem'
+        nextCursor:
+          $ref: '#/components/schemas/NextCursor'
+    EpisodeItem:
+      oneOf:
+        - type: object
+          required: [kind, context, recordedAt]
+          properties:
+            kind: {const: context}
+            context:
+              $ref: '#/components/schemas/DecisionContext'
+            recordedAt:
+              $ref: '#/components/schemas/Timestamp'
+        - type: object
+          required: [kind, answer, receipt]
+          properties:
+            kind: {const: answer}
+            answer:
+              $ref: '#/components/schemas/SubmitDecision'
+            receipt:
+              $ref: '#/components/schemas/DecisionReceipt'
+            files:
+              type: array
+              description: 已绑定的回答附件。用 receipt.taskId 与 fileId 下载。
+              items:
+                type: object
+                required: [fileId, name]
+                properties:
+                  fileId:
+                    $ref: '#/components/schemas/Id'
+                  name: {type: string}
+        - type: object
+          required: [kind, input]
+          properties:
+            kind: {const: input}
+            input:
+              $ref: '#/components/schemas/Input'
+        - type: object
+          required: [kind, event]
+          properties:
+            kind: {const: session_event}
+            event:
+              $ref: '#/components/schemas/SessionEvent'
+    SessionEvent:
+      type: object
+      required: [eventId, recordedAt, kind]
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        recordedAt:
+          $ref: '#/components/schemas/Timestamp'
+        kind: {type: string, enum: [message, tool_call, tool_result, continuation, lifecycle]}
+        role: {type: string, enum: [user, agent, worker]}
+        text: {type: string}
+        workId:
+          $ref: '#/components/schemas/Id'
+        inputId:
+          $ref: '#/components/schemas/Id'
+        requestIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+        tool:
+          $ref: '#/components/schemas/ToolEvent'
+    ToolEvent:
+      type: object
+      required: [callId, name, classification, outcome]
+      properties:
+        callId:
+          $ref: '#/components/schemas/Id'
+        name: {type: string}
+        connectionId:
+          $ref: '#/components/schemas/Id'
+        classification: {type: string, enum: [read, write, unknown]}
+        outcome: {type: string, enum: [sent, succeeded, failed, unknown]}
+        arguments:
+          description: 可披露的调用参数，可能已脱敏
+        result:
+          description: 可披露的调用结果，可能已脱敏
+        receiptId: {type: string}
+    UploadReceipt:
+      type: object
+      required: [uploadId, name, sizeBytes, sha256, expiresAt]
+      properties:
+        uploadId:
+          $ref: '#/components/schemas/Id'
+        name: {type: string}
+        sizeBytes: {type: integer, minimum: 0}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+    NextCursor:
+      type: string
+      description: 省略时没有下一页。
+    TaskPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskSummary'
+        nextCursor:
+          $ref: '#/components/schemas/NextCursor'
+    DecisionPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecisionSummary'
+        nextCursor:
+          $ref: '#/components/schemas/NextCursor'
+    InputPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Input'
+        nextCursor:
+          $ref: '#/components/schemas/NextCursor'
+    SessionPage:
+      type: object
+      required: [taskId, items, limitations]
+      properties:
+        taskId:
+          $ref: '#/components/schemas/Id'
+        sessionId:
+          $ref: '#/components/schemas/Id'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionEvent'
+        limitations:
+          type: array
+          items: {type: string}
+        nextCursor:
+          $ref: '#/components/schemas/NextCursor'
+    Error:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+          description: 稳定错误码。调用方可用它决定如何处理。
+          examples: [invalid_input, invalid_identity, forbidden, not_found, idempotency_conflict, task_stopped, context_revision_unknown, decision_already_answered, file_too_large, rate_limited, temporarily_unavailable]
+        message: {type: string}
+        retryable: {type: boolean}
+        requestTraceId: {type: string}
