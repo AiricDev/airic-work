@@ -1,6 +1,6 @@
 import { mcpWorkerOutput } from '../adapters/driven/runtime/mcp-worker-tools';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, isAbsolute } from 'node:path';
 import { parseEnv } from 'node:util';
 import { z } from 'zod';
 import { methodSource } from '../adapters/driven/methods/repositories';
@@ -173,21 +173,7 @@ export function loadConfiguration(file?: string, environment: NodeJS.ProcessEnv 
     catch { throw new RuleError('invalid', 'Invalid DOTENV_FILE'); }
     for (const [key, value] of Object.entries(environment)) if (value !== undefined) values[key] = value;
     const base = dirname(filename);
-    const value = (key: string, fallback = '') => values[key] ?? fallback;
-    const fail = (key: string): never => { throw new RuleError('invalid', `Invalid configuration: ${key}`); };
-    const parse = <T>(key: string, schema: z.ZodType<T>, fallback?: string): T => {
-        const result = schema.safeParse(value(key, fallback));
-        return result.success ? result.data : fail(key);
-    };
-    const json = <T>(key: string, schema: z.ZodType<T>, fallback?: string): T => {
-        let data: unknown;
-        try { data = JSON.parse(value(key, fallback)); } catch { return fail(key); }
-        const result = schema.safeParse(data);
-        return result.success ? result.data : fail(key);
-    };
-    const text = z.string().trim().min(1);
-    const number = (key: string, fallback: number, max = Number.MAX_SAFE_INTEGER - 1) => parse(key, z.coerce.number().int().positive().max(max), String(fallback));
-    const path = (key: string, fallback: string) => resolve(base, parse(key, text, fallback));
+    const { value, fail, parse, json, text, number, path } = configurationReader(values, base);
     const https = z.string().url().refine(s => { try { const u = new URL(s); return u.protocol === 'https:' && !u.username && !u.password && !u.search && !u.hash; } catch { return false; } });
     const data = path('AIRIC_DATA_DIR', '.airic-data');
     const sources = json('AIRIC_OM_SOURCES', z.record(text, z.union([text,
@@ -233,6 +219,33 @@ export function loadConfiguration(file?: string, environment: NodeJS.ProcessEnv 
             limits: { timeoutMs: number('AIRIC_IDENTITY_TIMEOUT_MS', 10000, 2147483647), maxResponseBytes: number('AIRIC_IDENTITY_MAX_RESPONSE_BYTES', 65536, 2147483647), maxTokenBytes: number('AIRIC_IDENTITY_MAX_TOKEN_BYTES', 16384, 2147483647) },
             ...(ca ? { ca } : {}),
         },
+        ...workerConfiguration(values, base, data, sources),
+        mcp: { directory: path('AIRIC_CREDENTIAL_DIRECTORY', resolve(data, 'credentials')), key: Buffer.from(key, 'hex'), connections },
+    };
+}
+
+function configurationReader(values: NodeJS.ProcessEnv, base: string) {
+    const value = (key: string, fallback = '') => values[key] ?? fallback;
+    const fail = (key: string): never => { throw new RuleError('invalid', `Invalid configuration: ${key}`); };
+    const parse = <T>(key: string, schema: z.ZodType<T>, fallback?: string): T => {
+        const result = schema.safeParse(value(key, fallback));
+        return result.success ? result.data : fail(key);
+    };
+    const json = <T>(key: string, schema: z.ZodType<T>, fallback?: string): T => {
+        let data: unknown;
+        try { data = JSON.parse(value(key, fallback)); } catch { return fail(key); }
+        const result = schema.safeParse(data);
+        return result.success ? result.data : fail(key);
+    };
+    const text = z.string().trim().min(1);
+    const number = (key: string, fallback: number, max = Number.MAX_SAFE_INTEGER - 1) => parse(key, z.coerce.number().int().positive().max(max), String(fallback));
+    const path = (key: string, fallback: string) => resolve(base, parse(key, text, fallback));
+    return { value, fail, parse, json, text, number, path };
+}
+
+function workerConfiguration(values: NodeJS.ProcessEnv, base: string, data: string, sources: GitMethodsOptions['sources']) {
+    const { value, parse, json, text, number, path } = configurationReader(values, base);
+    return {
         methods: { directory: path('AIRIC_METHOD_DIRECTORY', resolve(data, 'methods')), sources,
             runtimeVersion: parse('AIRIC_RUNTIME_VERSION', text, 'pi-durable@1.4.0'), skillVersion: parse('AIRIC_WORKER_SKILL_VERSION', text, '0.2.1'),
             limits: { commandTimeoutMs: number('AIRIC_GIT_TIMEOUT_MS', 30000, 2147483647), maxTreeBytes: number('AIRIC_OM_MAX_TREE_BYTES', 10485760), maxFileBytes: number('AIRIC_OM_MAX_FILE_BYTES', 10485760), maxSnapshotBytes: number('AIRIC_OM_MAX_SNAPSHOT_BYTES', 134217728), historyEntries: number('AIRIC_OM_HISTORY_ENTRIES', 50) },
@@ -240,12 +253,20 @@ export function loadConfiguration(file?: string, environment: NodeJS.ProcessEnv 
         worker: { directory: path('AIRIC_RUNTIME_DIRECTORY', resolve(data, 'executions')), skillPath: path('AIRIC_WORKER_SKILL_PATH', 'backend/skills/airic-work-worker/SKILL.md'),
             model: { provider: parse('AIRIC_MODEL_PROVIDER', text, 'openai'), modelId: parse('AIRIC_MODEL_ID', text, 'gpt-6.1-sol') } },
         modelCredentials: { apiKey: value('AIRIC_MODEL_API_KEY'), environment: json('AIRIC_MODEL_ENV', z.record(z.string(), z.string()), '{}') },
-        mcp: { directory: path('AIRIC_CREDENTIAL_DIRECTORY', resolve(data, 'credentials')), key: Buffer.from(key, 'hex'), connections },
     };
 }
 
+export function loadTaskWorkerConfiguration(directory: string, environment: NodeJS.ProcessEnv = process.env) {
+    const repository = environment.AIRIC_OM_REPOSITORY?.trim();
+    requireRule(repository, 'invalid', 'AIRIC_OM_REPOSITORY is required');
+    const source = isAbsolute(repository) && environment.AIRIC_WORKSPACE_HOST_DATA ? '/om' : repository;
+    methodSource(source);
+    return workerConfiguration({ ...environment, AIRIC_METHOD_DIRECTORY: resolve(directory, 'methods') },
+        resolve(import.meta.dirname, '../../..'), directory, { local: source });
+}
+
 /** 从显式配置建立模型集合；不把 .env 写进全局环境，也不从宿主其他登录文件隐式取得身份。 */
-export async function createConfiguredModels(config: BootstrapConfiguration): Promise<Models> {
+export async function createConfiguredModels(config: Pick<BootstrapConfiguration, 'worker' | 'modelCredentials'>): Promise<Models> {
     const { builtinModels } = await import('@earendil-works/pi-ai/providers/all');
     const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai');
     requireRule(!!config.modelCredentials.apiKey.trim(), 'invalid', 'Invalid configuration: AIRIC_MODEL_API_KEY');

@@ -1,14 +1,13 @@
-import { requireRule } from '../domain/model';
 import { createHmac, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { TaskCredentialStore } from '../adapters/driven/mcp/task-credentials';
-import { isAbsolute, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { openSqliteDatabase } from '../adapters/driven/sqlite/database';
 import { SqliteTaskInitializer } from '../adapters/driven/sqlite/task-initializer';
 import { SqliteTaskRegistry, taskFingerprint } from '../adapters/driven/sqlite/task-registry';
 import { createTaskServer } from '../adapters/driving/http/task-server';
 import { SqliteTaskUploads } from '../adapters/driven/sqlite/task-uploads';
-import { createConfiguredModels, createMethods, createFileStorage, loadConfiguration } from './bindings';
+import { createConfiguredModels, createMethods, createFileStorage, loadTaskWorkerConfiguration } from './bindings';
 import { TaskDispatcher } from './task-dispatcher';
 import { openTaskRuntime } from './task-runtime';
 import { TaskCreationUseCases } from '../application/task-creation';
@@ -50,19 +49,11 @@ async function main() {
         }).parse(JSON.parse(process.env.AIRIC_TASK_DELEGATION)) : undefined;
         const identity = { bearerToken: AIRIC_TASK_TOKEN, scope: 'local', actor: 'operator' };
         let dispatcher: TaskDispatcher | undefined;
+        let omStatus: Parameters<typeof createTaskServer>[6];
         if (process.env.AIRIC_TASK_WORKER === '1') {
-            const repository = process.env.AIRIC_OM_REPOSITORY;
-            requireRule(repository, 'invalid', 'AIRIC_OM_REPOSITORY is required');
-            const config = loadConfiguration(undefined, {
-                ...process.env,
-                AIRIC_OM_SOURCES: JSON.stringify({ local: isAbsolute(repository) && process.env.AIRIC_WORKSPACE_HOST_DATA ? '/om' : repository }),
-                AIRIC_METHOD_DIRECTORY: resolve(directory, 'methods'),
-                AIRIC_IDENTITY_ISSUER: 'local',
-                AIRIC_IDENTITY_ENDPOINT: 'https://unused.invalid/userinfo',
-                AIRIC_MCP_ENCRYPTION_KEY: AIRIC_TASK_FINGERPRINT_KEY,
-                AIRIC_MCP_CONNECTIONS: '[]',
-            });
+            const config = loadTaskWorkerConfiguration(directory);
             const { methods } = await createMethods(config.methods);
+            omStatus = () => methods.headStatus('local');
             const models = await createConfiguredModels(config);
             const hostDirectory = process.env.AIRIC_WORKSPACE_HOST_DATA;
             const sandbox = hostDirectory ? {
@@ -81,7 +72,7 @@ async function main() {
                 taskId => console.error(JSON.stringify({ taskId, code: 'task_worker_failed' })),
             );
         }
-        const server = createTaskServer(tasks, identity, dispatcher, uploads, credentials, integration);
+        const server = createTaskServer(tasks, identity, dispatcher, uploads, credentials, integration, omStatus);
         const tick = () => { void dispatcher?.pump().catch(() => console.error('Unable to scan Task registry')); };
         const timer = dispatcher ? setInterval(tick, 1000).unref() : undefined;
         server.addHook('onClose', async () => {

@@ -62,11 +62,14 @@ it('rejects duplicate connection IDs and missing explicit dotenv files', () => {
     expect(() => loadConfiguration(file, { AIRIC_MCP_CONNECTIONS: JSON.stringify([c, c]) })).toThrow('AIRIC_MCP_CONNECTIONS');
     expect(() => loadConfiguration(join(directory, 'missing'), {})).toThrow('DOTENV_FILE');
 });
-it('documents a parseable example whose required key must be provisioned explicitly', async () => {
-    const example = await readFile(join(import.meta.dirname, '../../.env.example'), 'utf8');
-    await writeFile(file, example);
-    expect(() => loadConfiguration(file, {})).toThrow('AIRIC_MCP_ENCRYPTION_KEY');
-    expect(loadConfiguration(file, { AIRIC_MCP_ENCRYPTION_KEY: key }).worker.model.provider).toBe('openai');
+it('documents a Task deployment example whose credentials are provisioned explicitly', async () => {
+    const { parseEnv } = await import('node:util');
+    const { loadTaskWorkerConfiguration } = await import('../src/bootstrap/bindings');
+    const example = parseEnv(await readFile(join(import.meta.dirname, '../../deploy/task.env.example'), 'utf8'));
+    expect(example.AIRIC_TASK_FINGERPRINT_KEY).toBe('');
+    expect(example.AIRIC_TASK_TOKEN).toBe('');
+    const config = loadTaskWorkerConfiguration(directory, { ...example, AIRIC_OM_REPOSITORY: directory });
+    expect(config.worker.model.provider).toBe('openai');
 });
 
 it('boots all configured adapters, executes with the fixed Git OM and reopens the same Session', async () => {
@@ -97,4 +100,17 @@ it('boots all configured adapters, executes with the fixed Git OM and reopens th
         backend = await createConfiguredBackend(config, workspace, models);
         expect(JSON.stringify(await backend.application.query.querySession(u.id, e.id))).toContain('dotenv bootstrap completed');
     } finally { await backend?.close(); await fixture.close(); }
+});
+
+it('loads Task Worker configuration independently of obsolete identity and HTTP settings', async () => {
+    const { loadTaskWorkerConfiguration } = await import('../src/bootstrap/bindings');
+    const config = loadTaskWorkerConfiguration('/tmp/airic-task', {
+        AIRIC_OM_REPOSITORY: '/tmp/test-om',
+        AIRIC_MODEL_API_KEY: 'fixture',
+        AIRIC_IDENTITY_CA_FILE: '/missing/legacy.pem',
+        AIRIC_HTTP_ORIGINS: 'invalid JSON',
+        AIRIC_OM_SOURCES: 'invalid JSON',
+    });
+    expect(config.methods.sources).toEqual({ local: '/tmp/test-om' });
+    expect(config.methods.directory).toBe('/tmp/airic-task/methods');
 });

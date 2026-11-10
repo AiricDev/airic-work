@@ -86,6 +86,7 @@ export function createTaskServer(
     uploads?: SqliteTaskUploads,
     credentials?: TaskCredentialStore,
     integration?: TaskDelegation,
+    omStatus?: () => Promise<{ source: string; kind: 'local' | 'managed'; state: string; revision?: string }>,
 ) {
     const authenticate = taskAuthenticator(identity, integration);
     const actors = new WeakMap<FastifyRequest, TaskActor>();
@@ -107,6 +108,10 @@ export function createTaskServer(
     });
     server.get('/healthz', { config: { publicTaskEndpoint: true } }, () => ({ status: 'ok' }));
     registerTaskDocs(server);
+    server.get('/api/v1/om/status', async () => {
+        requireRule(omStatus, 'blocked');
+        return omStatus();
+    });
     server.setErrorHandler((error, request, reply) => {
         const code = error instanceof RuleError ? error.code : undefined;
         if (error instanceof RuleError && code === 'conflict') {
@@ -288,8 +293,8 @@ export function createTaskServer(
             }).refine(value => Boolean(value.text || value.materials?.length)).parse(request.body);
             const { files, references } = splitMaterials(attachments);
             const commandKey = key.parse(request.headers['idempotency-key']);
-            const { app, ownerId, executionId, withAttachments } = await dispatcher.runtime(record);
-            const saved = await withAttachments(files, () => app.input.submitSteering(ownerId, executionId, commandKey, message ?? '', files, references));
+            const { app, ownerId, executionId, submitSteering } = await dispatcher.runtime(record);
+            const saved = await submitSteering(commandKey, message ?? '', files, references);
             const input = (await app.query.queryInputs(ownerId, executionId))
                 .find(item => item.kind === 'steering' && item.sourceId === saved.id);
             requireRule(input, 'blocked');
@@ -398,11 +403,11 @@ export function createTaskServer(
             const { corrects, materials: attachments, ...payload } = answer.parse(request.body);
             const { files, references } = splitMaterials(attachments);
             const idempotencyKey = key.parse(request.headers['idempotency-key']);
-            const { record, runtime: { app, ownerId, executionId, withAttachments } } = await locate(actorOf(request), requestId);
-            const decision = await withAttachments(files, () => app.decision.submitUserDecision(ownerId, requestId, idempotencyKey, {
+            const { record, runtime: { app, ownerId, executionId, submitDecision } } = await locate(actorOf(request), requestId);
+            const decision = await submitDecision(requestId, idempotencyKey, {
                 ...payload, text: payload.text ?? '', files, callerId: actorOf(request).callerId, ...(corrects ? { correctionOf: corrects } : {}),
                 ...(references.length ? { references } : {}),
-            }));
+            });
             const input = (await app.query.queryInputs(ownerId, executionId)).find(item => item.kind === 'user-decision' && item.sourceId === decision.id);
             requireRule(input, 'blocked');
             return reply.code(201).send({

@@ -191,7 +191,12 @@ export async function openTaskRuntime(
             app,
             ownerId: owner.id,
             executionId: execution.id,
-            withAttachments,
+            submitSteering(key: string, text: string, files: string[], references: Parameters<Application['input']['submitSteering']>[5]) {
+                return withAttachments(files, () => app.input.submitSteering(owner.id, execution.id, key, text, files, references));
+            },
+            submitDecision(requestId: string, key: string, payload: Parameters<Application['decision']['submitUserDecision']>[3]) {
+                return withAttachments(payload.files, () => app.decision.submitUserDecision(owner.id, requestId, key, payload));
+            },
             updatedAt: () => persistence.store.taskUpdatedAt(owner.id, execution.id),
             outputs: () => persistence.store.taskOutputs(owner.id, execution.id),
             async downloadOutput(fileId: string) {

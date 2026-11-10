@@ -131,6 +131,21 @@ export class GitRepositories {
         }
         return { remote: { name, repository: url, branch: remoteBranch }, sync: { enabled: true, remote: name, branch: remoteBranch } };
     }
+    async headStatus(source: string) {
+        const kind = this.source(source).kind;
+        try {
+            const repository = await this.open(source, false);
+            const sha = (await this.run([`--git-dir=${repository.gitDir}`, 'rev-parse', '--verify', 'HEAD^{commit}'])).toString().trim();
+            requireRule(shaValid(sha), 'blocked');
+            return { source, kind, state: 'available' as const, revision: sha };
+        } catch (error) {
+            if (kind === 'managed' && error instanceof RuleError && error.code === 'not-found') {
+                return { source, kind, state: 'not_cached' as const };
+            }
+            return { source, kind, state: 'unavailable' as const };
+        }
+    }
+
     async status(settings: Settings): Promise<MethodSourceStatus> {
         const definition = this.source(settings.omSource);
         await this.run(['check-ref-format', `refs/heads/${settings.branch}`]);

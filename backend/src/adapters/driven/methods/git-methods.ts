@@ -177,6 +177,7 @@ export class GitMethods implements Methods {
             return this.pinned({ omSource: source, root: entry }, repository.gitDir, sha);
         }));
     }
+    headStatus(source: string) { return this.repositories.headStatus(source); }
     async status(settings: Settings) { return this.protect(() => this.repositories.status(settings)); }
     async sync(settings: Settings): Promise<Method> {
         return this.protect(() => this.serial(settings.omSource, () => this.prepare(settings, true)));

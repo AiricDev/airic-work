@@ -268,7 +268,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             const restored = await dispatcher.runtime(tasks.get(integration.scope, 'owner', 'review'));
             expect((await restored.app.query.queryExecution(restored.ownerId, restored.executionId)).phase).toBe('stopped');
             expect(restored.inputFacts().find(item => item.inputId === queued.json().inputId)?.delivery.state).toBe('paused');
-            contract.expectCoverage({ except: ['replaceConnectionCredential'] });
+            contract.expectCoverage({ except: ['replaceConnectionCredential', 'getOmStatus'] });
         } finally { await reopened.close(); }
     } finally {
         await server.close();

@@ -24,7 +24,37 @@ tags:
     description: 输入文件和工作产出
   - name: Connections
     description: 任务级 MCP 连接
+  - name: OM
+    description: 已配置的 Operating Model
 paths:
+  /om/status:
+    get:
+      tags: [OM]
+      operationId: getOmStatus
+      summary: 查看 OM 仓库当前版本
+      description: 查询本地仓库或本地远程镜像的 HEAD，不联网。Task 实际使用的版本见 pinnedOm。
+      responses:
+        '200':
+          description: OM 仓库状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [source, kind, state]
+                properties:
+                  source: {type: string}
+                  kind: {type: string, enum: [local, managed]}
+                  state: {type: string, enum: [available, not_cached, unavailable]}
+                  revision:
+                    type: string
+                    pattern: '^(?:[a-f0-9]{40}|[a-f0-9]{64})$'
+                if:
+                  properties:
+                    state: {const: available}
+                then:
+                  required: [revision]
+        default:
+          $ref: '#/components/responses/Error'
   /tasks:
     post:
       tags: [Tasks]

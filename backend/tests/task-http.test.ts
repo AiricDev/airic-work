@@ -23,7 +23,7 @@ it('authenticates task creation and returns the original receipt on retry', asyn
     );
     const bearerToken = 'test-token-with-at-least-32-characters';
     const contract = taskContract();
-    const server = createTaskServer(tasks, { bearerToken, scope: 'test', actor: 'engineer' }, undefined, undefined, credentials);
+    const server = createTaskServer(tasks, { bearerToken, scope: 'test', actor: 'engineer' }, undefined, undefined, credentials, undefined, async () => ({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) }));
     const request = {
         method: 'POST' as const,
         url: '/api/v1/tasks',
@@ -35,6 +35,9 @@ it('authenticates task creation and returns the original receipt on retry', asyn
     };
     try {
         expect((await contract.inject(server, { ...request, headers: {} })).statusCode).toBe(401);
+        expect((await contract.inject(server, { url: '/api/v1/om/status' })).statusCode).toBe(401);
+        expect((await contract.inject(server, { url: '/api/v1/om/status', headers: request.headers })).json())
+            .toEqual({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) });
         const created = await contract.inject(server, request);
         expect(created.statusCode).toBe(201);
         expect(created.json()).toMatchObject({ phase: 'queued' });
@@ -62,7 +65,7 @@ it('authenticates task creation and returns the original receipt on retry', asyn
             payload: { type: 'signed_endpoint', endpoint: 'https://outside.invalid/mcp' },
         })).statusCode).toBe(403);
         expect(detail.json()).toMatchObject({ taskId: created.json().taskId, requestedOm: request.payload.om, phase: 'queued' });
-        contract.expectCoverage({ only: ['createTask', 'getTask', 'replaceConnectionCredential'] });
+        contract.expectCoverage({ only: ['createTask', 'getTask', 'replaceConnectionCredential', 'getOmStatus'] });
     } finally {
         await server.close();
         db.close();
