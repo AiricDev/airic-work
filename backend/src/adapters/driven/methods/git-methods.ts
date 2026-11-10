@@ -156,11 +156,31 @@ export class GitMethods implements Methods {
     async latest(settings: Settings): Promise<Method> {
         return this.protect(() => this.serial(settings.omSource, () => this.prepare(settings, false)));
     }
+    async pinHead(source: string, entry: string): Promise<Method> {
+        return this.protect(() => this.serial(source, async () => {
+            methodPath(entry);
+            const repository = await this.repositories.open(source);
+            const gitDir = `--git-dir=${repository.gitDir}`;
+            const ref = repository.kind === 'managed' ? 'FETCH_HEAD' : 'HEAD';
+            if (repository.kind === 'managed') {
+                await this.git([gitDir, 'fetch', '--no-tags', '--no-recurse-submodules', '--', repository.repository!, 'HEAD']);
+            }
+            const sha = (await this.git([gitDir, 'rev-parse', '--verify', `${ref}^{commit}`])).toString().trim();
+            requireRule(shaValid(sha), 'blocked', 'OM HEAD unavailable');
+            return this.pinned({ omSource: source, root: entry }, repository.gitDir, sha);
+        }));
+    }
+
     /** Resolve an exact commit or tag without falling back to a branch tip. */
     async pinRevision(selection: { source: string; revision: string; entry: string }): Promise<Method> {
         const { source, revision, entry } = selection;
         return this.protect(() => this.serial(source, async () => {
             methodPath(entry);
+            if (shaValid(revision)) {
+                const method = { source, sha: revision, root: entry, runtimeVersion: this.options.runtimeVersion, skillVersion: this.options.skillVersion };
+                try { await this.read(method, entry); return method; }
+                catch (error) { if (!(error instanceof RuleError && error.code === 'not-found')) throw error; }
+            }
             const repository = await this.repositories.open(source);
             const gitDir = `--git-dir=${repository.gitDir}`;
             const tag = `refs/tags/${revision}`;

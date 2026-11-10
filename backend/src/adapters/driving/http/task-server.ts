@@ -73,9 +73,7 @@ const body = z.strictObject({
     connections: z.array(z.strictObject({ id: text, endpoint: text, auth: createAuth.optional() })).max(32).optional(),
     materials: materials.optional(),
     instruction: z.string().refine(value => value.trim().length > 0),
-    om: z.strictObject({ source: text, revision: text, entry: text }),
     externalRefs: z.array(externalRef).optional(),
-    context: z.record(z.string(), z.json()).optional(),
 });
 const key = z.string().min(1).max(200);
 const params = z.strictObject({ taskId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) });
@@ -87,6 +85,7 @@ export function createTaskServer(
     credentials?: TaskCredentialStore,
     integration?: TaskDelegation,
     omStatus?: () => Promise<{ source: string; kind: 'local' | 'managed'; state: string; revision?: string }>,
+    defaultOm?: { source: string; revision: string; entry: string },
 ) {
     const authenticate = taskAuthenticator(identity, integration);
     const actors = new WeakMap<FastifyRequest, TaskActor>();
@@ -179,9 +178,12 @@ export function createTaskServer(
     }
     server.post('/api/v1/tasks', (request, reply) => {
         const { connections, ...creation } = body.parse(request.body);
-        const record = tasks.create(actorOf(request).scope, actorOf(request).actor, key.parse(request.headers['idempotency-key']), creation, connections);
+        requireRule(defaultOm, 'blocked', 'OM unavailable');
+        const record = tasks.create(actorOf(request).scope, actorOf(request).actor, key.parse(request.headers['idempotency-key']),
+            { ...creation, om: defaultOm }, connections, creation);
+        const { source, revision, entry } = record.creation.om;
         return reply.code(201).header('Location', `/api/v1/tasks/${record.taskId}`).send({
-            taskId: record.taskId, acceptedAt: record.acceptedAt, phase: 'queued',
+            taskId: record.taskId, acceptedAt: record.acceptedAt, phase: 'queued', pinnedOm: { source, revision, entry },
         });
     });
     const visibleTasks = (actor: TaskActor) => tasks.list(actor.scope, actor.actor).reverse();

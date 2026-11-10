@@ -85,7 +85,7 @@ const dispatcher = new TaskDispatcher(() => tasks.admitted(), record => openTask
     socketPath: '/var/run/docker.sock', hostDirectory: process.env.AIRIC_WORKSPACE_HOST_DATA, user: `${process.getuid()}:${process.getgid()}`,
     image: 'airic-work:task', dataDirectory: directory, methodDirectory: async () => method,
 }), () => { throw Error('Worker smoke failed'); });
-const server = createTaskServer(tasks, identity, dispatcher, uploads);
+const server = createTaskServer(tasks, identity, dispatcher, uploads, undefined, undefined, undefined, { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' });
 async function get(url, status = 200) {
     const response = await server.inject({ url, headers: auth });
     assert.equal(response.statusCode, status, response.body);
@@ -103,7 +103,7 @@ try {
         'content-type': 'multipart/form-data; boundary=smoke',
     });
     const task = await post('/api/v1/tasks', 'create', {
-        instruction: 'Review', om: { source: 'local', revision: 'v1', entry: 'om.md' },
+        instruction: 'Review',
         materials: [{ kind: 'upload', uploadId: upload.uploadId }],
     });
     const url = '/api/v1/tasks/' + task.taskId;
@@ -135,7 +135,7 @@ try {
     assert.equal(download.body, 'evidence');
     assert.match(download.headers['content-disposition'], /report\.txt/);
     const other = await post('/api/v1/tasks', 'create-other', {
-        instruction: 'Other work', om: { source: 'local', revision: 'v1', entry: 'om.md' },
+        instruction: 'Other work',
     });
     await get('/api/v1/tasks/' + other.taskId + '/files/' + done.outputs[0].fileId, 404);
     console.log('Worker smoke passed: no-MCP upload, Decision Request, answer, same-Session continuation and fixed output download');

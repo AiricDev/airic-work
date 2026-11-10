@@ -50,10 +50,13 @@ async function main() {
         const identity = { bearerToken: AIRIC_TASK_TOKEN, scope: 'local', actor: 'operator' };
         let dispatcher: TaskDispatcher | undefined;
         let omStatus: Parameters<typeof createTaskServer>[6];
+        const config = loadTaskWorkerConfiguration(directory);
+        const { methods } = await createMethods(config.methods);
+        const pinned = await methods.pinHead('local', process.env.AIRIC_OM_ENTRY ?? 'om.md');
+        const defaultOm = { source: pinned.source, revision: pinned.sha, entry: pinned.root };
+        omStatus = async () => ({ source: pinned.source,
+            kind: (await methods.headStatus('local')).kind, state: 'available', revision: pinned.sha });
         if (process.env.AIRIC_TASK_WORKER === '1') {
-            const config = loadTaskWorkerConfiguration(directory);
-            const { methods } = await createMethods(config.methods);
-            omStatus = () => methods.headStatus('local');
             const models = await createConfiguredModels(config);
             const hostDirectory = process.env.AIRIC_WORKSPACE_HOST_DATA;
             const sandbox = hostDirectory ? {
@@ -72,7 +75,7 @@ async function main() {
                 taskId => console.error(JSON.stringify({ taskId, code: 'task_worker_failed' })),
             );
         }
-        const server = createTaskServer(tasks, identity, dispatcher, uploads, credentials, integration, omStatus);
+        const server = createTaskServer(tasks, identity, dispatcher, uploads, credentials, integration, omStatus, defaultOm);
         const tick = () => { void dispatcher?.pump().catch(() => console.error('Unable to scan Task registry')); };
         const timer = dispatcher ? setInterval(tick, 1000).unref() : undefined;
         server.addHook('onClose', async () => {

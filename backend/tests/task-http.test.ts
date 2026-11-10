@@ -22,14 +22,15 @@ it('authenticates task creation and returns the original receipt on retry', asyn
         payload => taskFingerprint(Buffer.alloc(32, 1), payload), randomUUID, () => new Date().toISOString(), undefined, credentials,
     );
     const bearerToken = 'test-token-with-at-least-32-characters';
+    const defaultOm = { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' };
     const contract = taskContract();
-    const server = createTaskServer(tasks, { bearerToken, scope: 'test', actor: 'engineer' }, undefined, undefined, credentials, undefined, async () => ({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) }));
+    const server = createTaskServer(tasks, { bearerToken, scope: 'test', actor: 'engineer' }, undefined, undefined, credentials, undefined, async () => ({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) }), defaultOm);
     const request = {
         method: 'POST' as const,
         url: '/api/v1/tasks',
         headers: { authorization: `Bearer ${bearerToken}`, 'idempotency-key': 'create-one' },
         payload: {
-            instruction: 'Review', om: { source: 'local', revision: 'v1', entry: 'om.md' },
+            instruction: 'Review',
             connections: [{ id: 'business', endpoint: 'https://example.invalid/mcp', auth: { type: 'bearer', token: 'secret-initial' } }],
         },
     };
@@ -40,7 +41,9 @@ it('authenticates task creation and returns the original receipt on retry', asyn
             .toEqual({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) });
         const created = await contract.inject(server, request);
         expect(created.statusCode).toBe(201);
-        expect(created.json()).toMatchObject({ phase: 'queued' });
+        expect(created.json()).toMatchObject({ phase: 'queued', pinnedOm: defaultOm });
+        const firstOm = { ...defaultOm };
+        defaultOm.revision = 'b'.repeat(40);
         expect((await contract.inject(server, request)).json()).toEqual(created.json());
         expect((await contract.inject(server, { ...request, payload: { ...request.payload, instruction: 'Other' } })).statusCode).toBe(409);
         const detail = await contract.inject(server, { url: created.headers.location as string, headers: request.headers });
@@ -64,7 +67,7 @@ it('authenticates task creation and returns the original receipt on retry', asyn
             ...rotate, headers: { ...rotate.headers, 'idempotency-key': 'outside' },
             payload: { type: 'signed_endpoint', endpoint: 'https://outside.invalid/mcp' },
         })).statusCode).toBe(403);
-        expect(detail.json()).toMatchObject({ taskId: created.json().taskId, requestedOm: request.payload.om, phase: 'queued' });
+        expect(detail.json()).toMatchObject({ taskId: created.json().taskId, requestedOm: firstOm, phase: 'queued' });
         contract.expectCoverage({ only: ['createTask', 'getTask', 'replaceConnectionCredential', 'getOmStatus'] });
     } finally {
         await server.close();

@@ -101,8 +101,9 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         () => { throw new Error('unexpected Worker failure'); },
     );
     let dispatcher = startDispatcher();
+    const defaultOm = { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' };
     const contract = taskContract();
-    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration);
+    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
     try {
         const payload = '--boundary\r\nContent-Disposition: form-data; name="file"; filename="evidence.txt"\r\n'
             + 'Content-Type: text/plain\r\n\r\nPersisted evidence\r\n--boundary--\r\n';
@@ -126,7 +127,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             method: 'POST', url: '/api/v1/tasks',
             headers: { ...headers, 'idempotency-key': 'create-review' },
             payload: {
-                instruction: 'Review', om: { source: 'repo', revision: 'v1', entry: 'om.md' },
+                instruction: 'Review',
                 materials: [{ kind: 'upload', uploadId }, reference],
                 externalRefs: [{ system: 'certlab', kind: 'project', id: 'project-review' }],
             },
@@ -198,7 +199,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(session).toContain('Continued');
         expect(session).toContain('Persisted evidence');
         expect(session).toContain('report-demo');
-        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration);
+        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
         try {
             const download = await contract.inject(reopened, { url: `${taskUrl}/files/${uploadId}`, headers });
             expect(download.statusCode).toBe(200);

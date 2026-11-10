@@ -57,6 +57,9 @@ describe('real Git Methods', () => {
         await file(source, 'om.md', 'New content');
         await commit(source, 'Advance branch');
         const selection = { source: 'repo', entry: 'om.md' };
+        const head = await adapter.pinHead(selection.source, selection.entry);
+        expect(head.sha).toBe(await git(source, 'rev-parse', 'HEAD'));
+        await expect(adapter.pinHead(selection.source, 'missing.md')).rejects.toThrow();
         const tagged = await adapter.pinRevision({ ...selection, revision: 'v1' });
         expect(tagged.sha).toBe(old);
         expect(await adapter.read(tagged, 'om.md')).toContain('Root marker alpha');
@@ -68,6 +71,7 @@ describe('real Git Methods', () => {
         const method = await methods.latest(configuration);
         await rename(source, `${source}-offline`);
         try {
+            await expect(methods.pinHead('repo', 'om.md')).rejects.toMatchObject({ code: 'blocked' });
             await expect(methods.latest(configuration)).rejects.toMatchObject({ code: 'blocked' });
             expect(await methods.read(method, 'om.md')).toContain('Root marker');
             expect((await methods.search(method, '人工')).map(r => r.path)).toContain('om.md');

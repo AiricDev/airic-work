@@ -25,11 +25,18 @@ def main():
         env_file.chmod(0o600)
         data = Path(directory).resolve() / "data"
         data.mkdir(mode=0o700)
+        repo = Path(directory) / "om"
+        repo.mkdir()
+        (repo / "om.md").write_text("Smoke test operating model.")
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "add", "om.md"], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=Smoke", "-c", "user.email=smoke@example.invalid", "commit", "-qm", "Add OM"], check=True)
+
         env = {
             **os.environ,
             "AIRIC_TASK_ENV_FILE": str(env_file),
-            "AIRIC_OM_REPOSITORY": directory,
-            "AIRIC_DEPLOY_OM_MOUNT": directory,
+            "AIRIC_OM_REPOSITORY": str(repo),
+            "AIRIC_DEPLOY_OM_MOUNT": str(repo),
             "AIRIC_DEPLOY_DATA": str(data),
             "AIRIC_DEPLOY_UID": str(os.getuid()),
             "AIRIC_DEPLOY_GID": str(os.getgid()),
@@ -77,7 +84,6 @@ def main():
             assert upload["sha256"] == hashlib.sha256(evidence).hexdigest()
             creation = json.dumps({
                 "instruction": "Check the evidence",
-                "om": {"source": "local", "revision": "v1", "entry": "om.md"},
                 "materials": [{"kind": "upload", "uploadId": upload["uploadId"]}],
             }).encode()
             headers = {"Content-Type": "application/json", "Idempotency-Key": "create"}

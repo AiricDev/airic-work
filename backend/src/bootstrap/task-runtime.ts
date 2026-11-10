@@ -64,7 +64,7 @@ export async function openTaskRuntime(
             ?? persistence.store.pinWorkerSkill(await readFile(options.skillPath, 'utf8')),
         directory: join(taskDirectory, 'runtime'),
         tools: async execution => [
-            ...(connectionIds.length ? mcpWorkerTools(app, execution) : []),
+            ...(connectionIds.length ? mcpWorkerTools(app, execution, record.taskId) : []),
             ...(dockerWorkspace ? [defineTool({
                 name: 'work_run_command',
                 replay: 'unsafe',
@@ -143,12 +143,13 @@ export async function openTaskRuntime(
         const materials = record.creation.materials ?? [];
         const uploadIds = materials.flatMap(item => item.kind === 'upload' ? [item.uploadId] : []);
         const references = materials.flatMap(item => item.kind === 'reference' ? [item.source] : []);
-        const execution = await app.execution.createExecution(owner.id, record.taskId, {
+        const existing = (await app.query.queryExecutions(owner.id)).find(item => item.creation.project_id === record.taskId);
+        const execution = existing ?? await app.execution.createExecution(owner.id, record.taskId, {
             source: 'task', project_id: record.taskId, project_name: record.taskId,
             instruction: uploadIds.length
                 ? `${instruction}\n\nTask attachment IDs for work_read_attachment: ${uploadIds.join(', ')}`
                 : instruction,
-            task: { ...context, ...(connectionIds.length ? { mcpConnectionIds: connectionIds } : {}),
+            task: { ...context, externalRefs: record.creation.externalRefs ?? [], ...(connectionIds.length ? { mcpConnectionIds: connectionIds } : {}),
                 ...(references.length ? { materialReferences: references.map(source => ({ ...source })) } : {}) },
         });
         // Reopening an interrupted Task reclaims its old command container before resuming Pi.

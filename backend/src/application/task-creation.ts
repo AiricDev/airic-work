@@ -53,7 +53,7 @@ export class TaskCreationUseCases {
         return record;
     }
 
-    create(scope: string, actor: string, key: string, creation: TaskCreation, connections: TaskConnectionConfig[] = []): TaskCreationRecord {
+    create(scope: string, actor: string, key: string, creation: TaskCreation, connections: TaskConnectionConfig[] = [], fingerprintInput: Omit<TaskCreation, 'om'> = creation): TaskCreationRecord {
         requireRule(!!creation.instruction.trim(), 'invalid');
         requireRule([creation.om.source, creation.om.revision, creation.om.entry].every(value => !!value.trim()), 'invalid');
         runtimePath(creation.om.entry);
@@ -61,8 +61,9 @@ export class TaskCreationUseCases {
         requireRule(!uploads.length || this.bindUploads, 'blocked', 'upload storage unavailable');
         requireRule(!connections.length || this.credentials, 'blocked', 'MCP credential storage unavailable');
         const reservation = this.registry.reserve(scope, actor, key, this.fingerprint(canonical(
-            connections.length ? { creation, connections } : creation,
+            connections.length ? { creation: fingerprintInput, connections } : fingerprintInput,
         )), this.newId());
+        if (reservation.state === 'ready') return this.initializer.read(reservation.taskId);
         if (connections.length) this.credentials!.initialize(reservation.taskId, connections);
         if (uploads.length) this.bindUploads!(scope, actor, reservation.taskId, uploads);
         const record = this.initializer.initialize({ taskId: reservation.taskId, scope, actor, creation, acceptedAt: this.now(),

@@ -32,7 +32,7 @@ paths:
       tags: [OM]
       operationId: getOmStatus
       summary: 查看 OM 仓库当前版本
-      description: 查询本地仓库或本地远程镜像的 HEAD，不联网。Task 实际使用的版本见 pinnedOm。
+      description: 查询 Worker 启动时验证的可用 OM 版本，不联网。
       responses:
         '200':
           description: OM 仓库状态
@@ -61,7 +61,7 @@ paths:
       operationId: createTask
       summary: 创建 Task
       description: |
-        保存委托后返回。后台自动装配和运行，OM 的实际固定版本从任务详情读取。
+        保存委托后返回已固定的 OM 版本。后台自动运行。
         上传文件时先调用暂存接口，也可引用已有资料。
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -76,14 +76,12 @@ paths:
                 summary: 独立文档核查
                 value:
                   instruction: 检查交付清单。需要专家判断时发出请求，并继续核对其他材料。
-                  om: {source: document-review, revision: v1.2.0, entry: om.md}
                   materials:
                     - {kind: upload, uploadId: upl_checklist}
               withMcp:
                 summary: 通过 CertLab MCP 评估报告
                 value:
                   instruction: 核对报告中的证据，保存有依据的评估草稿。
-                  om: {source: certlab-om, revision: v0.19.0, entry: om.md}
                   externalRefs:
                     - {system: certlab, kind: project, id: project-demo}
                     - {system: certlab, kind: report, id: report-demo}
@@ -621,15 +619,9 @@ components:
     CreateTask:
       type: object
       additionalProperties: false
-      required: [instruction, om]
+      required: [instruction]
       properties:
         instruction: {type: string, minLength: 1}
-        om:
-          $ref: '#/components/schemas/OmSelection'
-        context:
-          type: object
-          additionalProperties: true
-          description: 调用方的非敏感业务上下文
         externalRefs:
           type: array
           items:
@@ -645,7 +637,7 @@ components:
             $ref: '#/components/schemas/McpConnection'
     TaskReceipt:
       type: object
-      required: [taskId, acceptedAt, phase]
+      required: [taskId, acceptedAt, phase, pinnedOm]
       properties:
         taskId:
           $ref: '#/components/schemas/Id'
