@@ -80,15 +80,15 @@ export class SqliteTaskUploads {
         });
     }
 
-    bound(scope: string, actor: string, taskId: string, id: string): StagedUpload {
-        const upload = this.findBound(scope, actor, taskId, id);
+    bound(scope: string, taskId: string, id: string): StagedUpload {
+        const upload = this.findBound(scope, taskId, id);
         requireRule(upload, 'not-found');
         return upload;
     }
 
-    findBound(scope: string, actor: string, taskId: string, id: string) {
-        return databaseAccess(() => this.db.prepare(`SELECT * FROM task_uploads WHERE id = ? AND scope = ? AND actor = ? AND taskId = ?
+    findBound(scope: string, taskId: string, id: string) {
+        return databaseAccess(() => this.db.prepare(`SELECT * FROM task_uploads WHERE id = ? AND scope = ? AND taskId = ?
             AND NOT EXISTS (SELECT 1 FROM task_upload_claims WHERE upload_id = task_uploads.id)`)
-            .get(id, scope, actor, taskId) as StagedUpload | undefined);
+            .get(id, scope, taskId) as StagedUpload | undefined);
     }
 }

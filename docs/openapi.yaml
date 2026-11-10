@@ -163,7 +163,7 @@ paths:
       tags: [Tasks]
       operationId: notifyTask
       summary: 向 Task 主干投递外部系统事件
-      description: 使用 AIRIC_TASK_TOKEN 向该凭据创建的 Task 投递通知。
+      description: 直接身份可向其 Task 投递通知。委托调用需签名声明目标 Task 及 notify 操作。
       security:
         - bearerAuth: []
       parameters:

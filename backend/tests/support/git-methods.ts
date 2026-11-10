@@ -13,10 +13,10 @@ export async function file(repository: string, path: string, content: string | U
     await mkdir(dirname(join(repository, path)), { recursive: true });
     await writeFile(join(repository, path), content);
 }
-/** 使用环境已配置的 Git 身份，不配置/覆盖作者或提交者，不推送任何提交。 */
 export async function commit(repository: string, title: string, stage = true): Promise<string> {
     if (stage) await git(repository, 'add', '--all');
-    await git(repository, 'commit', '-m', `${title}\n\nCo-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>`);
+    await git(repository, '-c', 'user.name=Airic Work Test', '-c', 'user.email=fixture@example.invalid',
+        '-c', 'commit.gpgSign=false', 'commit', '-m', title);
     return git(repository, 'rev-parse', 'HEAD');
 }
 export async function repository(directory: string): Promise<string> {

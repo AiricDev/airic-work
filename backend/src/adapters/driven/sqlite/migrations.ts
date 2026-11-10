@@ -124,7 +124,8 @@ const migrations = [initial, `ALTER TABLE decision_requests ADD COLUMN summary T
             ON CONFLICT(execution_id) DO UPDATE SET updated_at = max(updated_at, excluded.updated_at);
         END;`).join('\n')}`,
     `ALTER TABLE inputs ADD COLUMN business_update TEXT CHECK(business_update IS NULL OR json_valid(business_update));
-     ALTER TABLE steering_inputs ADD COLUMN business_update TEXT CHECK(business_update IS NULL OR json_valid(business_update));`];
+     ALTER TABLE steering_inputs ADD COLUMN business_update TEXT CHECK(business_update IS NULL OR json_valid(business_update));`,
+    `ALTER TABLE user_decisions ADD COLUMN actor_id TEXT;`];
 
 function appliedMigrations(connection: Database.Database): number {
     const applied = connection.prepare('SELECT version, hash FROM schema_migrations ORDER BY version').all() as { version: number; hash: string }[];

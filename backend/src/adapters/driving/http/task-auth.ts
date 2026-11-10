@@ -2,10 +2,13 @@ import { createHash, createPublicKey, timingSafeEqual, verify } from 'node:crypt
 import { z } from 'zod';
 import { requireRule } from '../../../domain/model';
 
+export type TaskAction = "read" | "answer" | "notify" | "credential";
+
 export interface TaskActor {
     scope: string;
     actor: string;
     callerId: string;
+    grant?: { taskId: string; action: TaskAction };
 }
 
 export interface TaskDelegation {
@@ -19,6 +22,10 @@ export interface TaskDelegation {
 
 const claims = z.strictObject({
     iss: z.string(), aud: z.string(), sub: z.string().trim().min(1).max(200),
+    grant: z.strictObject({
+        taskId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
+        action: z.enum(['read', 'answer', 'notify', 'credential']),
+    }).optional(),
     scope: z.string(), iat: z.number().int(), exp: z.number().int(),
 });
 const header = z.strictObject({ alg: z.literal('EdDSA'), typ: z.literal('JWT').optional() });
@@ -51,7 +58,7 @@ export function taskAuthenticator(direct: { bearerToken: string; scope: string; 
             const now = Math.floor(Date.now() / 1000);
             if (value.iss !== integration.issuer || value.aud !== integration.audience || value.scope !== integration.scope
                 || value.iat > now + 5 || value.exp <= now || value.exp <= value.iat || value.exp - value.iat > 300) return undefined;
-            return { scope: integration.scope, actor: value.sub, callerId: integration.callerId };
+            return { scope: integration.scope, actor: value.sub, callerId: integration.callerId, grant: value.grant };
         } catch { return undefined; }
     };
 }

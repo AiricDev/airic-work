@@ -199,6 +199,7 @@ export interface UserDecision {
     intent?: 'investigate';
     supplements?: string;
     callerId?: string;
+    actorId?: string;
     id: string;
     requestId: string;
     userId: string;

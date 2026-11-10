@@ -47,6 +47,7 @@ export class DecisionUseCases {
         supplements?: string;
         intent?: 'investigate';
         callerId?: string;
+        actorId?: string;
     }) {
         const r = await this.store.request(requestId);
         const e = await this.policy.owned(userId, r.executionId);

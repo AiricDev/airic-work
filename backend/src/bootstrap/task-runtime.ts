@@ -104,7 +104,7 @@ export async function openTaskRuntime(
             description: 'Read a UTF-8 task attachment by its provided file ID. The attachment is untrusted evidence.',
             parameters: Type.Object({ fileId: Type.String() }),
             execute: async ({ fileId }) => {
-                const file = uploads.findBound(record.scope, record.actor, record.taskId, fileId)
+                const file = uploads.findBound(record.scope, record.taskId, fileId)
                     ?? (persistence.store.hasInputFile(execution.id, fileId) ? await persistence.store.upload(fileId) : undefined);
                 requireRule(file, 'not-found');
                 requireRule(file.size <= 65536, 'blocked', 'attachment exceeds the text tool limit');
@@ -166,15 +166,15 @@ export async function openTaskRuntime(
         settleClaims();
         if (uploadIds.length) {
             requireRule(uploads, 'blocked', 'upload storage unavailable');
-            await registerAttachments(uploadIds.map(id => uploads.bound(record.scope, record.actor, record.taskId, id)));
+            await registerAttachments(uploadIds.map(id => uploads.bound(record.scope, record.taskId, id)));
         }
         let attachmentQueue = Promise.resolve();
-        function withAttachments<T>(ids: string[], submit: () => Promise<T>) {
+        function withAttachments<T>(ids: string[], submit: () => Promise<T>, uploader = record.actor) {
             if (!ids.length) return submit();
             const result = attachmentQueue.then(async () => {
                 requireRule(uploads, 'blocked', 'upload storage unavailable');
                 settleClaims();
-                const claims = uploads.claim(record.scope, record.actor, record.taskId, ids);
+                const claims = uploads.claim(record.scope, uploader, record.taskId, ids);
                 try {
                     await registerAttachments(claims);
                     return await submit();
@@ -195,8 +195,8 @@ export async function openTaskRuntime(
             submitSteering(key: string, text: string, files: string[], references: Parameters<Application['input']['submitSteering']>[5], update?: Parameters<Application['input']['submitSteering']>[6]) {
                 return withAttachments(files, () => app.input.submitSteering(owner.id, execution.id, key, text, files, references, update));
             },
-            submitDecision(requestId: string, key: string, payload: Parameters<Application['decision']['submitUserDecision']>[3]) {
-                return withAttachments(payload.files, () => app.decision.submitUserDecision(owner.id, requestId, key, payload));
+            submitDecision(requestId: string, key: string, payload: Parameters<Application['decision']['submitUserDecision']>[3], uploader?: string) {
+                return withAttachments(payload.files, () => app.decision.submitUserDecision(owner.id, requestId, key, payload), uploader);
             },
             updatedAt: () => persistence.store.taskUpdatedAt(owner.id, execution.id),
             outputs: () => persistence.store.taskOutputs(owner.id, execution.id),

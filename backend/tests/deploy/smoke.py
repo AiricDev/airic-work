@@ -18,14 +18,21 @@ def main():
     token = secrets.token_hex(32)
     project = "airic-smoke-" + secrets.token_hex(6)
     with tempfile.TemporaryDirectory() as directory:
-        env_file = Path(directory) / "task.env"
+        deployment = Path(directory).resolve()
+        compose_file = deployment / COMPOSE_FILE.name
+        compose_file.write_bytes(COMPOSE_FILE.read_bytes())
+        override = deployment / "smoke.compose.yaml"
+        override.write_text(
+            'services:\n  airic-work:\n    ports: !override ["127.0.0.1::8080"]\n'
+        )
+        env_file = deployment / ".env.task"
         env_file.write_text(
             f"AIRIC_TASK_TOKEN={token}\nAIRIC_TASK_FINGERPRINT_KEY={secrets.token_hex(32)}\nAIRIC_TASK_WORKER=0\n"
         )
         env_file.chmod(0o600)
-        data = Path(directory).resolve() / "data"
+        data = deployment / "data"
         data.mkdir(mode=0o700)
-        repo = Path(directory) / "om"
+        repo = deployment / "om"
         repo.mkdir()
         (repo / "om.md").write_text("Smoke test operating model.")
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
@@ -34,20 +41,18 @@ def main():
 
         env = {
             **os.environ,
-            "AIRIC_TASK_ENV_FILE": str(env_file),
             "AIRIC_OM_REPOSITORY": str(repo),
             "AIRIC_DEPLOY_OM_MOUNT": str(repo),
             "AIRIC_DEPLOY_DATA": str(data),
             "AIRIC_DEPLOY_UID": str(os.getuid()),
             "AIRIC_DEPLOY_GID": str(os.getgid()),
-            "AIRIC_TASK_PUBLISHED_PORT": "0",
         }
         if sys.platform.startswith("linux") and "AIRIC_DOCKER_SOCKET_GID" not in env:
-            env["AIRIC_DOCKER_SOCKET_GID"] = str(Path(env.get("AIRIC_DOCKER_SOCKET", "/var/run/docker.sock")).stat().st_gid)
+            env["AIRIC_DOCKER_SOCKET_GID"] = str(Path("/var/run/docker.sock").stat().st_gid)
 
         def compose(*args, stdin=None):
             return subprocess.check_output(
-                ["docker", "compose", "-f", str(COMPOSE_FILE), "-p", project, *args],
+                ["docker", "compose", "-f", str(compose_file), "-f", str(override), "-p", project, *args],
                 env=env, text=True, input=stdin,
             ).strip()
 

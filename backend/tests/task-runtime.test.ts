@@ -13,6 +13,7 @@ import { SqliteTaskInitializer } from '../src/adapters/driven/sqlite/task-initia
 import { SqliteTaskRegistry, taskFingerprint } from '../src/adapters/driven/sqlite/task-registry';
 import { openSqliteDatabase } from '../src/adapters/driven/sqlite/database';
 import { TaskDispatcher } from '../src/bootstrap/task-dispatcher';
+import type { TaskAction } from '../src/adapters/driving/http/task-auth';
 import { createTaskServer } from '../src/adapters/driving/http/task-server';
 import { harness } from './support/harness';
 import type { TaskCreationRecord } from '../src/application/task-creation';
@@ -83,11 +84,11 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         callerId: 'certlab-test', issuer: 'test-issuer', audience: 'airic', scope: 'test-org',
         publicKeyPem: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
     };
-    function delegatedHeaders(sub: string, audience = integration.audience) {
+    function delegatedHeaders(sub: string, audience = integration.audience, grant?: { taskId: string; action: TaskAction }) {
         const now = Math.floor(Date.now() / 1000);
         const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
         const payload = `${encode({ alg: 'EdDSA' })}.${encode({
-            iss: integration.issuer, aud: audience, sub, scope: integration.scope, iat: now, exp: now + 60,
+            iss: integration.issuer, aud: audience, sub, scope: integration.scope, iat: now, exp: now + 60, grant,
         })}`;
         return {
             authorization: `Bearer ${integration.bearerToken}`,
@@ -158,7 +159,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect((await contract.inject(server, { url: taskUrl, headers: { authorization: headers.authorization } })).statusCode).toBe(401);
         expect((await contract.inject(server, { url: taskUrl, headers: { authorization: `Bearer ${bearerToken}` } })).statusCode).toBe(404);
         const questions = (await contract.inject(server, { url: `${taskUrl}/decision-requests`, headers })).json();
-        expect(questions.items).toHaveLength(1);
+        expect(questions.items).toMatchObject([{ title: "Confirm?" }]);
         expect(detail.work).toEqual([{ workId: questions.items[0].requestId, label: 'review', waitingOn: [questions.items[0].requestId] }]);
         const filter = new URLSearchParams({
             'externalRef[system]': 'certlab', 'externalRef[kind]': 'project', 'externalRef[id]': 'project-review',
@@ -174,6 +175,17 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(question.json()).toMatchObject({
             canAnswer: true, context: { question: 'Confirm?', revision: 1, affectedWork: [{ label: 'review' }] },
         });
+        const reviewerRead = delegatedHeaders('reviewer', integration.audience, { taskId: 'review', action: 'read' });
+        const reviewerAnswer = delegatedHeaders('reviewer', integration.audience, { taskId: 'review', action: 'answer' });
+        expect((await contract.inject(server, { url: taskUrl, headers: reviewerRead })).statusCode).toBe(200);
+        expect((await contract.inject(server, { url: taskUrl, headers: reviewerAnswer })).statusCode).toBe(404);
+        expect((await contract.inject(server, { url: `${taskUrl}-other`, headers: reviewerRead })).statusCode).toBe(404);
+        const reviewerUpload = await contract.inject(server, {
+            ...upload, headers: { ...upload.headers, ...reviewerAnswer },
+            payload: payload.replace('Persisted evidence', 'Reviewer evidence'),
+        });
+        expect(reviewerUpload.statusCode).toBe(201);
+        const reviewerFileId = reviewerUpload.json().uploadId;
         const answer = {
             method: 'POST' as const, url: `/api/v1/decision-requests/${questions.items[0].requestId}/user-decisions`,
             headers: { ...headers, 'idempotency-key': 'answer' },
@@ -186,25 +198,34 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         });
         expect(invalid.json().code).toBe('context_revision_unknown');
         expect(db.prepare('SELECT taskId FROM task_uploads WHERE id = ?').get(orphan.uploadId)).toEqual({ taskId: null });
-        const receipt = await contract.inject(server, answer);
+        const sharedAnswer = {
+            ...answer, headers: { ...answer.headers, ...reviewerAnswer },
+            payload: { ...answer.payload, materials: [{ kind: 'upload', uploadId: reviewerFileId }, reference] },
+        };
+        expect((await contract.inject(server, {
+            ...sharedAnswer, headers: { ...sharedAnswer.headers, ...reviewerRead },
+        })).statusCode).toBe(404);
+        const receipt = await contract.inject(server, sharedAnswer);
         expect(receipt.statusCode).toBe(201);
-        expect(receipt.json()).toMatchObject({ callerId: 'certlab-test', actorId: 'owner' });
-        expect((await contract.inject(server, answer)).json()).toEqual(receipt.json());
+        expect(receipt.json()).toMatchObject({ callerId: 'certlab-test', actorId: 'reviewer' });
+        expect((await contract.inject(server, sharedAnswer)).json()).toEqual(receipt.json());
         const saved = await contract.inject(server, { url: `${taskUrl}/inputs?inputId=${receipt.json().inputId}`, headers });
         expect(saved.json().items).toMatchObject([{ kind: 'decision', delivery: { state: 'pending' }, continuations: [{ workId: questions.items[0].requestId, state: 'waiting' }] }]);
-        const steering = await contract.inject(server, {
-            method: 'POST', url: `${taskUrl}/steering`,
-            headers: { ...headers, 'idempotency-key': 'after-answer' },
-            payload: { text: 'Check the completed work' },
-        });
-        expect(steering.statusCode).toBe(201);
+        const notify = {
+            ...completion,
+            headers: { ...completion.headers,
+                ...delegatedHeaders('certlab:completion-worker', integration.audience, { taskId: 'review', action: 'notify' }) },
+        };
+        const notified = await contract.inject(server, notify);
+        expect(notified.statusCode).toBe(201);
+        expect((await contract.inject(server, notify)).json()).toEqual(notified.json());
         let steeringContext = '';
         uploads.claim(integration.scope, 'owner', 'review', [orphan.uploadId]);
         await dispatcher.close();
         await writeFile(options.skillPath, 'Different worker skill after deployment');
         dispatcher = startDispatcher();
         faux.setResponses([
-            fauxAssistantMessage([fauxToolCall('work_read_attachment', { fileId: uploadId }, { id: 'read-file' })], { stopReason: 'toolUse' }),
+            fauxAssistantMessage([fauxToolCall('work_read_attachment', { fileId: reviewerFileId }, { id: 'read-file' })], { stopReason: 'toolUse' }),
             fauxAssistantMessage([fauxText('Continued')]),
             context => {
                 steeringContext = JSON.stringify(context.messages);
@@ -221,7 +242,8 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(session).toContain('Continued');
         expect(steeringContext).toContain('worker-branch-summary');
         expect(steeringContext).toContain('Continued');
-        expect(session).toContain('Persisted evidence');
+        expect(steeringContext).toContain('invoice.paid');
+        expect(session).toContain('Reviewer evidence');
         expect(session).toContain('report-demo');
         const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
         try {
@@ -249,9 +271,9 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
                 url: `/api/v1/decision-requests/${questions.items[0].requestId}/episode`, headers,
             });
             expect(episode.statusCode).toBe(200);
-            expect(episode.json().items[1].receipt).toMatchObject({ callerId: 'certlab-test', actorId: 'owner' });
-            expect(episode.json().items[1].files).toEqual([{ fileId: uploadId, name: 'evidence.txt' }]);
-            expect(episode.json().items[1].answer.materials).toEqual([{ kind: 'upload', uploadId }, reference]);
+            expect(episode.json().items[1].receipt).toMatchObject({ callerId: 'certlab-test', actorId: 'reviewer' });
+            expect(episode.json().items[1].files).toEqual([{ fileId: reviewerFileId, name: 'evidence.txt' }]);
+            expect(episode.json().items[1].answer.materials).toEqual([{ kind: 'upload', uploadId: reviewerFileId }, reference]);
             expect(episode.json().items.map((item: { kind: string }) => item.kind))
                 .toEqual(['context', 'answer', 'input', 'session_event']);
             const followUp = { ...answer, headers: { ...headers, 'idempotency-key': 'decision-supplement' } };

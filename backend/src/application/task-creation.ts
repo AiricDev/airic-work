@@ -47,9 +47,13 @@ export class TaskCreationUseCases {
     }
 
     get(scope: string, actor: string, taskId: string): TaskCreationRecord {
+        return this.getInScope(scope, taskId, actor);
+    }
+
+    getInScope(scope: string, taskId: string, actor?: string): TaskCreationRecord {
         requireRule(this.registry.get(taskId)?.state === 'ready', 'not-found');
         const record = this.initializer.read(taskId);
-        requireRule(record.scope === scope && record.actor === actor, 'not-found');
+        requireRule(record.scope === scope && (actor === undefined || record.actor === actor), 'not-found');
         return record;
     }
 

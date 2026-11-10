@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto';
 import { registerTaskDocs } from './task-docs';
 import Fastify, { type FastifyRequest } from 'fastify';
-import { taskAuthenticator, type TaskActor, type TaskDelegation } from './task-auth';
+import { taskAuthenticator, type TaskAction, type TaskActor, type TaskDelegation } from './task-auth';
 import multipart from '@fastify/multipart';
 import type { TaskCredentialStore } from '../../driven/mcp/task-credentials';
 import type { SqliteTaskUploads } from '../../driven/sqlite/task-uploads';
@@ -28,7 +29,7 @@ function paginate<T>(items: T[], query: z.infer<typeof paging>) {
 function summary(record: TaskCreationRecord, item: DecisionRequest) {
     return {
         requestId: item.id, taskId: record.taskId, status: item.status,
-        title: item.summary ?? item.question, createdAt: item.createdAt, externalRefs: record.creation.externalRefs ?? [],
+        title: item.summary?.trim() || item.question, createdAt: item.createdAt, externalRefs: record.creation.externalRefs ?? [],
     };
 }
 function decisionContext(decision: DecisionRequest, context: Context, scopes: { workId: string; label: string }[]) {
@@ -94,6 +95,14 @@ export function createTaskServer(
         requireRule(actor, 'forbidden');
         return actor;
     }
+    function access(actor: TaskActor, taskId: string, action: TaskAction) {
+        if (!actor.grant) return tasks.get(actor.scope, actor.actor, taskId);
+        requireRule(actor.grant.taskId === taskId && actor.grant.action === action, 'not-found');
+        return tasks.getInScope(actor.scope, taskId);
+    }
+    const uploader = (actor: TaskActor) => actor.grant
+        ? 'grant:' + createHash('sha256').update(JSON.stringify([actor.actor, actor.grant.taskId])).digest('hex')
+        : actor.actor;
     const server = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
     server.addHook('onRequest', async (request, reply) => {
         reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
@@ -146,7 +155,9 @@ export function createTaskServer(
                 file = { name: part.filename, bytes: await part.toBuffer() };
             }
             requireRule(file, 'invalid');
-            const upload = await uploads.stage(actorOf(request).scope, actorOf(request).actor, commandKey, file.name, file.bytes);
+            const actor = actorOf(request);
+            if (actor.grant) access(actor, actor.grant.taskId, 'answer');
+            const upload = await uploads.stage(actor.scope, uploader(actor), commandKey, file.name, file.bytes);
             return reply.code(201).send({
                 uploadId: upload.id, name: upload.name, sizeBytes: upload.size,
                 sha256: upload.hash, expiresAt: upload.expiresAt,
@@ -155,10 +166,10 @@ export function createTaskServer(
         server.get('/api/v1/tasks/:taskId/files/:fileId', async (request, reply) => {
             const { taskId, fileId } = params.extend({ fileId: z.uuid() }).parse(request.params);
             const actor = actorOf(request);
-            const record = tasks.get(actor.scope, actor.actor, taskId);
-            let upload = uploads.findBound(actor.scope, actor.actor, taskId, fileId);
+            const record = access(actor, taskId, 'read');
+            let upload = uploads.findBound(actor.scope, taskId, fileId);
             const runtime = !upload ? await dispatcher?.runtime(record) : undefined;
-            upload ??= uploads.findBound(actor.scope, actor.actor, taskId, fileId);
+            upload ??= uploads.findBound(actor.scope, taskId, fileId);
             const output = upload ? { name: upload.name, bytes: await uploads.files.read(upload) }
                 : await runtime?.downloadOutput(fileId);
             requireRule(output, 'not-found');
@@ -170,13 +181,14 @@ export function createTaskServer(
     if (credentials) {
         server.put('/api/v1/tasks/:taskId/connections/:connectionId/credential', (request, reply) => {
             const { taskId, connectionId } = params.extend({ connectionId: text }).parse(request.params);
-            const record = tasks.get(actorOf(request).scope, actorOf(request).actor, taskId);
+            const record = access(actorOf(request), taskId, 'credential');
             requireRule(record.connectionIds?.includes(connectionId), 'not-found');
             credentials.replace(taskId, connectionId, key.parse(request.headers['idempotency-key']), replacementAuth.parse(request.body));
             return reply.code(204).send();
         });
     }
     server.post('/api/v1/tasks', (request, reply) => {
+        requireRule(!actorOf(request).grant, 'forbidden');
         const { connections, ...creation } = body.parse(request.body);
         requireRule(defaultOm, 'blocked', 'OM unavailable');
         const record = tasks.create(actorOf(request).scope, actorOf(request).actor, key.parse(request.headers['idempotency-key']),
@@ -186,7 +198,9 @@ export function createTaskServer(
             taskId: record.taskId, acceptedAt: record.acceptedAt, phase: 'queued', pinnedOm: { source, revision, entry },
         });
     });
-    const visibleTasks = (actor: TaskActor) => tasks.list(actor.scope, actor.actor).reverse();
+    const visibleTasks = (actor: TaskActor, action: TaskAction = 'read') => actor.grant
+        ? [access(actor, actor.grant.taskId, action)]
+        : tasks.list(actor.scope, actor.actor).reverse();
     function filteredTasks(actor: TaskActor, query: z.infer<typeof listQuery>) {
         const system = query['externalRef[system]'];
         const kind = query['externalRef[kind]'];
@@ -245,7 +259,7 @@ export function createTaskServer(
         };
     }
     server.get('/api/v1/tasks/:taskId', request => projectTask(
-        tasks.get(actorOf(request).scope, actorOf(request).actor, params.parse(request.params).taskId),
+        access(actorOf(request), params.parse(request.params).taskId, 'read'),
     ));
     server.get('/api/v1/tasks', async request => {
         const page = paginate(filteredTasks(actorOf(request), listQuery.parse(request.query)), paging.parse(request.query));
@@ -280,7 +294,7 @@ export function createTaskServer(
         }
         server.get('/api/v1/tasks/:taskId/session', async request => {
             const query = paging.parse(request.query);
-            const record = tasks.get(actorOf(request).scope, actorOf(request).actor, params.parse(request.params).taskId);
+            const record = access(actorOf(request), params.parse(request.params).taskId, 'read');
             const runtime = await dispatcher.runtime(record);
             const { sessionId, events } = await runtime.trace();
             return {
@@ -291,7 +305,7 @@ export function createTaskServer(
         });
         server.get('/api/v1/tasks/:taskId/inputs', async request => {
             const query = paging.extend({ inputId: text.optional() }).parse(request.query);
-            const record = tasks.get(actorOf(request).scope, actorOf(request).actor, params.parse(request.params).taskId);
+            const record = access(actorOf(request), params.parse(request.params).taskId, 'read');
             const runtime = await dispatcher.runtime(record);
             const items = (await inputProjection(record, runtime)).filter(input => !query.inputId || input.inputId === query.inputId);
             return paginate(items, query);
@@ -309,7 +323,7 @@ export function createTaskServer(
         });
         server.post('/api/v1/tasks/:taskId/notify', async (request, reply) => {
             const actor = actorOf(request);
-            requireRule(actor.scope === identity.scope && actor.actor === identity.actor, 'forbidden');
+            requireRule(actor.grant?.action === 'notify' || (!actor.grant && actor.scope === identity.scope && actor.actor === identity.actor), 'forbidden');
             const { materials: attachments, ...update } = z.strictObject({
                 eventId: text, type: text, revision: text,
                 object: externalRef,
@@ -319,7 +333,7 @@ export function createTaskServer(
             requireRule(!files.length && references.every(source => source.revision), 'invalid');
             const eventKey = key.parse(request.headers['idempotency-key']);
             requireRule(eventKey === update.eventId, 'invalid');
-            const record = tasks.get(actor.scope, actor.actor, params.parse(request.params).taskId);
+            const record = access(actor, params.parse(request.params).taskId, 'notify');
             const runtime = await dispatcher.runtime(record);
             const saved = await runtime.submitSteering(`notify:${eventKey}`, '', [], references, update);
             const input = (await runtime.app.query.queryInputs(runtime.ownerId, runtime.executionId))
@@ -353,8 +367,8 @@ export function createTaskServer(
             materials: materials.optional(),
         }).refine(value => Boolean(value.text || value.optionId || value.intent) && !(value.supplements && value.corrects));
         const decisionList = listQuery.extend({ status: z.enum(['pending', 'answered']).optional() });
-        async function locate(actor: TaskActor, requestId: string) {
-            for (const record of visibleTasks(actor)) {
+        async function locate(actor: TaskActor, requestId: string, action: TaskAction = 'read') {
+            for (const record of visibleTasks(actor, action)) {
                 const runtime = await dispatcher!.runtime(record);
                 const { app, ownerId, executionId } = runtime;
                 const decision = (await app.query.queryRequests(ownerId, executionId)).find(item => item.id === requestId);
@@ -409,7 +423,7 @@ export function createTaskServer(
                 requireRule(input, 'blocked', 'decision input receipt unavailable');
                 const files = answer.files.map(fileId => {
                     requireRule(uploads, 'blocked');
-                    return { fileId, name: uploads.bound(record.scope, record.actor, record.taskId, fileId).name };
+                    return { fileId, name: uploads.bound(record.scope, record.taskId, fileId).name };
                 });
                 const materials = [
                     ...files.map(({ fileId }) => ({ kind: 'upload', uploadId: fileId })),
@@ -422,7 +436,7 @@ export function createTaskServer(
                         ...(materials.length ? { materials } : {}) },
                     ...(files.length ? { files } : {}),
                     receipt: { inputId: input.inputId, savedAt: input.savedAt, taskId: record.taskId,
-                        requestId: decision.id, decisionId: answer.id, callerId: answer.callerId ?? actorOf(request).actor, actorId: actorOf(request).actor },
+                        requestId: decision.id, decisionId: answer.id, callerId: answer.callerId ?? record.actor, actorId: answer.actorId ?? record.actor },
                 } });
                 items.push({ time: input.savedAt, value: { kind: 'input', input } });
             }
@@ -433,10 +447,12 @@ export function createTaskServer(
         });
         server.get('/api/v1/tasks/:taskId/decision-requests', async request => {
             const query = decisionList.parse(request.query);
-            const record = tasks.get(actorOf(request).scope, actorOf(request).actor, params.parse(request.params).taskId);
+            const record = access(actorOf(request), params.parse(request.params).taskId, 'read');
             const { app, ownerId, executionId } = await dispatcher.runtime(record);
+            const execution = await app.query.queryExecution(ownerId, executionId);
+            const stopped = ['stopping', 'stopped'].includes(execution.phase);
             const requests = (await app.query.queryRequests(ownerId, executionId))
-                .filter(item => !query.status || item.status === query.status);
+                .filter(item => (!query.status || item.status === query.status) && (!stopped || item.status === 'answered'));
             return paginate(requests.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
                 .map(item => summary(record, item)), query);
         });
@@ -445,16 +461,20 @@ export function createTaskServer(
             const { corrects, materials: attachments, ...payload } = answer.parse(request.body);
             const { files, references } = splitMaterials(attachments);
             const idempotencyKey = key.parse(request.headers['idempotency-key']);
-            const { record, runtime: { app, ownerId, executionId, submitDecision } } = await locate(actorOf(request), requestId);
-            const decision = await submitDecision(requestId, idempotencyKey, {
-                ...payload, text: payload.text ?? '', files, callerId: actorOf(request).callerId, ...(corrects ? { correctionOf: corrects } : {}),
+            const actor = actorOf(request);
+            const { record, runtime: { app, ownerId, executionId, submitDecision } } = await locate(actor, requestId, 'answer');
+            const commandKey = actor.grant
+                ? 'grant:' + createHash('sha256').update(JSON.stringify([actor.actor, idempotencyKey])).digest('hex')
+                : idempotencyKey;
+            const decision = await submitDecision(requestId, commandKey, {
+                ...payload, text: payload.text ?? '', files, callerId: actor.callerId, ...(actor.grant ? { actorId: actor.actor } : {}), ...(corrects ? { correctionOf: corrects } : {}),
                 ...(references.length ? { references } : {}),
-            });
+            }, uploader(actor));
             const input = (await app.query.queryInputs(ownerId, executionId)).find(item => item.kind === 'user-decision' && item.sourceId === decision.id);
             requireRule(input, 'blocked');
             return reply.code(201).send({
                 inputId: input.id, taskId: record.taskId, savedAt: decision.at, requestId,
-                decisionId: decision.id, callerId: decision.callerId ?? actorOf(request).actor, actorId: actorOf(request).actor,
+                decisionId: decision.id, callerId: decision.callerId ?? record.actor, actorId: decision.actorId ?? record.actor,
             });
         });
     }
