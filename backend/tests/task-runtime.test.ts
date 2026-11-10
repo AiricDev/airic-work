@@ -65,9 +65,10 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     const db = openSqliteDatabase(join(directory, 'registry.sqlite'));
     const taskDirectory = join(directory, 'tasks');
     const uploads = new SqliteTaskUploads(db, await LocalBlobFiles.open(join(directory, 'uploads')));
+    let taskCount = 0;
     const tasks = new TaskCreationUseCases(
         new SqliteTaskRegistry(db), new SqliteTaskInitializer(taskDirectory),
-        value => taskFingerprint(Buffer.alloc(32, 2), value), () => 'review', () => '2026-11-09T00:00:00Z',
+        value => taskFingerprint(Buffer.alloc(32, 2), value), () => taskCount++ === 0 ? 'review' : 'local-review', () => '2026-11-09T00:00:00Z',
         (scope, actor, taskId, ids) => uploads.bind(scope, actor, taskId, ids),
     );
     const options = {
@@ -103,8 +104,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     let dispatcher = startDispatcher();
     const defaultOm = { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' };
     const contract = taskContract();
-    const notification = { bearerToken: 'test-notification-credential-distinct', scope: integration.scope };
-    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm, notification);
+    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
     try {
         const payload = '--boundary\r\nContent-Disposition: form-data; name="file"; filename="evidence.txt"\r\n'
             + 'Content-Type: text/plain\r\n\r\nPersisted evidence\r\n--boundary--\r\n';
@@ -142,12 +142,13 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         const taskUrl = '/api/v1/tasks/review';
         const completion = {
             method: 'POST' as const, url: `${taskUrl}/notify`,
-            headers: { authorization: `Bearer ${notification.bearerToken}`, 'idempotency-key': 'event-1' },
+            headers: { authorization: `Bearer ${bearerToken}`, 'idempotency-key': 'event-1' },
             payload: { eventId: 'event-1', type: 'invoice.paid', revision: 'rev-2', object: { system: 'billing', kind: 'invoice', id: 'inv-1' } },
         };
         expect((await contract.inject(server, { ...completion, url: `${taskUrl}-missing/notify` })).statusCode).toBe(404);
-        expect((await contract.inject(server, { ...completion, headers })).statusCode).toBe(401);
-        expect((await contract.inject(server, { url: taskUrl, headers: completion.headers })).statusCode).toBe(401);
+        expect((await contract.inject(server, { ...completion, headers })).statusCode).toBe(403);
+        expect((await contract.inject(server, completion)).statusCode).toBe(404);
+        expect((await contract.inject(server, { ...completion, headers: {} })).statusCode).toBe(401);
 
         const detail = (await contract.inject(server, { url: taskUrl, headers })).json();
         expect(detail).toMatchObject({ phase: 'waiting', pendingRequestCount: 1 });
@@ -222,7 +223,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(steeringContext).toContain('Continued');
         expect(session).toContain('Persisted evidence');
         expect(session).toContain('report-demo');
-        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm, notification);
+        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
         try {
             const download = await contract.inject(reopened, { url: `${taskUrl}/files/${uploadId}`, headers });
             expect(download.statusCode).toBe(200);
@@ -268,9 +269,6 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             const queued = await contract.inject(reopened, steering);
             expect(queued.statusCode).toBe(201);
             const cancel = { method: 'POST' as const, url: `${taskUrl}/cancel`, headers };
-            const notified = await contract.inject(reopened, completion);
-            expect(notified.statusCode).toBe(201);
-            expect((await contract.inject(reopened, completion)).json()).toEqual(notified.json());
             const [accepted, racedAnswer] = await Promise.all([
                 contract.inject(reopened, cancel),
                 contract.inject(reopened, { ...supplement, headers: { ...headers, 'idempotency-key': 'raced-answer' } }),
@@ -298,6 +296,21 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             const restored = await dispatcher.runtime(tasks.get(integration.scope, 'owner', 'review'));
             expect((await restored.app.query.queryExecution(restored.ownerId, restored.executionId)).phase).toBe('stopped');
             expect(restored.inputFacts().find(item => item.inputId === queued.json().inputId)?.delivery.state).toBe('paused');
+            const localHeaders = { authorization: `Bearer ${bearerToken}` };
+            const localTask = await contract.inject(reopened, {
+                method: 'POST', url: '/api/v1/tasks',
+                headers: { ...localHeaders, 'idempotency-key': 'local-create' },
+                payload: { instruction: 'Review locally' },
+            });
+            expect(localTask.statusCode).toBe(201);
+            const localNotice = await contract.inject(reopened, {
+                ...completion, url: `/api/v1/tasks/${localTask.json().taskId}/notify`,
+                headers: { ...completion.headers, ...localHeaders },
+            });
+            expect(localNotice.statusCode).toBe(201);
+            expect((await contract.inject(reopened, {
+                ...completion, url: `/api/v1/tasks/${localTask.json().taskId}/notify`,
+            })).json()).toEqual(localNotice.json());
             contract.expectCoverage({ except: ['replaceConnectionCredential', 'getOmStatus'] });
         } finally { await reopened.close(); }
     } finally {

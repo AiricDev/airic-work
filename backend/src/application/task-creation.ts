@@ -46,14 +46,6 @@ export class TaskCreationUseCases {
         return this.registry.readyIds(scope, actor).map(id => this.get(scope, actor, id));
     }
 
-    /** A notification credential authorizes delivery within its integration scope. */
-    notificationTarget(scope: string, taskId: string): TaskCreationRecord {
-        requireRule(this.registry.get(taskId)?.state === 'ready', 'not-found');
-        const record = this.initializer.read(taskId);
-        requireRule(record.scope === scope, 'not-found');
-        return record;
-    }
-
     get(scope: string, actor: string, taskId: string): TaskCreationRecord {
         requireRule(this.registry.get(taskId)?.state === 'ready', 'not-found');
         const record = this.initializer.read(taskId);

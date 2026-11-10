@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
 import { registerTaskDocs } from './task-docs';
 import Fastify, { type FastifyRequest } from 'fastify';
 import { taskAuthenticator, type TaskActor, type TaskDelegation } from './task-auth';
@@ -87,13 +86,8 @@ export function createTaskServer(
     integration?: TaskDelegation,
     omStatus?: () => Promise<{ source: string; kind: 'local' | 'managed'; state: string; revision?: string }>,
     defaultOm?: { source: string; revision: string; entry: string },
-    notification?: { bearerToken: string; scope: string },
 ) {
     const authenticate = taskAuthenticator(identity, integration);
-    const digest = (value: string) => createHash('sha256').update(value).digest();
-    if (notification) requireRule(notification.bearerToken.length >= 32 && /^[!-~]+$/.test(notification.bearerToken)
-        && notification.bearerToken !== identity.bearerToken && notification.bearerToken !== integration?.bearerToken, 'invalid');
-    const notificationDigest = notification && digest(`Bearer ${notification.bearerToken}`);
     const actors = new WeakMap<FastifyRequest, TaskActor>();
     function actorOf(request: FastifyRequest) {
         const actor = actors.get(request);
@@ -105,12 +99,6 @@ export function createTaskServer(
         reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
         const config = request.routeOptions.config;
         if ('publicTaskEndpoint' in config && config.publicTaskEndpoint === true) return;
-        if ('taskNotification' in config && config.taskNotification) {
-            if (notificationDigest && timingSafeEqual(digest(request.headers.authorization ?? ''), notificationDigest)) return;
-            return reply.header('WWW-Authenticate', 'Bearer').code(401).send({
-                code: 'invalid_identity', message: 'Invalid notification credentials', retryable: false,
-            });
-        }
         const actor = authenticate(request.headers.authorization, request.headers['x-airic-actor-assertion']);
         if (!actor) return reply.header('WWW-Authenticate', 'Bearer').code(401).send({
             code: 'invalid_identity', message: 'Invalid credentials', retryable: false,
@@ -319,8 +307,9 @@ export function createTaskServer(
             });
             return stop;
         });
-        server.post('/api/v1/tasks/:taskId/notify', { config: { taskNotification: true } }, async (request, reply) => {
-            requireRule(notification, 'forbidden');
+        server.post('/api/v1/tasks/:taskId/notify', async (request, reply) => {
+            const actor = actorOf(request);
+            requireRule(actor.scope === identity.scope && actor.actor === identity.actor, 'forbidden');
             const { materials: attachments, ...update } = z.strictObject({
                 eventId: text, type: text, revision: text,
                 object: externalRef,
@@ -330,7 +319,7 @@ export function createTaskServer(
             requireRule(!files.length && references.every(source => source.revision), 'invalid');
             const eventKey = key.parse(request.headers['idempotency-key']);
             requireRule(eventKey === update.eventId, 'invalid');
-            const record = tasks.notificationTarget(notification.scope, params.parse(request.params).taskId);
+            const record = tasks.get(actor.scope, actor.actor, params.parse(request.params).taskId);
             const runtime = await dispatcher.runtime(record);
             const saved = await runtime.submitSteering(`notify:${eventKey}`, '', [], references, update);
             const input = (await runtime.app.query.queryInputs(runtime.ownerId, runtime.executionId))

@@ -58,7 +58,7 @@ Airic Work 宿主在 Task 的 MCP JSON-RPC 请求中通过 `params._meta` 传递
 
 例如，业务应用可以用可信的 Task ID 归因 Agent 创建的事项，在事项完成后向原 Task 发送结构化通知。
 
-外部系统负责确认事件与原 Task 的业务关联，并用对应集成范围的后台凭据调用 `notify`。Airic Work 按事件 ID 幂等保存，将事件与人工 steering 一起投递到主 Session。事件类型、外部对象引用及其版本由发送方定义，Worker 按 OM 解释并按需读取最新业务事实。
+外部系统负责确认事件与原 Task 的业务关联，并用 `AIRIC_TASK_TOKEN` 调用 `notify`。Airic Work 按事件 ID 幂等保存，将事件与人工 steering 一起投递到主 Session。事件类型、外部对象引用及其版本由发送方定义，Worker 按 OM 解释并按需读取最新业务事实。
 
 ## Decision Request 与续行
 
@@ -84,7 +84,7 @@ Task API 分开呈现本轮运行状态、等待依赖、受阻原因及停止�
 | --- | --- |
 | `POST /tasks`，`GET /tasks`，`GET /tasks/{taskId}` | 创建、筛选和查询 Task。创建返回持久 Task ID 与当前状态。 |
 | `POST /tasks/{taskId}/steering`，`POST /tasks/{taskId}/cancel` | 追加输入及记录停止意图。 |
-| `POST /tasks/{taskId}/notify` | 按集成范围授权，接收外部系统的结构化事件。 |
+| `POST /tasks/{taskId}/notify` | 接收外部系统发往直接身份所属 Task 的结构化事件。 |
 | `GET /decision-requests`，`GET /tasks/{taskId}/decision-requests` | 分页读取有权查看的待办和任务问题，支持状态及外部引用筛选。 |
 | `GET /decision-requests/{requestId}`，`GET /decision-requests/{requestId}/episode` | 读取问题、依据版本和完整协作记录。 |
 | `POST /decision-requests/{requestId}/user-decisions` | 提交或更正回答，返回持久回答 ID 及当前投递状态。 |

@@ -23,7 +23,6 @@ const compose = spawnSync('docker', [
     stdio: 'inherit',
     env: {
         ...environment,
-        AIRIC_TASK_ENV_FILE: config,
         AIRIC_OM_REPOSITORY: repository,
         AIRIC_DEPLOY_DATA: realpathSync(data),
         AIRIC_DEPLOY_OM_MOUNT: realpathSync(isAbsolute(repository) ? repository : empty),
