@@ -64,7 +64,7 @@ export function taskTrace(entries: EntryRecord[]): TaskTraceEvent[] {
             if (!text || !Number.isFinite(message.timestamp)) continue;
             events.push({
                 eventId: `${entry.id}:${index}`, recordedAt: new Date(message.timestamp).toISOString(),
-                kind: 'message', role: message.role === 'assistant' ? 'agent' : 'user', text,
+                kind: 'message', role: entry.kind === 'aw.branch-summary' ? 'worker' : message.role === 'assistant' ? 'agent' : 'user', text,
             });
         }
     }

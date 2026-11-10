@@ -58,8 +58,8 @@ export function validateContractExamples() {
         for (const nested of Object.values(node)) visit(nested);
     }
     visit(spec);
-    expect(new Set(operations.map(({ operation }) => operation.operationId)).size).toBe(16);
-    expect(operations).toHaveLength(16);
+    expect(new Set(operations.map(({ operation }) => operation.operationId)).size).toBe(17);
+    expect(operations).toHaveLength(17);
 }
 
 export function taskContract() {

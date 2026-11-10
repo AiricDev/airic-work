@@ -22,7 +22,7 @@ export class ApplicationWorkerHost implements WorkerHost {
     }
     async input(e: Execution, input: Input) {
         requireRule(input.sessionId === e.sessionId && input.executionId === e.id && input.userId === e.ownerId, 'forbidden');
-        if (input.kind !== 'user-decision') return { content: JSON.stringify({ kind: input.kind, task: e.creation.task, instruction: e.creation.instruction, text: input.text, files: input.files, references: input.references }) };
+        if (input.kind !== 'user-decision') return { content: JSON.stringify({ kind: input.kind, task: e.creation.task, instruction: e.creation.instruction, text: input.text, files: input.files, references: input.references, update: input.update }) };
         const requests = await this.store.requests(e.id);
         for (const request of requests) {
             const decision = (await this.store.decisions(request.id)).find(d => d.id === input.sourceId);

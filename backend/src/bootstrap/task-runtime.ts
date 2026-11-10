@@ -57,14 +57,14 @@ export async function openTaskRuntime(
             try { credentials?.observe(record.taskId, id, revision, status); }
             catch { console.error(JSON.stringify({ taskId: record.taskId, code: 'mcp_status_persistence_failed' })); }
         },
-    });
+    }, fetch, record.taskId);
     const worker = createWorker({
         ...options,
         loadSkill: async () => persistence.store.workerSkill()
             ?? persistence.store.pinWorkerSkill(await readFile(options.skillPath, 'utf8')),
         directory: join(taskDirectory, 'runtime'),
         tools: async execution => [
-            ...(connectionIds.length ? mcpWorkerTools(app, execution, record.taskId) : []),
+            ...(connectionIds.length ? mcpWorkerTools(app, execution) : []),
             ...(dockerWorkspace ? [defineTool({
                 name: 'work_run_command',
                 replay: 'unsafe',
@@ -192,8 +192,8 @@ export async function openTaskRuntime(
             app,
             ownerId: owner.id,
             executionId: execution.id,
-            submitSteering(key: string, text: string, files: string[], references: Parameters<Application['input']['submitSteering']>[5]) {
-                return withAttachments(files, () => app.input.submitSteering(owner.id, execution.id, key, text, files, references));
+            submitSteering(key: string, text: string, files: string[], references: Parameters<Application['input']['submitSteering']>[5], update?: Parameters<Application['input']['submitSteering']>[6]) {
+                return withAttachments(files, () => app.input.submitSteering(owner.id, execution.id, key, text, files, references, update));
             },
             submitDecision(requestId: string, key: string, payload: Parameters<Application['decision']['submitUserDecision']>[3]) {
                 return withAttachments(payload.files, () => app.decision.submitUserDecision(owner.id, requestId, key, payload));
@@ -218,13 +218,17 @@ export async function openTaskRuntime(
                 const scopes = await worker.runtime.decisionScopes(current);
                 const work = new Map<string, { workId: string; label: string; waitingOn: string[] }>();
                 for (const request of requests) {
-                    const scope = scopes.get(request.id);
-                    if (!scope) continue; // Control record committed before the Session anchor.
-                    const item = work.get(scope.workId) ?? { ...scope, waitingOn: [] };
-                    if (request.status === 'pending') item.waitingOn.push(request.id);
-                    work.set(scope.workId, item);
+                    for (const scope of scopes.get(request.id) ?? []) {
+                        const item = work.get(scope.workId) ?? { ...scope, waitingOn: [] };
+                        if (request.status === 'pending') item.waitingOn.push(request.id);
+                        work.set(scope.workId, item);
+                    }
                 }
                 return [...work.values()];
+            },
+            async decisionScopes() {
+                const current = await persistence.store.execution(execution.id);
+                return worker.runtime.decisionScopes(current);
             },
             async decisionScope(requestId: string) {
                 const current = await persistence.store.execution(execution.id);
@@ -239,7 +243,7 @@ export async function openTaskRuntime(
             async needsRun() {
                 const current = await persistence.store.execution(execution.id);
                 return current.phase === 'new' || current.phase === 'running'
-                    || (current.phase === 'ended' && (await runner.runnableInputs(current)).length > 0);
+                    || (current.phase === 'ended' && await app.input.nextReadyInput(current) !== undefined);
             },
             async run() {
                 if (!options.diagnostic) return runner.run(owner.id, execution.id, om.revision);

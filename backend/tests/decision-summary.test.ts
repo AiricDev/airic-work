@@ -34,6 +34,8 @@ it('migrates existing questions intact and persists a separate summary with its 
             DROP TABLE execution_activity;
             DROP TABLE task_worker_skill;
             DROP TABLE task_outputs;
+            ALTER TABLE inputs DROP COLUMN business_update;
+            ALTER TABLE steering_inputs DROP COLUMN business_update;
             ALTER TABLE user_decisions DROP COLUMN supplements;
             ALTER TABLE user_decisions DROP COLUMN intent;
             ALTER TABLE inputs DROP COLUMN material_references;

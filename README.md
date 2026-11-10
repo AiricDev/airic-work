@@ -6,7 +6,7 @@ When the worker needs human input, it creates a Decision Request with the questi
 
 The target HTTP API is described by OpenAPI. Import the YAML into Swagger Editor to browse the operations and examples. To exercise business operations, the developer can add an authorized MCP connection. Business applications can use the same API in their own interfaces and retain authority over their business records and permissions.
 
-- [Product definition](docs/prd.md) · [Target OpenAPI YAML](docs/openapi.yaml)
+- [Product definition](docs/prd.md) · [Target OpenAPI YAML](docs/openapi.yaml) · [MCP integration protocol](docs/technical-design.md#mcp-集成协议)
 
 ## Current implementation
 

@@ -23,7 +23,6 @@ it('persists questions, continues independent work, routes reverse answers, dedu
     const receipt = await runtime.deliver(e, input('start'));
     await runtime.drain(e.sessionId);
     expect(questions).toEqual(['A', 'B']);
-    expect(await runtime.independentAnswers(e, input('x', 'A'), input('y', 'B'))).toBe(true);
     expect(await runtime.deliver(e, input('start'))).toBe(receipt);
     faux.setResponses([text('B continued'), text('A continued')]);
     await runtime.deliver(e, input('answer-B', 'B')); await runtime.drain(e.sessionId);
@@ -126,7 +125,6 @@ it('reuses one continuation when two questions block the same work', async () =>
     faux.setResponses([text('partial response B'), text('remaining response A')]);
     await r.deliver(e, input('B-reply', 'B')); await r.drain(e.sessionId);
     await r.deliver(e, input('A-reply', 'A')); await r.drain(e.sessionId);
-    expect(await r.independentAnswers(e, input('x', 'A'), input('y', 'B'))).toBe(false);
     expect(new Set((await r.records(e.sessionId)).map(record => record.conversationId)).size).toBe(2);
 });
 
@@ -186,4 +184,63 @@ it('rejects an unknown continuation before saving a request so a corrected tool 
     await r.deliver(e, input('start')); await r.drain(e.sessionId);
     expect(saved).toEqual(['O7']);
     expect(JSON.stringify(await r.records(e.sessionId))).toContain('unknown continuation');
+});
+
+it('routes one decision to two anchored scopes and deduplicates the input after reopening', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'airic-fanout-')); directories.push(dir);
+    const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
+    const requests: string[] = [];
+    const host: WorkerHost = {
+        assembly: async () => ({ worker: 'worker', root: 'om', version: 'fixed' }),
+        check: async () => {},
+        input: async (_e, i) => ({ content: i.text, ...(i.kind === 'user-decision' ? { requestId: i.sourceId } : {}) }),
+        request: async (_e, _key, question) => { requests.push(question); return question; },
+        pendingRequests: async () => requests,
+    };
+    const open = () => {
+        const runtime = new PiRuntime(dir, models, { provider: 'faux', modelId: 'faux-1' }, host);
+        runtimes.push(runtime);
+        return runtime;
+    };
+    let runtime = open();
+    await runtime.start(e);
+    faux.setResponses([
+        ask('maintenance'),
+        fauxAssistantMessage([fauxToolCall('work_wait_for_decision', { requestId: 'maintenance', scope: 'test-plan' }, { id: 'reuse' })], { stopReason: 'toolUse' }),
+        text('Waiting'),
+    ]);
+    await runtime.deliver(e, input('start'));
+    await runtime.drain(e.sessionId);
+    expect(requests).toEqual(['maintenance']);
+    const scopes = await runtime.decisionScope(e, 'maintenance');
+    expect(scopes.map(scope => scope.label)).toEqual(['maintenance', 'test-plan']);
+    const answer = input('shared-answer', 'maintenance');
+    faux.setResponses([ask('follow-up'), text('Second scope resumed')]);
+    const receipt = await runtime.deliver(e, answer);
+    await runtime.drain(e.sessionId);
+    await runtime.close();
+    runtime = open();
+    await runtime.ensure(e);
+    expect(await runtime.deliver(e, answer)).toBe(receipt);
+    await runtime.drain(e.sessionId);
+    const entries = (await runtime.records(e.sessionId)).filter(entry => entry.kind === 'aw.user-decision');
+    expect(entries.map(entry => entry.data)).toMatchObject(scopes.map(({ workId }) => ({ inputId: answer.id, requestId: 'maintenance', workId })));
+    expect(new Set(entries.map(entry => entry.conversationId)).size).toBe(2);
+    expect(requests).toEqual(['maintenance', 'follow-up']);
+    expect(JSON.stringify(await runtime.records(e.sessionId))).toContain('Second scope resumed');
+    const summaries = (await runtime.records(e.sessionId)).filter(entry => entry.kind === 'aw.branch-summary');
+    expect(summaries.map(entry => entry.data)).toMatchObject([
+        { inputId: answer.id, status: 'waiting', requests: ['follow-up'] },
+        { inputId: answer.id, status: 'ended', requests: [] },
+    ]);
+    let rootContext = '';
+    faux.setResponses([context => {
+        rootContext = JSON.stringify(context.messages);
+        return text('Main work continued');
+    }]);
+    await runtime.deliver(e, { ...input('steer'), kind: 'steering', text: 'Check progress' });
+    await runtime.drain(e.sessionId);
+    expect(rootContext).toContain('worker-branch-summary');
+    expect(rootContext).toContain('Second scope resumed');
+
 });

@@ -241,8 +241,8 @@ export class SqliteControlStore implements ControlStore {
             const e = this.owned(k.userId, s.executionId);
             requireRule(s.userId === k.userId, 'forbidden');
             requireRule(e.phase !== 'stopping' && e.phase !== 'stopped', 'conflict', 'task_stopped');
-            requireRule(s.text.trim() || s.files.length || s.references?.length, 'invalid');
-            requireRule(input.text === s.text && same(input.references ?? [], s.references ?? []), 'conflict');
+            requireRule(s.text.trim() || s.files.length || s.references?.length || s.update, 'invalid');
+            requireRule(input.text === s.text && same(input.references ?? [], s.references ?? []) && same(input.update ?? null, s.update ?? null), 'conflict');
             this.files(k.userId, e.id, s.files);
             this.db.insert(t.steering).values(s).run();
             this.saveInput(e, input, 'steering', s.id, s.files);

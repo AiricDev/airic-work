@@ -26,7 +26,9 @@ type Link = { parent?: string; source: ConversationId; at?: EntryId; target?: Co
 const State = defineDoc<{
     execution: string; assembly: string; generation: number; stopped: boolean; quiescing: boolean;
     active: TaskId | null; receipts: Record<string, { digest: string; task: TaskId }>;
-    links: Record<string, Link>; intents: Record<string, { wait: boolean; requests: string[] }>;
+    deliveredRequests?: Record<string, boolean>;
+    links: Record<string, Link>; points?: Record<string, Record<string, Link>>;
+    intents: Record<string, { wait: boolean; requests: string[] }>;
 }>({ kind: 'aw.runtime', version: 1, scope: 'session', checkpointWhen: () => false,
     initial: () => ({ execution: '', assembly: '', generation: 0, stopped: true, quiescing: false, active: null, receipts: {}, links: {}, intents: {} }) });
 const Anchor = defineTask<null, { phase: 'done' }, null>({ name: 'aw.anchor', version: 1, initial: () => ({ phase: 'done' }),
@@ -58,7 +60,7 @@ export class PiRuntime implements Runtime {
             const digest = createHash('sha256').update(canonical({ ...assembly, model: this.model, runtime: 'pi-durable@1.4.0' })).digest('hex');
             const registry = createRegistry();
             const extraTools = await this.host.tools?.(e) ?? [];
-            requireRule(!extraTools.some(t => t.name.startsWith('work_request_decision') || t.name === 'work_yield'), 'invalid');
+            requireRule(!extraTools.some(t => t.name.startsWith('work_request_decision') || ['work_yield', 'work_wait_for_decision'].includes(t.name)), 'invalid');
             let h!: Harness;
             const current = () => this.session(e.sessionId).e;
             const guard = async () => {
@@ -98,10 +100,33 @@ export class PiRuntime implements Runtime {
                             const intent = s.intents[String(t.input.target)];
                             const at = (await tx.appendEntry(t.input.target, { kind: 'aw.anchor', data: { slice: t.id } })).id;
                             for (const id of intent?.requests ?? []) s.links[id].at = at;
+                            let attachedPoint = false;
+                            for (const points of Object.values(s.points ?? {})) {
+                                for (const point of Object.values(points)) {
+                                    if (point.source !== t.input.target || point.at) continue;
+                                    point.at = at;
+                                    attachedPoint = true;
+                                }
+                            }
                             delete s.intents[String(t.input.target)];
                             s.active = null;
-                            if (tail.items[0]?.kind === 'pi.tool-result' && !intent?.wait) {
-                                await tx.createTask(Slice, { ...t.input, content: 'Continue the current scope. Do not repeat completed operations.', kind: 'aw.continue' }, { conversationId: 1 as ConversationId, ownership: { kind: 'conversation' }, background: true });
+                            const awaitingDecision = t.input.continuation && (intent?.requests.length || attachedPoint);
+                            if (tail.items[0]?.kind === 'pi.tool-result' && !intent?.wait && !awaitingDecision) {
+                                s.active = await tx.createTask(Slice, { ...t.input, content: 'Continue the current scope. Do not repeat completed operations.', kind: 'aw.continue' }, { conversationId: 1 as ConversationId, ownership: { kind: 'conversation' }, background: true });
+                            }
+                            else if (t.input.continuation && t.input.target !== 1) {
+                                const waiting = Boolean(awaitingDecision || intent?.wait);
+                                const summary = (tail.items[0]?.model ?? []).flatMap(message =>
+                                    message.role === 'assistant' && Array.isArray(message.content)
+                                        ? message.content.flatMap(part => part.type === 'text' ? [part.text] : []) : [])
+                                    .join('\n').slice(0, 2000);
+                                const data = { ...t.input.continuation, conversationId: t.input.target,
+                                    status: waiting ? 'waiting' : 'ended', requests: intent?.requests ?? [], scope: t.input.scope };
+                                await tx.appendEntry(1 as ConversationId, {
+                                    kind: 'aw.branch-summary', data,
+                                    model: [{ role: 'user', timestamp: Date.now(),
+                                        content: JSON.stringify({ kind: 'worker-branch-summary', ...data, summary }) }],
+                                });
                             }
                             return { status: 'terminal', outcome: { status: 'completed', result: null } } as const;
                         }, c);
@@ -130,6 +155,29 @@ export class PiRuntime implements Runtime {
                         }, context);
                         return { output: [{ type: 'text', text: JSON.stringify({ decisionRequestId: id, continuationId: args.continuationId ?? id }) }], control: { terminate: true } };
                     } }),
+                defineTool({
+                    name: 'work_wait_for_decision',
+                    description: 'Attach this distinct work scope to an existing unanswered Decision Request when the same answer resolves both. Use a different scope label for each waiting point.',
+                    parameters: Type.Object({ requestId: Type.String(), scope: Type.String({ minLength: 1 }) }),
+                    replay: 'safe',
+                    execute: async ({ requestId, scope }, api) => {
+                        await guard();
+                        const workId = `point-${api.taskId}`;
+                        const previous = await h.snapshot(State, context);
+                        if (previous?.points?.[requestId]?.[workId]) {
+                            return { output: [{ type: 'text', text: JSON.stringify({ requestId, workId }) }], control: { terminate: true } };
+                        }
+                        requireRule(previous?.links[requestId] && (await this.host.pendingRequests?.(current()))?.includes(requestId), 'invalid', 'decision is not pending');
+                        await api.commit(async tx => {
+                            const state = await tx.doc(State);
+                            requireRule(state.links[requestId] && !state.deliveredRequests?.[requestId], 'invalid', 'decision already delivered');
+                            state.points ??= {};
+                            state.points[requestId] ??= {};
+                            state.points[requestId][workId] = { source: api.conversationId, scope };
+                        }, context);
+                        return { output: [{ type: 'text', text: JSON.stringify({ requestId, workId }) }], control: { terminate: true } };
+                    },
+                }),
                 defineTool({ name: 'work_yield', description: 'Yield this scope. Waiting does not block other scopes.', parameters: Type.Object({ summary: Type.String() }), replay: 'safe', execute: async (args, api) => {
                     await guard();
                     await api.commit(async tx => { const s = await tx.doc(State); s.intents[String(api.conversationId)] ??= { wait: false, requests: [] };
@@ -146,14 +194,6 @@ export class PiRuntime implements Runtime {
             } catch (error) { await h.close(context); throw error; }
         } catch (error) { await release(); throw error; }
     }
-    async independentAnswers(e: Execution, earlier: Input, later: Input) {
-        await this.ensure(e);
-        const a = await this.host.input(e, earlier);
-        const b = await this.host.input(e, later);
-        const state = await this.session(e.sessionId).h.snapshot(State, context);
-        if (!a.requestId || !b.requestId || !state?.links[a.requestId] || !state.links[b.requestId]) return false;
-        return (state.links[a.requestId].parent ?? a.requestId) !== (state.links[b.requestId].parent ?? b.requestId);
-    }
     async answerReady(e: Execution, input: Input) {
         if (input.kind !== 'user-decision') return true;
         await this.ensure(e);
@@ -163,7 +203,7 @@ export class PiRuntime implements Runtime {
         if (state.receipts[input.id]) return true;
         const link = state.links[requestId];
         const workId = link?.parent ?? requestId;
-        if (!link?.at || !state.links[workId]?.at) return false;
+        if (!link?.at || !state.links[workId]?.at || Object.values(state.points?.[requestId] ?? {}).some(point => !point.at)) return false;
         const pending = await this.host.pendingRequests?.(e) ?? [];
         return !pending.some(id => (state.links[id]?.parent ?? id) === workId);
     }
@@ -181,14 +221,17 @@ export class PiRuntime implements Runtime {
         await this.ensure(e);
         const state = await this.session(e.sessionId).h.snapshot(State, context);
         return new Map(Object.entries(state?.links ?? {}).map(([requestId, link]) => [
-            requestId, { workId: link.parent ?? requestId, label: link.scope },
+            requestId, [
+                { workId: link.parent ?? requestId, label: link.scope },
+                ...Object.entries(state?.points?.[requestId] ?? {}).map(([workId, point]) => ({ workId, label: point.scope })),
+            ],
         ]));
     }
 
     async decisionScope(e: Execution, requestId: string) {
-        const scope = (await this.decisionScopes(e)).get(requestId);
-        requireRule(scope, 'blocked', 'decision anchor is not ready');
-        return scope;
+        const scopes = (await this.decisionScopes(e)).get(requestId);
+        requireRule(scopes, 'blocked', 'decision anchor is not ready');
+        return scopes;
     }
 
     async accepted(sessionId: string, inputId: string) {
@@ -221,24 +264,33 @@ export class PiRuntime implements Runtime {
             requireRule(!s.stopped && !s.quiescing && s.generation === e.generation, 'blocked');
             const old = s.receipts[input.id];
             if (old) { requireRule(old.digest === digest, 'conflict'); return old.task; }
-            let target = root.id;
-            let scope = e.creation.instruction;
-            let continuation: SliceInput['continuation'];
-            if (envelope.requestId) {
-                const origin = s.links[envelope.requestId];
-                const link = origin?.parent ? s.links[origin.parent] : origin;
-                requireRule(link?.at, 'blocked', 'question anchor not ready');
-                scope = link.scope;
-                continuation = { inputId: input.id, requestId: envelope.requestId, workId: origin.parent ?? envelope.requestId };
-                if (!link.target) {
-                    const anchor = await tx.createTask(Anchor, null, { ownership: { kind: 'conversation' }, background: true });
-                    const branch = await tx.forkConversation(link.source, link.at, { ownership: { kind: 'task', taskId: anchor } });
-                    await configure(tx, branch.id, { instructions: `Continue ONLY this scope: ${scope}. Recheck current business facts; history does not roll back external effects.` });
-                    link.target = branch.id;
+            const enqueue = (target: ConversationId, scope: string, continuation?: SliceInput['continuation']) =>
+                this.session(e.sessionId).enqueue(tx, { target, scope, content, kind: `aw.${input.kind}`, generation: e.generation,
+                    ...(continuation ? { continuation } : {}) });
+            let id: TaskId | undefined;
+            const requestId = envelope.requestId;
+            if (requestId) {
+                s.deliveredRequests ??= {};
+                s.deliveredRequests[requestId] = true;
+                const origin = s.links[requestId];
+                const workId = origin?.parent ?? requestId;
+                const link = s.links[workId];
+                requireRule(link, 'blocked', 'question anchor not ready');
+                for (const [pointId, point] of [[workId, link] as const, ...Object.entries(s.points?.[requestId] ?? {})]) {
+                    requireRule(point.at, 'blocked', 'question anchor not ready');
+                    if (!point.target) {
+                        const anchor = await tx.createTask(Anchor, null, { ownership: { kind: 'conversation' }, background: true });
+                        const branch = await tx.forkConversation(point.source, point.at, { ownership: { kind: 'task', taskId: anchor } });
+                        await configure(tx, branch.id, { instructions: `Continue ONLY this scope: ${point.scope}. Recheck current business facts; history does not roll back external effects.` });
+                        point.target = branch.id;
+                    }
+                    const queued = await enqueue(point.target, point.scope, { inputId: input.id, requestId, workId: pointId });
+                    id ??= queued;
                 }
-                target = link.target;
+            } else {
+                id = await enqueue(root.id, e.creation.instruction);
             }
-            const id = await this.session(e.sessionId).enqueue(tx, { target, scope, content, kind: `aw.${input.kind}`, generation: e.generation, ...(continuation ? { continuation } : {}) });
+            requireRule(id, 'blocked');
             s.receipts[input.id] = { task: id, digest };
             return id;
         }, context);

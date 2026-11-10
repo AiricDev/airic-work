@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import type { Context, Creation, MaterialReference, Method, Option, Preferences } from '../../../domain/model';
+import type { BusinessUpdate, Context, Creation, MaterialReference, Method, Option, Preferences } from '../../../domain/model';
 
 // SQL 约束及索引见 migrations.ts；此处只提供外层查询映射。
 export const users = sqliteTable('users', {
@@ -34,11 +34,13 @@ export const decisions = sqliteTable('user_decisions', {
     files: text({ mode: 'json' }).$type<string[]>().notNull(), correctionOf: text('correction_of'), at: text().notNull(),
 });
 export const steering = sqliteTable('steering_inputs', {
+    update: text('business_update', { mode: 'json' }).$type<BusinessUpdate>(),
     references: text('material_references', { mode: 'json' }).$type<MaterialReference[]>(),
     id: text().primaryKey(), executionId: text('execution_id').notNull(), userId: text('user_id').notNull(),
     text: text().notNull(), files: text({ mode: 'json' }).$type<string[]>().notNull(), at: text().notNull(),
 });
 export const inputs = sqliteTable('inputs', {
+    update: text('business_update', { mode: 'json' }).$type<BusinessUpdate>(),
     references: text('material_references', { mode: 'json' }).$type<MaterialReference[]>(),
     id: text().primaryKey(), executionId: text('execution_id').notNull(), sessionId: text('session_id').notNull(),
     userId: text('user_id').notNull(), kind: text({ enum: ['start', 'user-decision', 'steering'] }).notNull(),

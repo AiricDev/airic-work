@@ -156,6 +156,32 @@ paths:
           $ref: '#/components/responses/InputSaved'
         default:
           $ref: '#/components/responses/Error'
+  /tasks/{taskId}/notify:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Tasks]
+      operationId: notifyTask
+      summary: 向 Task 主干投递外部系统事件
+      security:
+        - notificationBearer: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskNotification'
+      responses:
+        '201':
+          description: 通知已保存。同一事件重试返回原输入回执。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InputReceipt'
+        default:
+          $ref: '#/components/responses/Error'
   /tasks/{taskId}/cancel:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -293,9 +319,8 @@ paths:
       tags: [Session]
       operationId: listSessionEvents
       summary: 查询 Session 轨迹
-      description: 按持久记录顺序分页。共享工作可以关联多个请求。轨迹内容按权限投影并脱敏。
+      description: 按持久记录顺序分页，用于复盘整个 Task。事件可关联多个问题。轨迹内容按权限投影并脱敏。
       parameters:
-        - $ref: '#/components/parameters/RequestFilter'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -380,6 +405,11 @@ paths:
       tags: [Files]
       operationId: downloadTaskFile
       summary: 下载 Task 文件
+      description: |
+        Worker 产物的 fileId 来自 Task 的 outputs[].fileId。
+        上传附件绑定到 Task 后，原 uploadId 即为 fileId。
+        作答附件也可从 Episode 的 files[].fileId 获取。
+        下载时使用对应的 taskId。仅暂存的上传不可下载。
       responses:
         '200':
           description: 以附件返回文件字节
@@ -416,12 +446,16 @@ paths:
               $ref: '#/components/schemas/ConnectionAuth'
       responses:
         '204':
-          description: 连接认证配置已保存，Worker 会重新核验可用性
+          description: 连接认证配置已保存，状态重置为 unchecked。下次实际调用核验连接；保存凭据本身不触发 Task 运行。
         default:
           $ref: '#/components/responses/Error'
 
 components:
   securitySchemes:
+    notificationBearer:
+      type: http
+      scheme: bearer
+      description: 仅用于已授权的集成后台向指定任务范围发送通知。
     bearerAuth:
       type: http
       scheme: bearer
@@ -444,11 +478,6 @@ components:
       name: requestId
       in: path
       required: true
-      schema:
-        $ref: '#/components/schemas/Id'
-    RequestFilter:
-      name: requestId
-      in: query
       schema:
         $ref: '#/components/schemas/Id'
     IdempotencyKey:
@@ -701,6 +730,9 @@ components:
                   id:
                     $ref: '#/components/schemas/Id'
                   status: {type: string, enum: [unchecked, available, unavailable, authorization_failed]}
+                  issue:
+                    description: 最近一次连接失败的脱敏说明。业务工具结果另行读取。
+                    $ref: '#/components/schemas/Blocker'
     Blocker:
       type: object
       required: [code, message]
@@ -794,6 +826,7 @@ components:
           items:
             $ref: '#/components/schemas/SourceRef'
         affectedWork:
+          description: 同一个问题可以关联多个等待点。一次回答分别接续这些工作。
           type: array
           minItems: 1
           items:
@@ -832,6 +865,31 @@ components:
           $ref: '#/components/schemas/Id'
         corrects:
           $ref: '#/components/schemas/Id'
+    TaskNotification:
+      type: object
+      additionalProperties: false
+      required: [eventId, type, object, revision]
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          description: Idempotency-Key 必须等于 eventId。
+        type: {type: string, minLength: 1}
+        object:
+          $ref: '#/components/schemas/ExternalRef'
+        revision: {type: string, minLength: 1}
+        materials:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [kind, source]
+            properties:
+              kind: {const: reference}
+              source:
+                allOf:
+                  - $ref: '#/components/schemas/SourceRef'
+                  - required: [revision]
     SteeringInput:
       type: object
       additionalProperties: false
@@ -890,6 +948,7 @@ components:
                 blocker:
                   $ref: '#/components/schemas/Blocker'
             continuations:
+              description: 每个等待点独立记录续行状态，同一输入可对应多条记录。
               type: array
               items:
                 type: object

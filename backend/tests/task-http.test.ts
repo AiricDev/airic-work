@@ -53,6 +53,14 @@ it('authenticates task creation and returns the original receipt on retry', asyn
         expect(detail.body).not.toContain('secret-initial');
         expect(JSON.stringify(tasks.get('test', 'engineer', taskId))).not.toContain('secret-initial');
         expect(credentials.read(taskId, 'business').token).toBe('secret-initial');
+        const lease = credentials.lease(taskId, 'business');
+        for (const [status, code] of [['authorization_failed', 'mcp_authorization_failed'], ['unavailable', 'mcp_unavailable']] as const) {
+            credentials.observe(taskId, 'business', lease.revision, status);
+            const failed = await contract.inject(server, { url: created.headers.location as string, headers: request.headers });
+            expect(failed.json().connections).toMatchObject([{ id: 'business', status, issue: { code } }]);
+            expect(failed.body).not.toContain('secret-initial');
+            expect(failed.body).not.toContain('example.invalid');
+        }
         const rotate = {
             method: 'PUT' as const, url: `/api/v1/tasks/${taskId}/connections/business/credential`,
             headers: { ...request.headers, 'idempotency-key': 'rotate' },
@@ -63,6 +71,8 @@ it('authenticates task creation and returns the original receipt on retry', asyn
         expect((await contract.inject(server, { ...rotate, payload: { ...rotate.payload, token: 'secret-conflict' } })).statusCode).toBe(409);
         expect((await contract.inject(server, request)).statusCode).toBe(201);
         expect(credentials.read(taskId, 'business').token).toBe('secret-new');
+        const unchecked = await contract.inject(server, { url: created.headers.location as string, headers: request.headers });
+        expect(unchecked.json().connections).toEqual([{ id: 'business', status: 'unchecked' }]);
         expect((await contract.inject(server, {
             ...rotate, headers: { ...rotate.headers, 'idempotency-key': 'outside' },
             payload: { type: 'signed_endpoint', endpoint: 'https://outside.invalid/mcp' },

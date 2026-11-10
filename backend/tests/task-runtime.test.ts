@@ -103,7 +103,8 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     let dispatcher = startDispatcher();
     const defaultOm = { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' };
     const contract = taskContract();
-    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
+    const notification = { bearerToken: 'test-notification-credential-distinct', scope: integration.scope };
+    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm, notification);
     try {
         const payload = '--boundary\r\nContent-Disposition: form-data; name="file"; filename="evidence.txt"\r\n'
             + 'Content-Type: text/plain\r\n\r\nPersisted evidence\r\n--boundary--\r\n';
@@ -139,6 +140,15 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         ]);
         await dispatcher.pump();
         const taskUrl = '/api/v1/tasks/review';
+        const completion = {
+            method: 'POST' as const, url: `${taskUrl}/notify`,
+            headers: { authorization: `Bearer ${notification.bearerToken}`, 'idempotency-key': 'event-1' },
+            payload: { eventId: 'event-1', type: 'invoice.paid', revision: 'rev-2', object: { system: 'billing', kind: 'invoice', id: 'inv-1' } },
+        };
+        expect((await contract.inject(server, { ...completion, url: `${taskUrl}-missing/notify` })).statusCode).toBe(404);
+        expect((await contract.inject(server, { ...completion, headers })).statusCode).toBe(401);
+        expect((await contract.inject(server, { url: taskUrl, headers: completion.headers })).statusCode).toBe(401);
+
         const detail = (await contract.inject(server, { url: taskUrl, headers })).json();
         expect(detail).toMatchObject({ phase: 'waiting', pendingRequestCount: 1 });
         expect(Date.parse(detail.updatedAt)).toBeGreaterThan(Date.parse(detail.createdAt));
@@ -180,7 +190,14 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(receipt.json()).toMatchObject({ callerId: 'certlab-test', actorId: 'owner' });
         expect((await contract.inject(server, answer)).json()).toEqual(receipt.json());
         const saved = await contract.inject(server, { url: `${taskUrl}/inputs?inputId=${receipt.json().inputId}`, headers });
-        expect(saved.json().items).toMatchObject([{ kind: 'decision', delivery: { state: 'pending' }, continuations: [] }]);
+        expect(saved.json().items).toMatchObject([{ kind: 'decision', delivery: { state: 'pending' }, continuations: [{ workId: questions.items[0].requestId, state: 'waiting' }] }]);
+        const steering = await contract.inject(server, {
+            method: 'POST', url: `${taskUrl}/steering`,
+            headers: { ...headers, 'idempotency-key': 'after-answer' },
+            payload: { text: 'Check the completed work' },
+        });
+        expect(steering.statusCode).toBe(201);
+        let steeringContext = '';
         uploads.claim(integration.scope, 'owner', 'review', [orphan.uploadId]);
         await dispatcher.close();
         await writeFile(options.skillPath, 'Different worker skill after deployment');
@@ -188,6 +205,10 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         faux.setResponses([
             fauxAssistantMessage([fauxToolCall('work_read_attachment', { fileId: uploadId }, { id: 'read-file' })], { stopReason: 'toolUse' }),
             fauxAssistantMessage([fauxText('Continued')]),
+            context => {
+                steeringContext = JSON.stringify(context.messages);
+                return fauxAssistantMessage([fauxText('Steering applied')]);
+            },
         ]);
         await dispatcher.pump();
         expect(db.prepare('SELECT taskId FROM task_uploads WHERE id = ?').get(orphan.uploadId)).toEqual({ taskId: null });
@@ -197,9 +218,11 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(resumed.method?.sha).toBe(detail.pinnedOm.resolvedRevision);
         const session = JSON.stringify(await worker.app.query.querySession(worker.ownerId, worker.executionId));
         expect(session).toContain('Continued');
+        expect(steeringContext).toContain('worker-branch-summary');
+        expect(steeringContext).toContain('Continued');
         expect(session).toContain('Persisted evidence');
         expect(session).toContain('report-demo');
-        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
+        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm, notification);
         try {
             const download = await contract.inject(reopened, { url: `${taskUrl}/files/${uploadId}`, headers });
             expect(download.statusCode).toBe(200);
@@ -211,12 +234,15 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
                 continuations: [{ workId: questions.items[0].requestId, state: 'resumed' }],
             }]);
             const trace = await contract.inject(reopened, {
-                url: `${taskUrl}/session?requestId=${questions.items[0].requestId}`, headers,
+                url: `${taskUrl}/session?limit=100`, headers,
             });
             expect(trace.statusCode).toBe(200);
             expect(trace.json()).toMatchObject({
                 sessionId: detail.sessionId,
-                items: [{ kind: 'continuation', inputId: receipt.json().inputId, requestIds: [questions.items[0].requestId] }],
+                items: expect.arrayContaining([
+                    expect.objectContaining({ kind: 'continuation', inputId: receipt.json().inputId, requestIds: [questions.items[0].requestId] }),
+                    expect.objectContaining({ kind: 'message', role: 'agent', text: 'Continued' }),
+                ]),
             });
             const episode = await contract.inject(reopened, {
                 url: `/api/v1/decision-requests/${questions.items[0].requestId}/episode`, headers,
@@ -242,6 +268,9 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             const queued = await contract.inject(reopened, steering);
             expect(queued.statusCode).toBe(201);
             const cancel = { method: 'POST' as const, url: `${taskUrl}/cancel`, headers };
+            const notified = await contract.inject(reopened, completion);
+            expect(notified.statusCode).toBe(201);
+            expect((await contract.inject(reopened, completion)).json()).toEqual(notified.json());
             const [accepted, racedAnswer] = await Promise.all([
                 contract.inject(reopened, cancel),
                 contract.inject(reopened, { ...supplement, headers: { ...headers, 'idempotency-key': 'raced-answer' } }),

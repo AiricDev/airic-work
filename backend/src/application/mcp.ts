@@ -13,7 +13,7 @@ export class McpUseCases {
      * @param callId 由可信 Runtime 调用身份提供；重放沿用，只有明确的新尝试才分配新 ID。
      * @param parameters 工具输入；用于执行的原数据与可记录的脱敏数据分开，适配器不得将凭据返回给模型。
      */
-    async callMcp(userId: string, id: string, generation: number, connection: string, tool: string, parameters: import('../domain/model').Json, callId: string, expectedSchemaRevision?: string, agentTaskId?: string) {
+    async callMcp(userId: string, id: string, generation: number, connection: string, tool: string, parameters: import('../domain/model').Json, callId: string, expectedSchemaRevision?: string) {
         requireRule(!!callId, 'invalid');
         const e = await this.policy.owned(userId, id);
         active(e, generation);
@@ -27,21 +27,11 @@ export class McpUseCases {
         const definition = (await this.mcp.tools(userId, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).find(t => t.name === tool);
         requireRule(definition, 'invalid');
         requireRule(expectedSchemaRevision === undefined || definition.schemaRevision === expectedSchemaRevision, 'conflict', 'MCP schema changed');
-        const schema = definition.inputSchema as { properties?: { correlation?: { properties?: Record<string, unknown> } } };
-        const supportsTaskId = definition.classification === 'write' && schema?.properties?.correlation?.properties?.agent_task_id;
-        let outbound = parameters;
-        if (agentTaskId && supportsTaskId && parameters && typeof parameters === 'object' && !Array.isArray(parameters)) {
-            const correlation = parameters.correlation;
-            outbound = { ...parameters, correlation: {
-                ...(correlation && typeof correlation === 'object' && !Array.isArray(correlation) ? correlation : {}),
-                agent_task_id: agentTaskId,
-            } };
-        }
         const call = { id: callId, sessionId: e.sessionId, connection, tool, at: this.support.now(), type: definition.classification ?? 'unknown' as const, classificationSource: definition.classificationSource, schemaRevision: definition.schemaRevision, parameters: this.mcp.sanitize(connection, parameters), status: 'calling' as const };
         await this.history.appendCall(call); // a failed history write MUST prevent external dispatch
         active(await this.policy.owned(userId, id), generation);
         try {
-            const result = await this.mcp.call({ userId, executionId: id, generation, sessionId: e.sessionId }, connection, tool, outbound);
+            const result = await this.mcp.call({ userId, executionId: id, generation, sessionId: e.sessionId }, connection, tool, parameters);
             await this.history.finishCall(e.sessionId, call.id, result.status, this.mcp.sanitize(connection, result.result));
             return { callId: call.id, ...result, result: this.mcp.sanitize(connection, result.result) };
         }

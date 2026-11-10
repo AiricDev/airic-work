@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { registerTaskDocs } from './task-docs';
 import Fastify, { type FastifyRequest } from 'fastify';
 import { taskAuthenticator, type TaskActor, type TaskDelegation } from './task-auth';
@@ -31,15 +32,15 @@ function summary(record: TaskCreationRecord, item: DecisionRequest) {
         title: item.summary ?? item.question, createdAt: item.createdAt, externalRefs: record.creation.externalRefs ?? [],
     };
 }
-function decisionContext(decision: DecisionRequest, context: Context, scope: { workId: string; label: string }) {
+function decisionContext(decision: DecisionRequest, context: Context, scopes: { workId: string; label: string }[]) {
     return {
-        revision: context.revision, question: decision.question, reason: scope.label,
+        revision: context.revision, question: decision.question, reason: scopes[0].label,
         evidence: typeof context.content === 'string' ? context.content : JSON.stringify(context.content),
         sources: context.sources.map(source => ({
             object: { system: source.system, kind: 'record', id: source.objectId },
             revision: source.version, location: source.location,
         })),
-        affectedWork: [{ ...scope, waitingOn: decision.status === 'pending' ? [decision.id] : [] }],
+        affectedWork: scopes.map(scope => ({ ...scope, waitingOn: decision.status === 'pending' ? [decision.id] : [] })),
         options: decision.options.map(option => ({ optionId: option.id, label: option.label, impact: option.description })),
     };
 }
@@ -86,8 +87,13 @@ export function createTaskServer(
     integration?: TaskDelegation,
     omStatus?: () => Promise<{ source: string; kind: 'local' | 'managed'; state: string; revision?: string }>,
     defaultOm?: { source: string; revision: string; entry: string },
+    notification?: { bearerToken: string; scope: string },
 ) {
     const authenticate = taskAuthenticator(identity, integration);
+    const digest = (value: string) => createHash('sha256').update(value).digest();
+    if (notification) requireRule(notification.bearerToken.length >= 32 && /^[!-~]+$/.test(notification.bearerToken)
+        && notification.bearerToken !== identity.bearerToken && notification.bearerToken !== integration?.bearerToken, 'invalid');
+    const notificationDigest = notification && digest(`Bearer ${notification.bearerToken}`);
     const actors = new WeakMap<FastifyRequest, TaskActor>();
     function actorOf(request: FastifyRequest) {
         const actor = actors.get(request);
@@ -99,6 +105,12 @@ export function createTaskServer(
         reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
         const config = request.routeOptions.config;
         if ('publicTaskEndpoint' in config && config.publicTaskEndpoint === true) return;
+        if ('taskNotification' in config && config.taskNotification) {
+            if (notificationDigest && timingSafeEqual(digest(request.headers.authorization ?? ''), notificationDigest)) return;
+            return reply.header('WWW-Authenticate', 'Bearer').code(401).send({
+                code: 'invalid_identity', message: 'Invalid notification credentials', retryable: false,
+            });
+        }
         const actor = authenticate(request.headers.authorization, request.headers['x-airic-actor-assertion']);
         if (!actor) return reply.header('WWW-Authenticate', 'Bearer').code(401).send({
             code: 'invalid_identity', message: 'Invalid credentials', retryable: false,
@@ -230,7 +242,18 @@ export function createTaskServer(
             blockers: phase === 'blocked' ? [{ code: 'task_worker_failed', message: 'Task Worker could not continue' }] : [],
             work: await runtime?.workScopes(requests) ?? [],
             outputs: runtime?.outputs().map(output => ({ kind: 'file', ...output })) ?? [],
-            connections: (record.connectionIds ?? []).map(id => ({ id, status: credentials?.status(record.taskId, id) ?? 'unchecked' })),
+            connections: (record.connectionIds ?? []).map(id => {
+                const status = credentials?.status(record.taskId, id) ?? 'unchecked';
+                if (status === 'authorization_failed') return { id, status, issue: {
+                    code: 'mcp_authorization_failed', message: 'The MCP service rejected the connection credentials.',
+                    recoveryHint: 'Verify the authorized account and update the connection credentials before continuing.',
+                } };
+                if (status === 'unavailable') return { id, status, issue: {
+                    code: 'mcp_unavailable', message: 'The MCP connection or protocol request failed.',
+                    recoveryHint: 'Check the service and connectivity. If a write may have been sent, check its original receipt before retrying.',
+                } };
+                return { id, status };
+            }),
         };
     }
     server.get('/api/v1/tasks/:taskId', request => projectTask(
@@ -248,25 +271,33 @@ export function createTaskServer(
     if (dispatcher) {
         async function inputProjection(record: TaskCreationRecord, runtime: Awaited<ReturnType<TaskDispatcher['runtime']>>) {
             const { events } = await runtime.trace();
-            const resumed = new Map(events.filter(event => event.kind === 'continuation').map(event => [event.inputId, event]));
-            return runtime.inputFacts().map(input => {
-                const event = resumed.get(input.inputId);
+            const inputs = runtime.inputFacts();
+            const work = inputs.some(input => input.requestId) ? await runtime.decisionScopes() : new Map();
+            const execution = await runtime.app.query.queryExecution(runtime.ownerId, runtime.executionId);
+            const paused = execution.phase === 'stopping' || execution.phase === 'stopped';
+            return inputs.map(input => {
+                const resumed = new Map(events.filter(event => event.kind === 'continuation' && event.inputId === input.inputId)
+                    .map(event => [event.workId, event]));
+                const scopes: { workId: string }[] = input.requestId ? work.get(input.requestId) ?? [] : [];
                 return {
                     ...input, taskId: record.taskId,
-                    continuations: event ? [{
-                        workId: event.workId, state: 'resumed', resumedAt: event.recordedAt, eventId: event.eventId,
-                    }] : [],
+                    continuations: scopes.map(({ workId }) => {
+                        const event = resumed.get(workId);
+                        if (event) return { workId, state: 'resumed', resumedAt: event.recordedAt, eventId: event.eventId };
+                        return { workId, state: paused ? 'paused' : execution.phase === 'failed' ? 'blocked'
+                            : input.delivery.state === 'delivered' ? 'ready' : 'waiting' };
+                    }),
                 };
             });
         }
         server.get('/api/v1/tasks/:taskId/session', async request => {
-            const query = paging.extend({ requestId: text.optional() }).parse(request.query);
+            const query = paging.parse(request.query);
             const record = tasks.get(actorOf(request).scope, actorOf(request).actor, params.parse(request.params).taskId);
             const runtime = await dispatcher.runtime(record);
             const { sessionId, events } = await runtime.trace();
             return {
                 taskId: record.taskId, sessionId,
-                ...paginate(events.filter(event => !query.requestId || event.requestIds?.includes(query.requestId)), query),
+                ...paginate(events, query),
                 limitations: ['This view projects public messages, continuation entries, and MCP call metadata. Tool payloads are omitted.'],
             };
         });
@@ -288,6 +319,25 @@ export function createTaskServer(
             });
             return stop;
         });
+        server.post('/api/v1/tasks/:taskId/notify', { config: { taskNotification: true } }, async (request, reply) => {
+            requireRule(notification, 'forbidden');
+            const { materials: attachments, ...update } = z.strictObject({
+                eventId: text, type: text, revision: text,
+                object: externalRef,
+                materials: materials.optional(),
+            }).parse(request.body);
+            const { files, references } = splitMaterials(attachments);
+            requireRule(!files.length && references.every(source => source.revision), 'invalid');
+            const eventKey = key.parse(request.headers['idempotency-key']);
+            requireRule(eventKey === update.eventId, 'invalid');
+            const record = tasks.notificationTarget(notification.scope, params.parse(request.params).taskId);
+            const runtime = await dispatcher.runtime(record);
+            const saved = await runtime.submitSteering(`notify:${eventKey}`, '', [], references, update);
+            const input = (await runtime.app.query.queryInputs(runtime.ownerId, runtime.executionId))
+                .find(item => item.kind === 'steering' && item.sourceId === saved.id);
+            requireRule(input, 'blocked');
+            return reply.code(201).send({ inputId: input.id, taskId: record.taskId, savedAt: saved.at });
+        });
         server.post('/api/v1/tasks/:taskId/steering', async (request, reply) => {
             const record = tasks.get(actorOf(request).scope, actorOf(request).actor, params.parse(request.params).taskId);
             const { text: message, materials: attachments } = z.strictObject({
@@ -295,6 +345,7 @@ export function createTaskServer(
             }).refine(value => Boolean(value.text || value.materials?.length)).parse(request.body);
             const { files, references } = splitMaterials(attachments);
             const commandKey = key.parse(request.headers['idempotency-key']);
+            requireRule(!commandKey.startsWith('notify:'), 'invalid');
             const { app, ownerId, executionId, submitSteering } = await dispatcher.runtime(record);
             const saved = await submitSteering(commandKey, message ?? '', files, references);
             const input = (await app.query.queryInputs(ownerId, executionId))

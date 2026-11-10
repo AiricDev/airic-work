@@ -221,7 +221,15 @@ export interface UserDecision {
 /**
  * DecisionRequest 流程之外的一次任意工作消息，可带文件并触发原执行续行，不自动转为 UserDecision 或解除待回答请求。
  */
+export interface BusinessUpdate {
+    eventId: string;
+    type: string;
+    object: MaterialReference['object'];
+    revision: string;
+}
+
 export interface SteeringInput {
+    update?: BusinessUpdate;
     references?: MaterialReference[];
     id: string;
     executionId: string;
@@ -234,6 +242,7 @@ export interface SteeringInput {
  * 向同一 Session 投递的技术信封，并非新增业务工作实体。与 UserDecision/Steering Input 原始记录分开；稳定 id 支持去重和接收结果查回。
  */
 export interface Input {
+    update?: BusinessUpdate;
     references?: MaterialReference[];
     /**
      * 稳定 Runtime 输入去重键；网络重试及丢确认查回必须沿用。

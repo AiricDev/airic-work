@@ -131,7 +131,7 @@ export function createMcpIntegration(options: McpIntegrationOptions, store: Cont
     return { gateway, credentials: new McpCredentialUseCases(store, vault), tools: mcpWorkerTools };
 }
 
-export function mcpWorkerTools(application: Application, e: Execution, taskId?: string): ToolRegistration[] {
+export function mcpWorkerTools(application: Application, e: Execution): ToolRegistration[] {
     return [
             defineTool({ name: 'work_discover_mcp', description: 'List current business MCP tools and their exact input schemas and revisions. Credentials remain with the host.', parameters: Type.Object({ connection: Type.String() }), replay: 'safe', execute: async ({ connection }) => {
                 const current = await application.query.queryExecution(e.ownerId, e.id);
@@ -140,7 +140,7 @@ export function mcpWorkerTools(application: Application, e: Execution, taskId?: 
             } }),
             defineTool({ name: 'work_call_mcp', description: 'Call a discovered business MCP tool using its exact schema/revision. Preserve original business operation identity on recovery.', parameters: Type.Object({ connection: Type.String(), tool: Type.String(), schemaRevision: Type.String(), parameters: Type.Record(Type.String(), Type.Unknown()) }), replay: 'safe', execute: async (args, api) => {
                 const current = await application.query.queryExecution(e.ownerId, e.id);
-                const result = await application.mcpCases.callMcp(e.ownerId, e.id, current.generation, args.connection, args.tool, args.parameters as Json, `pi:${e.sessionId}:${api.taskId}`, args.schemaRevision, taskId ? `airic-work:${taskId}` : undefined);
+                const result = await application.mcpCases.callMcp(e.ownerId, e.id, current.generation, args.connection, args.tool, args.parameters as Json, `pi:${e.sessionId}:${api.taskId}`, args.schemaRevision);
                 return mcpWorkerOutput(result);
             } }),
         ];

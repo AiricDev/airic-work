@@ -46,6 +46,20 @@
 
 调用 Airic Work 的凭据与 Worker 调用 MCP 的凭据分别管理。连接认证失败时记录受影响的工作。授权方可以更新同一连接的凭据，恢复前重新验证绑定和权限。敏感端点、请求头和凭据在运行宿主内使用，出站模型输入、Workspace、错误、查询结果和轨迹使用脱敏信息。
 
+### MCP 集成协议
+
+Airic Work 宿主在 Task 的 MCP JSON-RPC 请求中通过 `params._meta` 传递 Task 级上下文。创建请求照常配置 MCP 连接。Task ID 分配后，宿主在发出请求时附加元数据，连接重建后也使用同一个 Task ID。工具参数由业务应用定义。
+
+| 字段 | 类型 | 语义 |
+| --- | --- | --- |
+| `ai.airic/task_id` | 字符串 | Airic Work 分配的原始 Task ID。该 Task 的各 MCP 连接和续行请求共用此值。 |
+
+接收方先认证 MCP 连接，只对授权声明 Task 上下文的调用方采信该字段。业务权限仍由接收方校验。未接入这项约定的 MCP 服务可忽略该字段。将来新增 `ai.airic/` 字段时，逐项声明语义和信任要求。
+
+例如，业务应用可以用可信的 Task ID 归因 Agent 创建的事项，在事项完成后向原 Task 发送结构化通知。
+
+外部系统负责确认事件与原 Task 的业务关联，并用对应集成范围的后台凭据调用 `notify`。Airic Work 按事件 ID 幂等保存，将事件与人工 steering 一起投递到主 Session。事件类型、外部对象引用及其版本由发送方定义，Worker 按 OM 解释并按需读取最新业务事实。
+
 ## Decision Request 与续行
 
 1. Agent 提交问题、已知依据及版本、可选回答、适用范围和受影响的工作。请求使用稳定的提问调用标识创建。运行时固化包含已完成提问结果的安全锚点，保存请求与工作分支的关联。若请求已经保存但锚点未提交，重放使用原标识找回请求并补齐锚点。回答可以先入库，投递等路由就绪。
@@ -70,6 +84,7 @@ Task API 分开呈现本轮运行状态、等待依赖、受阻原因及停止�
 | --- | --- |
 | `POST /tasks`，`GET /tasks`，`GET /tasks/{taskId}` | 创建、筛选和查询 Task。创建返回持久 Task ID 与当前状态。 |
 | `POST /tasks/{taskId}/steering`，`POST /tasks/{taskId}/cancel` | 追加输入及记录停止意图。 |
+| `POST /tasks/{taskId}/notify` | 按集成范围授权，接收外部系统的结构化事件。 |
 | `GET /decision-requests`，`GET /tasks/{taskId}/decision-requests` | 分页读取有权查看的待办和任务问题，支持状态及外部引用筛选。 |
 | `GET /decision-requests/{requestId}`，`GET /decision-requests/{requestId}/episode` | 读取问题、依据版本和完整协作记录。 |
 | `POST /decision-requests/{requestId}/user-decisions` | 提交或更正回答，返回持久回答 ID 及当前投递状态。 |

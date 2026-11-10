@@ -13,7 +13,7 @@ export interface McpEndpointCredentials {
 }
 /** Per-operation client, per-request identity checks, no shared-user sessions or automatic write retries. */
 export class HttpMcpGateway implements Mcp {
-    constructor(private readonly store: ControlStore, private readonly vault: McpEndpointCredentials, private readonly fetcher: typeof fetch = fetch) {}
+    constructor(private readonly store: ControlStore, private readonly vault: McpEndpointCredentials, private readonly fetcher: typeof fetch = fetch, private readonly taskId?: string) {}
     private async check(scope: Scope, connection: string): Promise<CredentialScope> {
         const e = await this.store.execution(scope.executionId); const user = await this.store.user(scope.userId);
         own(user, e); active(e, scope.generation);
@@ -50,7 +50,15 @@ export class HttpMcpGateway implements Mcp {
                 requireRule(secret.url === endpoint.href && secret.token === initial.token && secret.revision === initial.revision, 'forbidden');
                 const headers = new Headers(init?.headers);
                 if (secret.token) headers.set('Authorization', `Bearer ${secret.token}`);
-                const response = await this.fetcher(url, { ...init, headers, redirect: 'error', credentials: 'omit', signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
+                let body = init?.body;
+                if (this.taskId && typeof body === 'string') {
+                    const message = JSON.parse(body);
+                    if (typeof message.method === 'string' && message.id !== undefined) {
+                        message.params = { ...message.params, _meta: { ...message.params?._meta, 'ai.airic/task_id': this.taskId } };
+                        body = JSON.stringify(message);
+                    }
+                }
+                const response = await this.fetcher(url, { ...init, body, headers, redirect: 'error', credentials: 'omit', signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
                 if (response.status === 401 || (!connected && response.status === 403)) authorizationFailed = true;
                 return response;
             } }));

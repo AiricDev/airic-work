@@ -1,7 +1,7 @@
 import { beginRun, active, nonempty, requireRule } from '../domain/model';
 import type { Files, Runtime, ControlStore, Support, Workspace } from './ports';
 import { ApplicationPolicy } from './policy';
-import type { MaterialReference } from '../domain/model';
+import type { BusinessUpdate, Execution, MaterialReference } from '../domain/model';
 /**
  * 工作消息、上传和 Session 投递能力。接收与交付分别持久化，原执行续行沿用同一 Session/Workspace；不把文件或消息等同业务完成。
  */
@@ -11,11 +11,11 @@ export class InputUseCases {
     /**
      * 保存 DecisionRequest 流程外的一般输入及交付意图。允许已结束或取消中的 Execution 接收消息，后者等待停止确认；不改变任何请求的已回答状态。
      */
-    async submitSteering(userId: string, id: string, key: string, text: string, files: string[] = [], references: MaterialReference[] = []) {
+    async submitSteering(userId: string, id: string, key: string, text: string, files: string[] = [], references: MaterialReference[] = [], update?: BusinessUpdate) {
         const e = await this.policy.owned(userId, id);
-        requireRule(text.trim() || files.length || references.length, 'invalid');
+        requireRule(text.trim() || files.length || references.length || update, 'invalid');
         await this.policy.files(userId, e, files);
-        const materials = references.length ? { references } : {};
+        const materials = { ...(references.length ? { references } : {}), ...(update ? { update } : {}) };
         const k = this.policy.key(userId, key, { id, text, files, ...materials });
         const old = await this.store.replay<import('../domain/model').SteeringInput>('steering', k);
         if (old)
@@ -40,6 +40,13 @@ export class InputUseCases {
         requireRule(this.files.read, 'blocked');
         return { file, bytes: await this.files.read(file) };
     }
+    async nextReadyInput(e: Execution) {
+        const pending = (await this.store.inputs(e.id))
+            .filter(input => input.status === 'pending')
+            .sort((a, b) => a.sequence - b.sequence);
+        const head = pending[0];
+        if (head && (await this.runtime.answerReady?.(e, head) ?? true)) return head;
+    }
     /**
      * 按持久序号交付同一 Session 的输入：先检查文件就绪，再确认运行实例，结束后需确认旧进程退出才递增代次。
      * 先查 inputId 的持久接收结果再决定发送，接收状态未知必须失败而非当作未接收。Runtime 已接收而本地确认失败时，重试查回同一消息，不重复追加；最后写 delivered 不代表 Agent 已采纳。
@@ -50,12 +57,7 @@ export class InputUseCases {
         if (input.status === 'delivered')
             return input;
         requireRule(e.method && e.phase !== 'stopping' && e.phase !== 'stopped', 'blocked');
-        const queue = await this.store.inputs(e.id);
-        for (const earlier of queue.filter(i => i.sequence < input.sequence && i.status !== 'delivered')) {
-            const independent = earlier.kind === 'user-decision' && input.kind === 'user-decision'
-                && await this.runtime.independentAnswers?.(e, earlier, input);
-            requireRule(independent, 'blocked', 'earlier related or control input pending');
-        }
+        requireRule((await this.nextReadyInput(e))?.id === inputId, 'blocked', 'input is not the ready queue head');
         await this.workspace.ensure(e);
         await this.workspace.materialize(e, await this.policy.files(userId, e, input.files));
         await this.runtime.ensure(e);

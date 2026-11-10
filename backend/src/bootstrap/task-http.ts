@@ -75,7 +75,11 @@ async function main() {
                 taskId => console.error(JSON.stringify({ taskId, code: 'task_worker_failed' })),
             );
         }
-        const server = createTaskServer(tasks, identity, dispatcher, uploads, credentials, integration, omStatus, defaultOm);
+        const notification = process.env.AIRIC_TASK_NOTIFICATION ? z.strictObject({
+            bearerToken: z.string(),
+            scope: z.string().min(1),
+        }).parse(JSON.parse(process.env.AIRIC_TASK_NOTIFICATION)) : undefined;
+        const server = createTaskServer(tasks, identity, dispatcher, uploads, credentials, integration, omStatus, defaultOm, notification);
         const tick = () => { void dispatcher?.pump().catch(() => console.error('Unable to scan Task registry')); };
         const timer = dispatcher ? setInterval(tick, 1000).unref() : undefined;
         server.addHook('onClose', async () => {

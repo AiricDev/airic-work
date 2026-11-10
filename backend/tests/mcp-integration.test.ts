@@ -23,9 +23,11 @@ const sharedPath = '/mcp/link/' + sharedToken;
 let issuedPath = sharedPath;
 beforeAll(async () => { fixture = await httpsIdentityFixture(); });
 afterAll(async () => { if (fixture) await fixture.close(); });
+let rpcRequests: { method: string; params?: Record<string, unknown> }[];
 beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'airic-mcp-')); rejectCalls = false; wrongSubject = false; writes = 0; issuedPath = sharedPath;
     fixture.received.length = 0;
+    rpcRequests = [];
     expectedBearer = undefined;
     fixture.handler = (req, res) => {
         const chunks: Buffer[] = [];
@@ -36,6 +38,7 @@ beforeEach(async () => {
             if (req.url === '/issue') { res.end(JSON.stringify({ path: issuedPath, token_id: 'grant-id', user_id: wrongSubject ? 'foreign' : 'owner', expires_at: null })); return; }
             if (req.url === '/revoke') { rejectCalls = true; res.end(JSON.stringify({ status: 'revoked', user_id: wrongSubject ? 'foreign' : 'owner' })); return; }
             if (req.url !== sharedPath || req.headers.authorization !== expectedBearer || rejectCalls) { res.statusCode = 401; res.end('{}'); return; }
+            rpcRequests.push(body);
             if (!body.id) { res.statusCode = 202; res.end(); return; }
             let result: object = {};
             if (body.method === 'initialize') result = { protocolVersion: body.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'business', version: '1' } };
@@ -100,13 +103,18 @@ it('uses a stored Task bearer and replays a recorded write without fresh network
             connection: () => ({ issuer: u.issuer }),
             async secret(scope) { return credentials.lease('task-test', scope.connection); },
             observe(id, revision, status) { credentials.observe('task-test', id, revision, status); },
-        }, fetcher);
+        }, fetcher, 'task-test');
         h.d.mcp.tools = gateway.tools.bind(gateway);
         h.d.mcp.call = gateway.call.bind(gateway);
         h.d.mcp.sanitize = gateway.sanitize.bind(gateway);
         const invoke = () => h.app.mcpCases.callMcp(u.id, e.id, e.generation, connection, 'record.update', {}, 'task-call');
         const result = await invoke();
         expect(result.status).toBe('unknown');
+        for (const method of ['initialize', 'tools/list', 'tools/call']) {
+            expect(rpcRequests.find(request => request.method === method)?.params?._meta)
+                .toMatchObject({ 'ai.airic/task_id': 'task-test' });
+        }
+        expect(rpcRequests.find(request => request.method === 'tools/call')?.params?.arguments ?? {}).toEqual({});
         expect(credentials.status('task-test', connection)).toBe('available');
         const requests = fixture.received.length;
         rejectCalls = true;
