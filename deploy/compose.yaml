@@ -1,19 +1,18 @@
 services:
   airic-work:
-    image: airic-work:task
-    build:
-      context: ..
+    image: &worker-image ${AIRIC_IMAGE:-ghcr.io/airicdev/airic-work:task}
     init: true
-    user: "${AIRIC_DEPLOY_UID:?Use deploy/up.mjs}:${AIRIC_DEPLOY_GID:?Use deploy/up.mjs}"
-    env_file: .env.task
+    user: "${AIRIC_DEPLOY_UID:?Use ./up.sh}:${AIRIC_DEPLOY_GID:?Use ./up.sh}"
+    env_file: .env
     environment:
+      AIRIC_WORKSPACE_IMAGE: *worker-image
       AIRIC_OM_REPOSITORY: ${AIRIC_OM_REPOSITORY:?Set an absolute Git path or URL}
-      AIRIC_WORKSPACE_HOST_DATA: ${AIRIC_DEPLOY_DATA:?Use deploy/up.mjs}
+      AIRIC_WORKSPACE_HOST_DATA: ${AIRIC_DEPLOY_DATA:?Use ./up.sh}
     ports: ["127.0.0.1:8080:8080"]
     volumes:
       - ./data:/var/lib/airic-work
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${AIRIC_DEPLOY_OM_MOUNT:?Use deploy/up.mjs}:/om:ro
+      - ${AIRIC_DEPLOY_OM_MOUNT:?Use ./up.sh}:/om:ro
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]

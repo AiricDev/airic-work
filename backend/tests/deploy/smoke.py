@@ -25,7 +25,7 @@ def main():
         override.write_text(
             'services:\n  airic-work:\n    ports: !override ["127.0.0.1::8080"]\n'
         )
-        env_file = deployment / ".env.task"
+        env_file = deployment / ".env"
         env_file.write_text(
             f"AIRIC_TASK_TOKEN={token}\nAIRIC_TASK_FINGERPRINT_KEY={secrets.token_hex(32)}\nAIRIC_TASK_WORKER=0\n"
         )
@@ -41,6 +41,7 @@ def main():
 
         env = {
             **os.environ,
+            "AIRIC_IMAGE": "airic-work:task",
             "AIRIC_OM_REPOSITORY": str(repo),
             "AIRIC_DEPLOY_OM_MOUNT": str(repo),
             "AIRIC_DEPLOY_DATA": str(data),
