@@ -8,6 +8,10 @@ The target HTTP API is described by OpenAPI. Import the YAML into Swagger Editor
 
 - [Product definition](docs/prd.md) · [Target OpenAPI YAML](docs/openapi.yaml) · [MCP integration protocol](docs/technical-design.md#mcp-集成协议)
 
+## Create an OM project
+
+Use the [OM project starter](docs/om-project.md) to create a local project with a Root OM, project instructions, and copies of the desktop OM Work and OME skills.
+
 ## Current implementation
 
 The container starts the Task HTTP service and serves Swagger UI at `/docs/`. The Worker uses Pi Durable, a pinned OM, configured model access, and isolated Docker commands for each Task Workspace. See the [acceptance record](deploy/README.md#acceptance-record) for the tested Swagger and recovery paths.
