@@ -5,7 +5,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | 2026-10-30；产品集成仍为设计提案；锁定 Pi 源码的 258 项上游测试与 6 项机制实验已通过，不代表完整 Airic Work 合同已验证 |
-| 上游 | [PRD](prd.md)、[Worker Skill](../backend/skills/airic-work-worker/SKILL.md)、[运行环境设计](worker-runtime-design.md) |
+| 上游 | [PRD](prd.md)、[Worker 提示词](../backend/prompts/worker.md)、[运行环境设计](worker-runtime-design.md) |
 | 本轮确定的行为 | 遇到问题只暂停受影响部分；一次运行可积累多个 DecisionRequest；用户分别回应后，相关工作能带着提问时的上下文继续 |
 | 本文建议 | 一个 Execution / Session 内保留多个上下文分支，按需建立局部续行记录；首版串行调度，后续再验证并发 |
 | Pi 落地依据 | 现有 Pi 运行模块；固定 commit、API、原生 Task/ownership 方案与可复现实验 |

@@ -72,7 +72,7 @@ it('documents a Task deployment example whose credentials are provisioned explic
     expect(config.worker.model.provider).toBe('openai');
 });
 
-it('boots all configured adapters, executes with the fixed Git OM and reopens the same Session', async () => {
+it('boots all configured adapters, injects the default Worker prompt and fixed Git OM, and reopens the same Session', async () => {
     const { httpsIdentityFixture } = await import('./support/https-identity');
     const { repository } = await import('./support/git-methods');
     const { harness } = await import('./support/harness');
@@ -86,7 +86,6 @@ it('boots all configured adapters, executes with the fixed Git OM and reopens th
         const config = loadConfiguration(file, {
             AIRIC_OM_SOURCES: JSON.stringify({ local: { kind: 'local', directory: repo } }),
             AIRIC_IDENTITY_ENDPOINT: fixture.options.endpoint, AIRIC_IDENTITY_CA_FILE: 'ca.pem',
-            AIRIC_WORKER_SKILL_PATH: join(import.meta.dirname, '../skills/airic-work-worker/SKILL.md'),
             AIRIC_MODEL_PROVIDER: 'faux', AIRIC_MODEL_ID: 'faux-1',
         });
         const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
@@ -94,8 +93,16 @@ it('boots all configured adapters, executes with the fixed Git OM and reopens th
         backend = await createConfiguredBackend(config, workspace, models);
         const u = await backend.application.account.ensureUser('opaque-session');
         const e = await backend.application.execution.createExecution(u.id, 'create', { source: 'business', project_id: 'p', project_name: 'P', task: {}, instruction: 'Check the method' });
-        faux.setResponses([fauxAssistantMessage([fauxText('dotenv bootstrap completed')])]);
+        let systemPrompt: string | undefined;
+        faux.setResponses([context => {
+            systemPrompt = context.messages.filter(message => message.role === 'system')
+                .flatMap(message => Object.values(message.sections ?? {})).join('\n');
+            return fauxAssistantMessage([fauxText('dotenv bootstrap completed')]);
+        }]);
         expect((await backend.runner.run(u.id, e.id)).phase).toBe('ended');
+        const workerPrompt = await readFile(join(import.meta.dirname, '../prompts/worker.md'), 'utf8');
+        expect(systemPrompt).toContain(workerPrompt.trim());
+        expect(systemPrompt).toContain('Root marker alpha');
         await backend.close(); backend = undefined;
         backend = await createConfiguredBackend(config, workspace, models);
         expect(JSON.stringify(await backend.application.query.querySession(u.id, e.id))).toContain('dotenv bootstrap completed');

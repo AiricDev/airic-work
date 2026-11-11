@@ -36,8 +36,10 @@ docker compose pull
 docker compose up -d --wait
 ```
 
-Compose uses the image named in `compose.yaml`. Set `AIRIC_IMAGE` in `.env`
-to pin a specific published tag or digest. The main-branch workflow publishes
+Compose defaults to `ghcr.io/airicdev/airic-work:task`. When upgrading a
+preview deployment, remove any `AIRIC_IMAGE` override pointing to `:preview`,
+or replace it with the Task image. Set `AIRIC_IMAGE` in `.env` to pin a
+specific Task release tag or digest. The main-branch workflow publishes
 images after tests and the image smoke check pass.
 
 Open [Swagger UI](http://127.0.0.1:8080/docs/) and authorize with the configured Bearer token. Task data is stored in `deploy/data/` beside `compose.yaml` and mounted at `/var/lib/airic-work`. A local OM is mounted read-only at `/om`. A remote OM is cloned into the data directory. The source ID in Task requests is `local` for either form. The service is published on loopback at port 8080. The OM source in the sample configuration is named `local`.

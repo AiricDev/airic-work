@@ -170,7 +170,7 @@ it('connects a real Pi Worker through discovery and the gateway without exposing
     const [definition] = await integration.gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation });
     const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
     let application!: import('../src/application/application').Application;
-    const worker = createWorker({ directory: join(directory, 'runtime'), models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../skills/airic-work-worker/SKILL.md'), tools: async execution => integration.tools(application, execution) }, h.store, h.d.methods, h.d.support);
+    const worker = createWorker({ directory: join(directory, 'runtime'), models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../prompts/worker.md'), tools: async execution => integration.tools(application, execution) }, h.store, h.d.methods, h.d.support);
     const backend = createBackend({ ...h.d, runtime: worker.runtime, history: worker.history, mcp: integration.gateway }); application = backend.application;
     try {
         faux.setResponses([

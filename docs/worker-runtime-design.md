@@ -1,4 +1,4 @@
-# Worker Skill 与 Pi Durable Agent 工作环境
+# Worker 提示词与 Pi Durable Agent 工作环境
 
 本文记录现有 Execution 版本的运行机制与验证。headless Task 的身份、存储和部署以[目标技术设计](technical-design.md)为准。
 
@@ -6,17 +6,17 @@
 | --- | --- |
 | 日期 / 状态 | 2026-10-30；Skill v0.2.0 与目标设计；Pi 固定源码机制实验已通过，完整 Runtime/业务环境集成未交付 |
 | 产品依据 | [PRD](prd.md) 的 Ontology 与 Skill 体系；不新增产品实体或业务状态 |
-| 行为入口 | [airic-work-worker](../backend/skills/airic-work-worker/SKILL.md) |
+| 行为入口 | [Pi Durable Worker 提示词](../backend/prompts/worker.md) |
 | 架构依据 | [技术设计](technical-design.md)；本文细化其 Pi、Workspace 与装配合同 |
 | 当前实现 | PiRuntime、PiHistory、ApplicationWorkerHost、McpWorkerTools 和 ExecutionRunner 已实现，见 [模块说明](../backend/src/adapters/driven/runtime/README.md)；业务 MCP 凭据/HTTP 网关已通过真实 HTTPS 测试，见[接入说明](../backend/src/adapters/driven/mcp/README.md)；Docker Workspace 和附件物化仍待接入 |
 | 分支执行细化 | [DecisionRequest 驱动的局部续行与分支调度](decision-continuation-design.md)；替代早期“单 Conversation”限制，内部策略为待评审提案 |
 | Pi 实际依据 | 现有 Pi 运行模块；commit 固定、API 映射、原生 Task/ownership、258 项上游测试及 6 项实验 |
 
-## 1. 从 Skill 推导环境
+## 1. 从执行要求推导环境
 
-Worker Skill 是后台 Agent 的常驻执行方法，OM 是当前领域的方法。环境负责让 Skill 所依赖的行为成为真实能力，而不是继续往提示词里添加可靠性承诺。
+Worker 提示词提供后台执行、人工协作和恢复指令。领域判断由固定版 OM 提供，持久请求、原会话续行和业务操作由宿主工具支持。
 
-| Skill 所需工作方式 | 环境必须提供什么 | 责任与当前落点 |
+| Worker 所需工作方式 | 环境必须提供什么 | 责任与当前落点 |
 | --- | --- | --- |
 | 接手委托、按固定 OM 工作 | 可信 Execution 快照；实际加载 Worker 与 Root；固定版本的按需读取 | ExecutionUseCases、Methods；装配适配器待实现 |
 | 在用户身份下执行业务动作 | 动态发现与校验工具；凭据留宿主；运行代次栅栏 | McpUseCases、Mcp；真实网关待实现 |
@@ -55,7 +55,7 @@ flowchart TB
 
 ### 3.1 装配顺序
 
-每次模型请求使用同一组固定版区段：平台边界、Worker Skill 正文、Root OM、当前可信运行快照。其余 OM 文件按需读取。Root 和 Skill 都不能只作为磁盘链接出现；装配失败时不启动模型工作与外部调用。
+每次模型请求装配 Worker 提示词、固定版 Root OM 和当前可信运行快照。其余 OM 文件按需读取。装配失败时不启动模型工作与外部调用。
 
 平台边界限定身份、权限、工具及运行规则；Skill 规定通用工作方式；OM 规定领域判断和适用的强制过程；`task` / `instruction` 描述具体委托。它们不是可以相互覆盖权限的四级授权。领域规则与委托发生实质冲突时保留冲突并澄清，不静默放宽要求。业务工具返回和上传文件作为资料进入上下文，不注册为系统指令。
 

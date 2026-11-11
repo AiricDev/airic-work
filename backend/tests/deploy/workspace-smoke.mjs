@@ -80,7 +80,7 @@ const faux = fauxProvider();
 const models = createModels();
 models.setProvider(faux.provider);
 const dispatcher = new TaskDispatcher(() => tasks.admitted(), record => openTaskRuntime(directory + '/tasks', record, methods, {
-    models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: '/app/backend/skills/airic-work-worker/SKILL.md',
+    models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: '/app/backend/prompts/worker.md',
 }, uploads, undefined, {
     socketPath: '/var/run/docker.sock', hostDirectory: process.env.AIRIC_WORKSPACE_HOST_DATA, user: `${process.getuid()}:${process.getgid()}`,
     image: 'airic-work:task', dataDirectory: directory, methodDirectory: async () => method,

@@ -220,12 +220,17 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(notified.statusCode).toBe(201);
         expect((await contract.inject(server, notify)).json()).toEqual(notified.json());
         let steeringContext = '';
+        let resumedPrompt: string | undefined;
         uploads.claim(integration.scope, 'owner', 'review', [orphan.uploadId]);
         await dispatcher.close();
         await writeFile(options.skillPath, 'Different worker skill after deployment');
         dispatcher = startDispatcher();
         faux.setResponses([
-            fauxAssistantMessage([fauxToolCall('work_read_attachment', { fileId: reviewerFileId }, { id: 'read-file' })], { stopReason: 'toolUse' }),
+            context => {
+                resumedPrompt = context.messages.filter(message => message.role === 'system')
+                    .flatMap(message => Object.values(message.sections ?? {})).join('\n');
+                return fauxAssistantMessage([fauxToolCall('work_read_attachment', { fileId: reviewerFileId }, { id: 'read-file' })], { stopReason: 'toolUse' });
+            },
             fauxAssistantMessage([fauxText('Continued')]),
             context => {
                 steeringContext = JSON.stringify(context.messages);
@@ -238,6 +243,8 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         const resumed = await worker.app.query.queryExecution(worker.ownerId, worker.executionId);
         expect(resumed.sessionId).toBe(detail.sessionId);
         expect(resumed.method?.sha).toBe(detail.pinnedOm.resolvedRevision);
+        expect(resumedPrompt).toContain('Pinned worker skill for this fixture');
+        expect(resumedPrompt).not.toContain('Different worker skill after deployment');
         const session = JSON.stringify(await worker.app.query.querySession(worker.ownerId, worker.executionId));
         expect(session).toContain('Continued');
         expect(steeringContext).toContain('worker-branch-summary');

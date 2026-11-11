@@ -5,7 +5,7 @@
 ## 部署与系统边界
 
 - 一个受企业管理的 Airic Work 实例包含 HTTP API、后台 Worker 和持久卷。首版可将 API 与 Worker 装在同一服务中，API 处理短请求，Worker 独立领取持久工作。HTTP 请求结束后，Task 可以继续运行。Worker 暂停时，只要 API 和存储可用，调用方仍能提交回答。
-- Airic Work 独立验证 API 调用方。实例以固定配置接入模型服务，启动任务时装配 Worker Skill、指定版本的 OM、受隔离的 Workspace 和零个或多个 MCP 连接。模型服务、沙箱和持久存储由部署方管理。
+- Airic Work 独立验证 API 调用方。实例以固定配置接入模型服务，启动任务时装配 Worker 提示词、指定版本的 OM、受隔离的 Workspace 和零个或多个 MCP 连接。模型服务、沙箱和持久存储由部署方管理。
 - CertLab 的移动端是认证工作的入口。它自己的后端集成层通过 Airic Work API 创建 Task、查询 Decision Request 和代交回答，通过 CertLab 自己的业务接口处理 Test Task。页面用项目或报告外部引用组合两类事项，各自读写原系统。Airic Work 连接失败时，决策区显示加载失败，Test Task、评估和 CertLab MCP 继续可用。
 - Airic Work 只在 Task 配置了 CertLab MCP 时调用相应业务工具。两个方向分别走公开合同。CertLab 可以独立部署，Airic Work 也可以通过 OpenAPI 运行无业务 MCP 的任务。
 - 获授权的桌面 Agent 通过 HTTP 读取 Session、Decision Episode 和产出引用，按业务权限另取原始结果。OME Skill 在桌面侧组织反思和方法验证，改进后的 OM 由外部发布。对照实验创建新 Task，原 Task 保留原版本。

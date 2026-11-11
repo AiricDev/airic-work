@@ -39,7 +39,7 @@ if (step === 'receipt-crash') {
 const diagnostics = [];
 const runtime = await openTaskRuntime(directory, record, methods, {
     models, model: { provider: 'faux', modelId: 'faux-1' },
-    skillPath: join(import.meta.dirname, '../../skills/airic-work-worker/SKILL.md'),
+    skillPath: join(import.meta.dirname, '../../prompts/worker.md'),
     diagnostic: event => diagnostics.push(event),
 });
 try {

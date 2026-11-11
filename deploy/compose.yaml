@@ -1,6 +1,6 @@
 services:
   airic-work:
-    image: &worker-image ${AIRIC_IMAGE:-ghcr.io/airicdev/airic-work:preview}
+    image: &worker-image ${AIRIC_IMAGE:-ghcr.io/airicdev/airic-work:task}
     init: true
     user: "${AIRIC_DEPLOY_UID:?Set this value in .env}:${AIRIC_DEPLOY_GID:?Set this value in .env}"
     env_file: .env

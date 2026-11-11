@@ -12,5 +12,7 @@ The target HTTP API is described by OpenAPI. Import the YAML into Swagger Editor
 
 The container starts the Task HTTP service and serves Swagger UI at `/docs/`. The Worker uses Pi Durable, a pinned OM, configured model access, and isolated Docker commands for each Task Workspace. See the [acceptance record](deploy/README.md#acceptance-record) for the tested Swagger and recovery paths.
 
+The [Worker prompt](backend/prompts/worker.md) is assembled into Pi Durable alongside the fixed Root OM. New Tasks use the deployed prompt, and Tasks with a saved prompt resume with that text. Custom deployments can set `AIRIC_WORKER_SKILL_PATH` and `AIRIC_WORKER_SKILL_VERSION` to identify their prompt.
+
 - [Container deployment](deploy/README.md)
 - [Architecture index](architecture-map.md) · [Technical design](docs/technical-design.md) · [Worker runtime](docs/worker-runtime-design.md)

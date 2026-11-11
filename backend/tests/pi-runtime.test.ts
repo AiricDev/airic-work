@@ -76,7 +76,7 @@ it('runs existing application use cases through worker bootstrap and resumes an 
     const h = harness();
     const dir = await mkdtemp(join(tmpdir(), 'airic-worker-app-')); directories.push(dir);
     const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
-    const worker = createWorker({ directory: dir, models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../skills/airic-work-worker/SKILL.md') }, h.store, h.d.methods, h.d.support);
+    const worker = createWorker({ directory: dir, models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../prompts/worker.md') }, h.store, h.d.methods, h.d.support);
     runtimes.push(worker.runtime);
     const backend = createBackend({ ...h.d, runtime: worker.runtime, history: worker.history });
     const app = backend.application;
@@ -135,7 +135,7 @@ it('holds answers for shared work until all its Decision Requests are answered',
     const h = harness();
     const dir = await mkdtemp(join(tmpdir(), 'airic-shared-work-')); directories.push(dir);
     const faux = fauxProvider(); const models = createModels(); models.setProvider(faux.provider);
-    const worker = createWorker({ directory: dir, models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../skills/airic-work-worker/SKILL.md') }, h.store, h.d.methods, h.d.support);
+    const worker = createWorker({ directory: dir, models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: join(import.meta.dirname, '../prompts/worker.md') }, h.store, h.d.methods, h.d.support);
     runtimes.push(worker.runtime);
     const backend = createBackend({ ...h.d, runtime: worker.runtime, history: worker.history });
     try {

@@ -95,7 +95,7 @@ export function createPersistence(options: PersistenceOptions): PersistenceResou
     }
 }
 
-/** Worker 的宿主配置；模型凭据、Skill 位置和工具能力由调用方提供。 */
+/** Worker 的宿主配置。skillPath 和 loadSkill 指向 Worker 提示词，沿用原配置名。 */
 export interface WorkerOptions {
     directory: string;
     models: Models;
@@ -247,10 +247,10 @@ function workerConfiguration(values: NodeJS.ProcessEnv, base: string, data: stri
     const { value, parse, json, text, number, path } = configurationReader(values, base);
     return {
         methods: { directory: path('AIRIC_METHOD_DIRECTORY', resolve(data, 'methods')), sources,
-            runtimeVersion: parse('AIRIC_RUNTIME_VERSION', text, 'pi-durable@1.4.0'), skillVersion: parse('AIRIC_WORKER_SKILL_VERSION', text, '0.2.1'),
+            runtimeVersion: parse('AIRIC_RUNTIME_VERSION', text, 'pi-durable@1.4.0'), skillVersion: parse('AIRIC_WORKER_SKILL_VERSION', text, '0.3.0'),
             limits: { commandTimeoutMs: number('AIRIC_GIT_TIMEOUT_MS', 30000, 2147483647), maxTreeBytes: number('AIRIC_OM_MAX_TREE_BYTES', 10485760), maxFileBytes: number('AIRIC_OM_MAX_FILE_BYTES', 10485760), maxSnapshotBytes: number('AIRIC_OM_MAX_SNAPSHOT_BYTES', 134217728), historyEntries: number('AIRIC_OM_HISTORY_ENTRIES', 50) },
         },
-        worker: { directory: path('AIRIC_RUNTIME_DIRECTORY', resolve(data, 'executions')), skillPath: path('AIRIC_WORKER_SKILL_PATH', 'backend/skills/airic-work-worker/SKILL.md'),
+        worker: { directory: path('AIRIC_RUNTIME_DIRECTORY', resolve(data, 'executions')), skillPath: path('AIRIC_WORKER_SKILL_PATH', resolve(import.meta.dirname, '../../prompts/worker.md')),
             model: { provider: parse('AIRIC_MODEL_PROVIDER', text, 'openai'), modelId: parse('AIRIC_MODEL_ID', text, 'gpt-6.1-sol') } },
         modelCredentials: { apiKey: value('AIRIC_MODEL_API_KEY'), environment: json('AIRIC_MODEL_ENV', z.record(z.string(), z.string()), '{}') },
     };
