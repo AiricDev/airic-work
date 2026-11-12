@@ -25,6 +25,9 @@ Compose mounts the repository from `AIRIC_OM_REPOSITORY` read-only at
 `/om`. Prepare and update the checkout outside Airic Work. Restart the service
 after updating its local HEAD to use that commit for new Tasks. Each existing
 Task keeps the OM revision pinned at creation.
+When updating an existing deployment, update `compose.yaml` with the image.
+The host path in `.env` selects the bind mount. The image starts the Worker
+with the fixed container path `/om`.
 
 If the GHCR package is private, sign in with `docker login ghcr.io` first.
 

@@ -12,6 +12,9 @@ import { TaskDispatcher } from './task-dispatcher';
 import { openTaskRuntime } from './task-runtime';
 import { TaskCreationUseCases } from '../application/task-creation';
 
+// Keep startup diagnostics independent of exception text, which can include credentials or URLs.
+let startupHint = 'check AIRIC_TASK_DATA, AIRIC_SECRET_KEY and AIRIC_TASK_PORT';
+
 async function main() {
     const { AIRIC_TASK_DATA, AIRIC_SECRET_KEY } = process.env;
     const host = process.env.AIRIC_TASK_HOST ?? '127.0.0.1';
@@ -21,13 +24,17 @@ async function main() {
         throw new Error('Invalid Task HTTP configuration');
     }
     const directory = resolve(AIRIC_TASK_DATA);
+    startupHint = 'cannot open Task data; check the data mount and its ownership and write permissions';
     const db = openSqliteDatabase(resolve(directory, 'registry.sqlite'));
     let ownership: ReturnType<typeof openSqliteDatabase> | undefined;
     try {
         ownership = openSqliteDatabase(resolve(directory, 'instance-ownership.sqlite'));
+        startupHint = 'cannot lock Task data; check for another Airic Work process using the same directory';
         ownership.exec('PRAGMA busy_timeout = 0; BEGIN IMMEDIATE');
+        startupHint = 'cannot initialize Task data; check the data directory and available disk space';
         const { files } = await createFileStorage({ directory: resolve(directory, 'uploads') });
         const uploads = new SqliteTaskUploads(db, files);
+        startupHint = 'cannot initialize MCP connections; check AIRIC_TASK_MCP_ALLOWLIST and AIRIC_TASK_MCP_SECRETS';
         const credentials = new TaskCredentialStore(
             db,
             z.array(z.string()).parse(JSON.parse(process.env.AIRIC_TASK_MCP_ALLOWLIST ?? '[]')),
@@ -43,13 +50,16 @@ async function main() {
         );
         let dispatcher: TaskDispatcher | undefined;
         let omStatus: Parameters<typeof createTaskServer>[5];
+        startupHint = 'cannot load Worker settings; check AIRIC_OM_REPOSITORY and the Worker environment';
         const config = loadTaskWorkerConfiguration(directory);
         const { methods } = await createMethods(config.methods);
+        startupHint = 'cannot pin the local OM; check that the mounted Git root is readable by the container user and its HEAD contains the OM entry';
         const pinned = await methods.pinHead('local', process.env.AIRIC_OM_ENTRY ?? 'om.md');
         const defaultOm = { source: pinned.source, revision: pinned.sha, entry: pinned.root };
         omStatus = async () => ({ source: pinned.source,
             kind: (await methods.headStatus('local')).kind, state: 'available', revision: pinned.sha });
         if (process.env.AIRIC_TASK_WORKER === '1') {
+            startupHint = 'cannot initialize the model; check AIRIC_MODEL_PROVIDER, AIRIC_MODEL_ID and AIRIC_MODEL_API_KEY';
             const models = await createConfiguredModels(config);
             const hostDirectory = process.env.AIRIC_WORKSPACE_HOST_DATA;
             const sandbox = hostDirectory ? {
@@ -68,6 +78,7 @@ async function main() {
                 taskId => console.error(JSON.stringify({ taskId, code: 'task_worker_failed' })),
             );
         }
+        startupHint = 'cannot initialize the Task API; check that AIRIC_SECRET_KEY is at least 32 characters';
         const server = createTaskServer(tasks, AIRIC_SECRET_KEY, dispatcher, uploads, credentials, omStatus, defaultOm);
         const tick = () => { void dispatcher?.pump().catch(() => console.error('Unable to scan Task registry')); };
         const timer = dispatcher ? setInterval(tick, 1000).unref() : undefined;
@@ -75,6 +86,7 @@ async function main() {
             clearInterval(timer);
             try { await dispatcher?.close(); } finally { ownership?.close(); db.close(); }
         });
+        startupHint = 'cannot listen for Task HTTP; check AIRIC_TASK_HOST and AIRIC_TASK_PORT';
         try { await server.listen({ host, port }); }
         catch (error) { await server.close(); throw error; }
         tick();
@@ -90,6 +102,6 @@ async function main() {
 }
 
 void main().catch(() => {
-    console.error('Unable to start Task HTTP');
+    console.error(`Unable to start Task HTTP: ${startupHint}`);
     process.exitCode = 1;
 });

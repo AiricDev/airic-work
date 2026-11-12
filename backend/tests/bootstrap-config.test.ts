@@ -134,3 +134,26 @@ it('accepts only an absolute local OM path and uses the path visible to the Work
         })).toThrow('AIRIC_OM_REPOSITORY must be an absolute path');
     }
 });
+
+it('identifies the OM startup failure without logging environment values', async () => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const secret = 'fixture-secret-that-must-not-be-logged';
+    await expect(promisify(execFile)(process.execPath, ['--import', 'tsx', 'src/bootstrap/task-http.ts'], {
+        cwd: join(import.meta.dirname, '..'),
+        env: {
+            ...process.env,
+            AIRIC_SECRET_KEY: secret,
+            AIRIC_TASK_DATA: directory,
+            AIRIC_TASK_PORT: '8080',
+            AIRIC_TASK_WORKER: '0',
+            AIRIC_TASK_MCP_ALLOWLIST: '[]',
+            AIRIC_TASK_MCP_SECRETS: '{}',
+            AIRIC_OM_REPOSITORY: join(directory, 'unmounted-om'),
+        },
+        timeout: 8000,
+    })).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringMatching(/^Unable to start Task HTTP: cannot pin the local OM;[^\n]+\n$/),
+    });
+}, 10000);

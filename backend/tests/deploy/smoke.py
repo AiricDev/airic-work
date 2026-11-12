@@ -29,6 +29,7 @@ def main():
         env_file = deployment / ".env"
         env_file.write_text(
             f"AIRIC_SECRET_KEY={token}\nAIRIC_TASK_WORKER=0\n"
+            f"AIRIC_OM_REPOSITORY={deployment / 'om'}\n"
         )
         env_file.chmod(0o600)
         data = deployment / "data"

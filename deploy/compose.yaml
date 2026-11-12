@@ -6,7 +6,6 @@ services:
     env_file: .env
     environment:
       AIRIC_WORKSPACE_IMAGE: *worker-image
-      AIRIC_OM_REPOSITORY: /om
       AIRIC_WORKSPACE_HOST_DATA: ${AIRIC_DEPLOY_DATA:?Set this value in .env}
     ports: ["127.0.0.1:8080:8080"]
     volumes:
