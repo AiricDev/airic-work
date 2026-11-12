@@ -161,7 +161,7 @@ paths:
       tags: [Tasks]
       operationId: notifyTask
       summary: 向 Task 主干投递外部系统事件
-      description: 直接身份可向其 Task 投递通知。服务调用需指定目标 Task 和 notify 操作。
+      description: 持有实例 Bearer 的调用可向指定 Task 投递通知。
       security:
         - bearerAuth: []
       parameters:
@@ -455,9 +455,9 @@ components:
       type: http
       scheme: bearer
       description: |
-        Airic Work 信任的 Bearer 凭据。业务后端用服务 Bearer，并通过 X-Airic-Actor-Id 传递它已认证的操作者。
+        共享 Bearer 可访问实例中的所有 Task。业务后端可用 X-Airic-Actor-Id 传递已认证的操作者。
         Task 范围内的读取、作答、凭据更新和通知使用 X-Airic-Task-Id 和 X-Airic-Task-Action，
-        对应操作为 read、answer、credential 或 notify。调用方和访问范围由服务端配置。
+        对应操作为 read、answer、credential 或 notify。
         MCP 凭据通过 Task 的连接配置提供。
   parameters:
     TaskId:
@@ -909,13 +909,11 @@ components:
       allOf:
         - $ref: '#/components/schemas/InputReceipt'
         - type: object
-          required: [requestId, decisionId, callerId, actorId]
+          required: [requestId, decisionId, actorId]
           properties:
             requestId:
               $ref: '#/components/schemas/Id'
             decisionId:
-              $ref: '#/components/schemas/Id'
-            callerId:
               $ref: '#/components/schemas/Id'
             actorId:
               $ref: '#/components/schemas/Id'

@@ -95,7 +95,7 @@ it('uses a stored Task bearer and replays a recorded write without fresh network
     const db = openSqliteDatabase(join(directory, 'registry.sqlite'));
     try {
         const origin = new URL(fixture.options.endpoint).origin;
-        const credentials = new TaskCredentialStore(db, randomBytes(32), [origin + '/mcp'], {});
+        const credentials = new TaskCredentialStore(db, [origin + '/mcp'], {});
         credentials.initialize('task-test', [{
             id: connection, endpoint: origin + sharedPath, auth: { type: 'bearer', token },
         }]);
@@ -124,8 +124,8 @@ it('uses a stored Task bearer and replays a recorded write without fresh network
         await expect(gateway.tools(u.id, connection, { executionId: e.id, sessionId: e.sessionId, generation: e.generation })).rejects.toThrow();
         expect(credentials.status('task-test', connection)).toBe('authorization_failed');
         expect(fixture.received.filter(r => r.url === sharedPath).every(r => r.authorization === expectedBearer)).toBe(true);
-        const row = db.prepare('SELECT ciphertext FROM task_credentials').get() as { ciphertext: Buffer };
-        expect(row.ciphertext.includes(Buffer.from(token))).toBe(false);
+        const reopened = new TaskCredentialStore(db, [origin + '/mcp'], {});
+        expect(reopened.read('task-test', connection).token).toBe(token);
         const oldRevision = credentials.lease('task-test', connection).revision;
         credentials.replace('task-test', connection, 'rotate', { type: 'bearer', token: 'new-credential' });
         credentials.observe('task-test', connection, oldRevision, 'authorization_failed');

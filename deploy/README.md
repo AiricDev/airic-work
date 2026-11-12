@@ -1,6 +1,6 @@
 # Run Airic Work with Compose
 
-Copy `task.env.example` to `.env` in this directory. Set a random Bearer token of at least 32 characters and a 32-byte fingerprint key encoded as 64 hex characters. Keep the key with the Task data across restarts. Configure the model credentials and set `AIRIC_OM_REPOSITORY` to an absolute local Git path or a Git HTTPS/SSH URL.
+Copy `task.env.example` to `.env` in this directory. Set `AIRIC_SECRET_KEY` to a random Bearer token of at least 32 characters. Configure the model credentials and set `AIRIC_OM_REPOSITORY` to an absolute local Git path or a Git HTTPS/SSH URL.
 
 Place `compose.yaml` and `.env` in the deployment directory. Run there as a
 non-root user with Docker access. Prepare the directories before starting:
@@ -44,7 +44,7 @@ images after tests and the image smoke check pass.
 
 Open [Swagger UI](http://127.0.0.1:8080/docs/) and authorize with the configured Bearer token. Task data is stored in `deploy/data/` beside `compose.yaml` and mounted at `/var/lib/airic-work`. A local OM is mounted read-only at `/om`. A remote OM is cloned into the data directory. The source ID in Task requests is `local` for either form. The service is published on loopback at port 8080. The OM source in the sample configuration is named `local`.
 
-Set `AIRIC_TASK_SERVICE_TOKEN` to a dedicated random Bearer token shared with the service backend over HTTPS. The authenticated backend authorizes its users and supplies `X-Airic-Actor-Id`. For Task-bound reads, answers, credential updates and notifications it also supplies `X-Airic-Task-Id` and `X-Airic-Task-Action` (`read`, `answer`, `credential`, or `notify`). The caller and scope default to `certlab`. Set `AIRIC_TASK_SERVICE_CALLER_ID` and `AIRIC_TASK_SERVICE_SCOPE` to preserve any previous custom values. Keep the service token distinct from `AIRIC_TASK_TOKEN`. The service token grants access within its configured scope.
+Use `AIRIC_SECRET_KEY` as the API Bearer token over HTTPS. It grants access to every Task in the instance. CertLab authorizes its users and supplies `X-Airic-Actor-Id` for attribution. For Task-bound reads, answers, credential updates and notifications it also supplies `X-Airic-Task-Id` and `X-Airic-Task-Action` to identify the target operation.
 
 Workspace commands use Docker Engine API 1.47 or newer. The trusted Worker uses the Docker socket to start command containers. Configure the host paths and permissions in `.env` as described above. The Docker socket path is fixed at `/var/run/docker.sock`. Commands run without network access, as a non-root user, with read-only `/om` and `/inputs` mounts and a persistent writable `/work` mount. Only the Worker service receives the Docker socket and the deployment credentials.
 
@@ -55,13 +55,28 @@ docker build -t airic-work:task .
 python3 backend/tests/deploy/smoke.py
 ```
 
+To verify the CertLab integration, install the backend Node dependencies with
+`npm ci --prefix backend` and install CertLab's development dependencies with
+`uv sync --extra dev` in its checkout. From the Airic Work repository, run:
+
+```sh
+python3 backend/tests/deploy/smoke.py --certlab ../certlab
+```
+
+This mode starts both services locally with disposable data, a temporary TLS
+certificate and one generated `AIRIC_SECRET_KEY`. It uses a deterministic model
+and verifies Task creation, a reviewer's answer resuming the same Session,
+MCP fieldwork creation and delivery of CertLab's completion notification.
+It requires Node 24, Git and OpenSSL. The existing Docker smoke remains the
+default when no CertLab checkout is supplied.
+
 ## Backup
 
-Stop the service with `docker compose stop` before copying the deployment directory. Keep `.env` with the backup so the fingerprint key can decrypt stored credentials. Place a local OM checkout inside the deployment directory to include it in the same backup. An external checkout requires its own backup.
+Stop the service with `docker compose stop` before copying the deployment directory. Restrict access to the deployment directory and its backups. They contain the API secret and stored MCP credentials. Place a local OM checkout inside the deployment directory to include it in the same backup. An external checkout requires its own backup.
 
 ## Preview cutover
 
-Run `npm run check` and the Docker smoke check, then verify both Swagger paths before switching the intended preview instance. Identify the old container and its data mount with `docker inspect`. Confirm that the mount is the preview instance's dedicated Airic Work volume and record its exact name. Stop and remove that container, then remove the identified preview volume. Start the Task Worker under its chosen Compose project with an empty `deploy/data/` directory and confirm `/healthz`, Swagger, and an authenticated Task request. The new instance uses its own Task token and fingerprint key.
+Run `npm run check` and the Docker smoke check, then verify both Swagger paths before switching the intended preview instance. Identify the old container and its data mount with `docker inspect`. Confirm that the mount is the preview instance's dedicated Airic Work volume and record its exact name. Stop and remove that container, then remove the identified preview volume. Start the Task Worker under its chosen Compose project with an empty `deploy/data/` directory and confirm `/healthz`, Swagger, and an authenticated Task request. The new instance uses its own API secret.
 
 ## Acceptance record
 

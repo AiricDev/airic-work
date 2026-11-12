@@ -198,7 +198,6 @@ export interface UserDecision {
     references?: MaterialReference[];
     intent?: 'investigate';
     supplements?: string;
-    callerId?: string;
     actorId?: string;
     id: string;
     requestId: string;

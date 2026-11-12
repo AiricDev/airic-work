@@ -5,16 +5,8 @@ import { requireRule } from '../../../domain/model';
 export type TaskAction = "read" | "answer" | "notify" | "credential";
 
 export interface TaskActor {
-    scope: string;
     actor: string;
-    callerId: string;
     grant?: { taskId: string; action: TaskAction };
-}
-
-export interface TaskServiceIdentity {
-    bearerToken: string;
-    callerId: string;
-    scope: string;
 }
 
 const actorId = z.string().regex(/^[!-~]{1,200}$/);
@@ -23,32 +15,20 @@ const taskGrant = z.strictObject({
     action: z.enum(['read', 'answer', 'notify', 'credential']),
 });
 const requestIdentity = z.strictObject({
-    actor: actorId,
+    actor: actorId.default("operator"),
     grant: taskGrant.optional(),
 });
 
 const digest = (value: string) => createHash('sha256').update(value).digest();
 const validToken = (token: string) => token.length >= 32 && /^[!-~]+$/.test(token);
 
-export function taskAuthenticator(direct: { bearerToken: string; scope: string; actor: string }, integration?: TaskServiceIdentity) {
-    requireRule(validToken(direct.bearerToken), 'invalid');
-    const directDigest = digest(`Bearer ${direct.bearerToken}`);
-    const integrationDigest = integration && digest(`Bearer ${integration.bearerToken}`);
-    if (integration) {
-        requireRule(validToken(integration.bearerToken) && integration.bearerToken !== direct.bearerToken
-            && integration.scope !== direct.scope, 'invalid');
-    }
+export function taskAuthenticator(bearerToken: string) {
+    requireRule(validToken(bearerToken), 'invalid');
+    const expected = digest(`Bearer ${bearerToken}`);
     return (authorization: string | undefined, actor: unknown, taskId: unknown, action: unknown): TaskActor | undefined => {
-        const received = digest(authorization ?? '');
-        const scoped = taskId !== undefined || action !== undefined;
-        if (timingSafeEqual(received, directDigest)) {
-            return actor === undefined && !scoped
-                ? { scope: direct.scope, actor: direct.actor, callerId: direct.actor }
-                : undefined;
-        }
-        if (!integration || !integrationDigest || !timingSafeEqual(received, integrationDigest)) return undefined;
-        const parsed = requestIdentity.safeParse({ actor, grant: scoped ? { taskId, action } : undefined });
-        if (!parsed.success) return undefined;
-        return { scope: integration.scope, callerId: integration.callerId, ...parsed.data };
+        if (!timingSafeEqual(digest(authorization ?? ''), expected)) return undefined;
+        const grant = taskId !== undefined || action !== undefined ? { taskId, action } : undefined;
+        const parsed = requestIdentity.safeParse({ actor, grant });
+        return parsed.success ? parsed.data : undefined;
     };
 }

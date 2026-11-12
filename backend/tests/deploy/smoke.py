@@ -1,4 +1,5 @@
 """Exercise the built image with a disposable Compose project and no model calls."""
+import argparse
 import hashlib
 import json
 import os
@@ -27,7 +28,7 @@ def main():
         )
         env_file = deployment / ".env"
         env_file.write_text(
-            f"AIRIC_TASK_TOKEN={token}\nAIRIC_TASK_FINGERPRINT_KEY={secrets.token_hex(32)}\nAIRIC_TASK_WORKER=0\n"
+            f"AIRIC_SECRET_KEY={token}\nAIRIC_TASK_WORKER=0\n"
         )
         env_file.chmod(0o600)
         data = deployment / "data"
@@ -110,4 +111,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--certlab", type=Path, help="Run the dual-service smoke against a CertLab checkout")
+    options = parser.parse_args()
+    if options.certlab:
+        subprocess.run([sys.executable, TEST_DIR / "certlab_smoke.py", options.certlab], check=True)
+    else:
+        main()

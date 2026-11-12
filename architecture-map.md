@@ -12,6 +12,7 @@
 | 固定 OM 与文件 | `backend/src/adapters/driven/methods/`、`files/` | `backend/tests/methods-git.test.ts`、`files-blob.test.ts` |
 | MCP 和身份 | `backend/src/application/mcp.ts`、`backend/src/adapters/driven/mcp/`、`identity/` | `backend/tests/mcp-integration.test.ts`、`identity-https.test.ts` |
 | 端口和装配 | `backend/src/application/ports.ts`、`backend/src/bootstrap/` | `backend/tests/architecture.test.ts`、`bootstrap-config.test.ts` |
+| CertLab 的 Task API 认证、作答和完工通知 | [Task HTTP 装配](backend/src/bootstrap/task-http.ts)、[CertLab 集成说明](../certlab/deploy/airic-work.md) | [双服务验收](deploy/README.md) |
 
 回答、`steering` 和 `notify` 共用持久输入队列。输入用例选择并复核队首，Worker 每投递一条就等 Pi 完成本轮工作，再选择下一条。Pi 负责判断续行锚点是否已就绪，以及记录接收回执。
 

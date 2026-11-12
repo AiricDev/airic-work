@@ -30,7 +30,7 @@ try {
         'if touch /om/write || touch /inputs/write; then exit 1; fi',
         'test ! -e /var/run/docker.sock || { echo "Docker socket visible"; exit 1; }',
         'test ! -e /var/lib/airic-work/tasks/other/private || { echo "Other task visible"; exit 1; }',
-        'test -z "${AIRIC_TASK_TOKEN-}" || { echo "Worker credentials visible"; exit 1; }',
+        'test -z "${AIRIC_SECRET_KEY-}" || { echo "Worker credentials visible"; exit 1; }',
         `node -e 'if (Object.values(require("node:os").networkInterfaces()).flat().some(i => !i.internal)) throw Error("External network interface visible")'`,
         'printf persisted > /work/file',
     ].join('\n'), admit);
@@ -52,7 +52,7 @@ try {
 
 const { createModels, fauxProvider, fauxAssistantMessage, fauxText, fauxToolCall } = await import('@earendil-works/pi-ai');
 const { openSqliteDatabase } = await import('/app/backend/src/adapters/driven/sqlite/database.ts');
-const { SqliteTaskRegistry, taskFingerprint } = await import('/app/backend/src/adapters/driven/sqlite/task-registry.ts');
+const { SqliteTaskRegistry } = await import('/app/backend/src/adapters/driven/sqlite/task-registry.ts');
 const { SqliteTaskInitializer } = await import('/app/backend/src/adapters/driven/sqlite/task-initializer.ts');
 const { SqliteTaskUploads } = await import('/app/backend/src/adapters/driven/sqlite/task-uploads.ts');
 const { LocalBlobFiles } = await import('/app/backend/src/adapters/driven/files/local-blob-files.ts');
@@ -64,11 +64,10 @@ const db = openSqliteDatabase(directory + '/workspace-smoke.sqlite');
 const uploads = new SqliteTaskUploads(db, await LocalBlobFiles.open(directory + '/workspace-smoke-blobs'));
 const tasks = new TaskCreationUseCases(
     new SqliteTaskRegistry(db), new SqliteTaskInitializer(directory + '/tasks'),
-    value => taskFingerprint(Buffer.alloc(32, 1), value), randomUUID, () => new Date().toISOString(),
+    randomUUID, () => new Date().toISOString(),
     (...args) => uploads.bind(...args),
 );
 const token = randomUUID();
-const identity = { bearerToken: token, scope: 'smoke', actor: 'operator' };
 const auth = { authorization: 'Bearer ' + token };
 const methods = {
     async pinRevision({ source, entry }) {
@@ -79,13 +78,13 @@ const methods = {
 const faux = fauxProvider();
 const models = createModels();
 models.setProvider(faux.provider);
-const dispatcher = new TaskDispatcher(() => tasks.admitted(), record => openTaskRuntime(directory + '/tasks', record, methods, {
+const dispatcher = new TaskDispatcher(() => tasks.list(), record => openTaskRuntime(directory + '/tasks', record, methods, {
     models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: '/app/backend/prompts/worker.md',
 }, uploads, undefined, {
     socketPath: '/var/run/docker.sock', hostDirectory: process.env.AIRIC_WORKSPACE_HOST_DATA, user: `${process.getuid()}:${process.getgid()}`,
     image: process.env.AIRIC_WORKSPACE_IMAGE || 'airic-work:task', dataDirectory: directory, methodDirectory: async () => method,
 }), () => { throw Error('Worker smoke failed'); });
-const server = createTaskServer(tasks, identity, dispatcher, uploads, undefined, undefined, undefined, { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' });
+const server = createTaskServer(tasks, token, dispatcher, uploads, undefined, undefined, { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' });
 async function get(url, status = 200) {
     const response = await server.inject({ url, headers: auth });
     assert.equal(response.statusCode, status, response.body);

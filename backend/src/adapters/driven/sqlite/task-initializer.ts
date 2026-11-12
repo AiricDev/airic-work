@@ -30,7 +30,7 @@ export class SqliteTaskInitializer implements TaskInitializer {
                 db.prepare('INSERT OR IGNORE INTO task_creation(id, record) VALUES (1, ?)').run(JSON.stringify(record));
                 const row = db.prepare('SELECT record FROM task_creation WHERE id = 1').get() as { record: string };
                 const persisted = JSON.parse(row.record) as TaskCreationRecord;
-                requireRule(persisted.taskId === record.taskId && persisted.scope === record.scope && persisted.actor === record.actor, 'conflict');
+                requireRule(persisted.taskId === record.taskId && persisted.actor === record.actor, 'conflict');
                 return persisted;
             });
         } finally { db.close(); }

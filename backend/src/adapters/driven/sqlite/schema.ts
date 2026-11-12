@@ -28,7 +28,6 @@ export const decisions = sqliteTable('user_decisions', {
     intent: text({ enum: ['investigate'] }),
     supplements: text(),
     references: text('material_references', { mode: 'json' }).$type<MaterialReference[]>(),
-    callerId: text('caller_id'),
     actorId: text('actor_id'),
     id: text().primaryKey(), requestId: text('request_id').notNull(), userId: text('user_id').notNull(),
     text: text().notNull(), optionId: text('option_id'), contextRevision: integer('context_revision').notNull(),

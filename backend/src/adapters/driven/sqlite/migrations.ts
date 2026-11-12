@@ -95,7 +95,6 @@ BEGIN SELECT RAISE(ABORT, 'immutable upload'); END;
 const migrations = [initial, `ALTER TABLE decision_requests ADD COLUMN summary TEXT NOT NULL DEFAULT '' CHECK(length(summary) <= 80);`,
     `ALTER TABLE executions ADD COLUMN stop_requested_at TEXT;
      ALTER TABLE executions ADD COLUMN stop_confirmed_at TEXT;`,
-    `ALTER TABLE user_decisions ADD COLUMN caller_id TEXT;`,
     `CREATE TABLE task_outputs (
         fileId TEXT PRIMARY KEY NOT NULL, executionId TEXT NOT NULL REFERENCES executions(id),
         commandKey TEXT NOT NULL, path TEXT NOT NULL, name TEXT NOT NULL, hash TEXT NOT NULL,

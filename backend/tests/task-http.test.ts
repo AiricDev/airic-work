@@ -7,7 +7,7 @@ import { expect, it } from 'vitest';
 import { TaskCredentialStore } from '../src/adapters/driven/mcp/task-credentials';
 import { openSqliteDatabase } from '../src/adapters/driven/sqlite/database';
 import { SqliteTaskInitializer } from '../src/adapters/driven/sqlite/task-initializer';
-import { SqliteTaskRegistry, taskFingerprint } from '../src/adapters/driven/sqlite/task-registry';
+import { SqliteTaskRegistry } from '../src/adapters/driven/sqlite/task-registry';
 import { createTaskServer } from '../src/adapters/driving/http/task-server';
 import { TaskCreationUseCases } from '../src/application/task-creation';
 
@@ -16,15 +16,15 @@ it('validates the examples for the public OpenAPI contract', validateContractExa
 it('authenticates task creation and returns the original receipt on retry', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'airic-task-http-'));
     const db = openSqliteDatabase(join(directory, 'registry.sqlite'));
-    const credentials = new TaskCredentialStore(db, Buffer.alloc(32, 2), ['https://example.invalid/mcp'], {});
+    const credentials = new TaskCredentialStore(db, ['https://example.invalid/mcp'], {});
     const tasks = new TaskCreationUseCases(
         new SqliteTaskRegistry(db), new SqliteTaskInitializer(join(directory, 'tasks')),
-        payload => taskFingerprint(Buffer.alloc(32, 1), payload), randomUUID, () => new Date().toISOString(), undefined, credentials,
+        randomUUID, () => new Date().toISOString(), undefined, credentials,
     );
     const bearerToken = 'test-token-with-at-least-32-characters';
     const defaultOm = { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' };
     const contract = taskContract();
-    const server = createTaskServer(tasks, { bearerToken, scope: 'test', actor: 'engineer' }, undefined, undefined, credentials, undefined, async () => ({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) }), defaultOm);
+    const server = createTaskServer(tasks, bearerToken, undefined, undefined, credentials, async () => ({ source: 'local', kind: 'local', state: 'available', revision: 'a'.repeat(40) }), defaultOm);
     const request = {
         method: 'POST' as const,
         url: '/api/v1/tasks',
@@ -51,7 +51,7 @@ it('authenticates task creation and returns the original receipt on retry', asyn
         const { taskId } = created.json();
         expect(detail.json().connections).toEqual([{ id: 'business', status: 'unchecked' }]);
         expect(detail.body).not.toContain('secret-initial');
-        expect(JSON.stringify(tasks.get('test', 'engineer', taskId))).not.toContain('secret-initial');
+        expect(JSON.stringify(tasks.get(taskId))).not.toContain('secret-initial');
         expect(credentials.read(taskId, 'business').token).toBe('secret-initial');
         const lease = credentials.lease(taskId, 'business');
         for (const [status, code] of [['authorization_failed', 'mcp_authorization_failed'], ['unavailable', 'mcp_unavailable']] as const) {

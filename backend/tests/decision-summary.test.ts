@@ -42,7 +42,6 @@ it('migrates existing questions intact and persists a separate summary with its 
             ALTER TABLE steering_inputs DROP COLUMN material_references;
             ALTER TABLE user_decisions DROP COLUMN material_references;
             ALTER TABLE user_decisions DROP COLUMN actor_id;
-            ALTER TABLE user_decisions DROP COLUMN caller_id;
             ALTER TABLE executions DROP COLUMN stop_confirmed_at;
             ALTER TABLE executions DROP COLUMN stop_requested_at;
             ALTER TABLE decision_requests DROP COLUMN summary;

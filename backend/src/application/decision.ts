@@ -46,7 +46,6 @@ export class DecisionUseCases {
         correctionOf?: string;
         supplements?: string;
         intent?: 'investigate';
-        callerId?: string;
         actorId?: string;
     }) {
         const r = await this.store.request(requestId);

@@ -9,17 +9,17 @@ import { TaskCreationUseCases } from '../src/application/task-creation';
 import { LocalBlobFiles } from '../src/adapters/driven/files/local-blob-files';
 import { SqliteTaskUploads } from '../src/adapters/driven/sqlite/task-uploads';
 import { SqliteTaskInitializer } from '../src/adapters/driven/sqlite/task-initializer';
-import { SqliteTaskRegistry, taskFingerprint } from '../src/adapters/driven/sqlite/task-registry';
+import { SqliteTaskRegistry } from '../src/adapters/driven/sqlite/task-registry';
 import { openSqliteDatabase } from '../src/adapters/driven/sqlite/database';
 import { TaskDispatcher } from '../src/bootstrap/task-dispatcher';
 import type { TaskAction } from '../src/adapters/driving/http/task-auth';
 import { createTaskServer } from '../src/adapters/driving/http/task-server';
 import { harness } from './support/harness';
-import type { TaskCreationRecord } from '../src/application/task-creation';
+import { taskStorageScope, type TaskCreationRecord } from '../src/application/task-creation';
 
 it('dispatches a new Task while another runs without admitting that Task twice', async () => {
     const first: TaskCreationRecord = {
-        taskId: 'first', scope: 'local', actor: 'operator', acceptedAt: '2026-11-09T00:00:00Z',
+        taskId: 'first', actor: 'operator', acceptedAt: '2026-11-09T00:00:00Z',
         creation: { instruction: 'Review', om: { source: 'repo', revision: 'v1', entry: 'om.md' } },
     };
     const tasks = [first];
@@ -68,7 +68,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     let taskCount = 0;
     const tasks = new TaskCreationUseCases(
         new SqliteTaskRegistry(db), new SqliteTaskInitializer(taskDirectory),
-        value => taskFingerprint(Buffer.alloc(32, 2), value), () => taskCount++ === 0 ? 'review' : 'local-review', () => '2026-11-09T00:00:00Z',
+        () => taskCount++ === 0 ? 'review' : 'local-review', () => '2026-11-09T00:00:00Z',
         (scope, actor, taskId, ids) => uploads.bind(scope, actor, taskId, ids),
     );
     const options = {
@@ -77,13 +77,9 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     };
     await writeFile(options.skillPath, 'Pinned worker skill for this fixture');
     const bearerToken = 'task-test-token-with-at-least-32-characters';
-    const integration = {
-        bearerToken: 'integration-token-with-at-least-32-characters',
-        callerId: 'certlab-test', scope: 'test-org',
-    };
     function serviceHeaders(actor: string, grant?: { taskId: string; action: TaskAction }) {
         return {
-            authorization: `Bearer ${integration.bearerToken}`,
+            authorization: `Bearer ${bearerToken}`,
             'x-airic-actor-id': actor,
             ...(grant ? { 'x-airic-task-id': grant.taskId, 'x-airic-task-action': grant.action } : {}),
         };
@@ -91,14 +87,14 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     const headers = serviceHeaders('owner');
     const reference = { kind: 'reference', source: { object: { system: 'certlab', kind: 'report', id: 'report-demo' }, revision: 'rev-1' } };
     const startDispatcher = () => new TaskDispatcher(
-        () => tasks.admitted(),
+        () => tasks.list(),
         record => openTaskRuntime(taskDirectory, record, methods, options, uploads),
         () => { throw new Error('unexpected Worker failure'); },
     );
     let dispatcher = startDispatcher();
     const defaultOm = { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' };
     const contract = taskContract();
-    const server = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
+    const server = createTaskServer(tasks, bearerToken, dispatcher, uploads, undefined, undefined, defaultOm);
     try {
         const payload = '--boundary\r\nContent-Disposition: form-data; name="file"; filename="evidence.txt"\r\n'
             + 'Content-Type: text/plain\r\n\r\nPersisted evidence\r\n--boundary--\r\n';
@@ -140,17 +136,15 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             payload: { eventId: 'event-1', type: 'invoice.paid', revision: 'rev-2', object: { system: 'billing', kind: 'invoice', id: 'inv-1' } },
         };
         expect((await contract.inject(server, { ...completion, url: `${taskUrl}-missing/notify` })).statusCode).toBe(404);
-        expect((await contract.inject(server, { ...completion, headers })).statusCode).toBe(403);
-        expect((await contract.inject(server, completion)).statusCode).toBe(404);
         expect((await contract.inject(server, { ...completion, headers: {} })).statusCode).toBe(401);
 
         const detail = (await contract.inject(server, { url: taskUrl, headers })).json();
         expect(detail).toMatchObject({ phase: 'waiting', pendingRequestCount: 1 });
         expect(Date.parse(detail.updatedAt)).toBeGreaterThan(Date.parse(detail.createdAt));
-        expect((await contract.inject(server, { url: taskUrl, headers: serviceHeaders('other') })).statusCode).toBe(404);
+        expect((await contract.inject(server, { url: taskUrl, headers: serviceHeaders('other') })).statusCode).toBe(200);
         expect((await contract.inject(server, { url: taskUrl, headers: { ...headers, authorization: 'Bearer wrong-token' } })).statusCode).toBe(401);
-        expect((await contract.inject(server, { url: taskUrl, headers: { authorization: headers.authorization } })).statusCode).toBe(401);
-        expect((await contract.inject(server, { url: taskUrl, headers: { authorization: `Bearer ${bearerToken}` } })).statusCode).toBe(404);
+        expect((await contract.inject(server, { url: taskUrl, headers: { authorization: headers.authorization } })).statusCode).toBe(200);
+        expect((await contract.inject(server, { url: taskUrl, headers: { authorization: `Bearer ${bearerToken}` } })).statusCode).toBe(200);
         const questions = (await contract.inject(server, { url: `${taskUrl}/decision-requests`, headers })).json();
         expect(questions.items).toMatchObject([{ title: "Confirm?" }]);
         expect(detail.work).toEqual([{ workId: questions.items[0].requestId, label: 'review', waitingOn: [questions.items[0].requestId] }]);
@@ -173,9 +167,6 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect((await contract.inject(server, { url: taskUrl, headers: reviewerRead })).statusCode).toBe(200);
         expect((await contract.inject(server, {
             url: taskUrl, headers: { ...headers, 'x-airic-task-id': 'review' },
-        })).statusCode).toBe(401);
-        expect((await contract.inject(server, {
-            url: taskUrl, headers: { ...reviewerRead, authorization: `Bearer ${bearerToken}` },
         })).statusCode).toBe(401);
         expect((await contract.inject(server, { url: taskUrl, headers: reviewerAnswer })).statusCode).toBe(404);
         expect((await contract.inject(server, { url: `${taskUrl}-other`, headers: reviewerRead })).statusCode).toBe(404);
@@ -209,7 +200,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         })).statusCode).toBe(404);
         const receipt = await contract.inject(server, sharedAnswer);
         expect(receipt.statusCode).toBe(201);
-        expect(receipt.json()).toMatchObject({ callerId: 'certlab-test', actorId: 'reviewer' });
+        expect(receipt.json()).toMatchObject({ actorId: 'reviewer' });
         expect((await contract.inject(server, sharedAnswer)).json()).toEqual(receipt.json());
         const saved = await contract.inject(server, { url: `${taskUrl}/inputs?inputId=${receipt.json().inputId}`, headers });
         expect(saved.json().items).toMatchObject([{ kind: 'decision', delivery: { state: 'pending' }, continuations: [{ workId: questions.items[0].requestId, state: 'waiting' }] }]);
@@ -223,7 +214,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect((await contract.inject(server, notify)).json()).toEqual(notified.json());
         let steeringContext = '';
         let resumedPrompt: string | undefined;
-        uploads.claim(integration.scope, 'owner', 'review', [orphan.uploadId]);
+        uploads.claim(taskStorageScope, 'owner', 'review', [orphan.uploadId]);
         await dispatcher.close();
         await writeFile(options.skillPath, 'Different worker skill after deployment');
         dispatcher = startDispatcher();
@@ -241,7 +232,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         ]);
         await dispatcher.pump();
         expect(db.prepare('SELECT taskId FROM task_uploads WHERE id = ?').get(orphan.uploadId)).toEqual({ taskId: null });
-        const worker = await dispatcher.runtime(tasks.get(integration.scope, 'owner', 'review'));
+        const worker = await dispatcher.runtime(tasks.get('review'));
         const resumed = await worker.app.query.queryExecution(worker.ownerId, worker.executionId);
         expect(resumed.sessionId).toBe(detail.sessionId);
         expect(resumed.method?.sha).toBe(detail.pinnedOm.resolvedRevision);
@@ -254,7 +245,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(steeringContext).toContain('invoice.paid');
         expect(session).toContain('Reviewer evidence');
         expect(session).toContain('report-demo');
-        const reopened = createTaskServer(tasks, { bearerToken, scope: 'local', actor: 'owner' }, dispatcher, uploads, undefined, integration, undefined, defaultOm);
+        const reopened = createTaskServer(tasks, bearerToken, dispatcher, uploads, undefined, undefined, defaultOm);
         try {
             const download = await contract.inject(reopened, { url: `${taskUrl}/files/${uploadId}`, headers });
             expect(download.statusCode).toBe(200);
@@ -280,7 +271,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
                 url: `/api/v1/decision-requests/${questions.items[0].requestId}/episode`, headers,
             });
             expect(episode.statusCode).toBe(200);
-            expect(episode.json().items[1].receipt).toMatchObject({ callerId: 'certlab-test', actorId: 'reviewer' });
+            expect(episode.json().items[1].receipt).toMatchObject({ actorId: 'reviewer' });
             expect(episode.json().items[1].files).toEqual([{ fileId: reviewerFileId, name: 'evidence.txt' }]);
             expect(episode.json().items[1].answer.materials).toEqual([{ kind: 'upload', uploadId: reviewerFileId }, reference]);
             expect(episode.json().items.map((item: { kind: string }) => item.kind))
@@ -324,7 +315,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
             await dispatcher.close();
             dispatcher = startDispatcher();
             await dispatcher.pump();
-            const restored = await dispatcher.runtime(tasks.get(integration.scope, 'owner', 'review'));
+            const restored = await dispatcher.runtime(tasks.get('review'));
             expect((await restored.app.query.queryExecution(restored.ownerId, restored.executionId)).phase).toBe('stopped');
             expect(restored.inputFacts().find(item => item.inputId === queued.json().inputId)?.delivery.state).toBe('paused');
             const localHeaders = { authorization: `Bearer ${bearerToken}` };

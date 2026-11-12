@@ -66,8 +66,7 @@ it('documents a Task deployment example whose credentials are provisioned explic
     const { parseEnv } = await import('node:util');
     const { loadTaskWorkerConfiguration } = await import('../src/bootstrap/bindings');
     const example = parseEnv(await readFile(join(import.meta.dirname, '../../deploy/task.env.example'), 'utf8'));
-    expect(example.AIRIC_TASK_FINGERPRINT_KEY).toBe('');
-    expect(example.AIRIC_TASK_TOKEN).toBe('');
+    expect(example.AIRIC_SECRET_KEY).toBe('');
     const config = loadTaskWorkerConfiguration(directory, { ...example, AIRIC_OM_REPOSITORY: directory });
     expect(config.worker.model.provider).toBe('openai');
 });

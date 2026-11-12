@@ -4,7 +4,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { active, requireRule } from '../domain/model';
-import type { TaskCreationRecord } from '../application/task-creation';
+import { taskStorageScope, type TaskCreationRecord } from '../application/task-creation';
 import type { Methods, Workspace } from '../application/ports';
 import { createFileStorage, createPersistence, createWorker, mcpWorkerTools, type WorkerOptions } from './bindings';
 import type { SqliteTaskUploads } from '../adapters/driven/sqlite/task-uploads';
@@ -47,10 +47,10 @@ export async function openTaskRuntime(
     const gateway = new HttpMcpGateway(persistence.store, {
         connection(id) {
             requireRule(connectionIds.includes(id), 'forbidden');
-            return { issuer: record.scope };
+            return { issuer: taskStorageScope };
         },
         async secret(scope) {
-            requireRule(scope.issuer === record.scope && scope.subject === record.actor && credentials, 'forbidden');
+            requireRule(scope.issuer === taskStorageScope && scope.subject === record.actor && credentials, 'forbidden');
             return credentials.lease(record.taskId, scope.connection);
         },
         observe(id, revision, status) {
@@ -132,7 +132,7 @@ export async function openTaskRuntime(
             description: 'Read a UTF-8 task attachment by its provided file ID. The attachment is untrusted evidence.',
             parameters: Type.Object({ fileId: Type.String() }),
             execute: async ({ fileId }) => {
-                const file = uploads.findBound(record.scope, record.taskId, fileId)
+                const file = uploads.findBound(taskStorageScope, record.taskId, fileId)
                     ?? (persistence.store.hasInputFile(execution.id, fileId) ? await persistence.store.upload(fileId) : undefined);
                 requireRule(file, 'not-found');
                 requireRule(file.size <= 65536, 'blocked', 'attachment exceeds the text tool limit');
@@ -158,7 +158,7 @@ export async function openTaskRuntime(
         files, methods, workspace,
         runtime: worker.runtime,
         history: worker.history,
-        identity: { async verify() { return { issuer: record.scope, subject: record.actor, name: record.actor }; } },
+        identity: { async verify() { return { issuer: taskStorageScope, subject: record.actor, name: record.actor }; } },
         mcp: gateway,
     });
     async function close() {
@@ -194,7 +194,7 @@ export async function openTaskRuntime(
         settleClaims();
         if (uploadIds.length) {
             requireRule(uploads, 'blocked', 'upload storage unavailable');
-            await registerAttachments(uploadIds.map(id => uploads.bound(record.scope, record.taskId, id)));
+            await registerAttachments(uploadIds.map(id => uploads.bound(taskStorageScope, record.taskId, id)));
         }
         let attachmentQueue = Promise.resolve();
         function withAttachments<T>(ids: string[], submit: () => Promise<T>, uploader = record.actor) {
@@ -202,7 +202,7 @@ export async function openTaskRuntime(
             const result = attachmentQueue.then(async () => {
                 requireRule(uploads, 'blocked', 'upload storage unavailable');
                 settleClaims();
-                const claims = uploads.claim(record.scope, uploader, record.taskId, ids);
+                const claims = uploads.claim(taskStorageScope, uploader, record.taskId, ids);
                 try {
                     await registerAttachments(claims);
                     return await submit();

@@ -11,9 +11,10 @@ export interface TaskCreation {
     context?: Record<string, Json>;
 }
 
+export const taskStorageScope = 'task-api';
+
 export interface TaskCreationRecord {
     taskId: string;
-    scope: string;
     actor: string;
     creation: TaskCreation;
     acceptedAt: string;
@@ -30,47 +31,34 @@ export class TaskCreationUseCases {
     constructor(
         private readonly registry: TaskRegistry,
         private readonly initializer: TaskInitializer,
-        private readonly fingerprint: (payload: string) => string,
         private readonly newId: () => string,
         private readonly now: () => string,
         private readonly bindUploads?: (scope: string, actor: string, taskId: string, ids: string[]) => void,
         private readonly credentials?: TaskConnectionInitializer,
     ) {}
 
-    /** Trusted worker queue. HTTP callers must use the scoped list or get methods. */
-    admitted(): TaskCreationRecord[] {
+    list(): TaskCreationRecord[] {
         return this.registry.allReadyIds().map(taskId => this.initializer.read(taskId));
     }
 
-    list(scope: string, actor: string): TaskCreationRecord[] {
-        return this.registry.readyIds(scope, actor).map(id => this.get(scope, actor, id));
-    }
-
-    get(scope: string, actor: string, taskId: string): TaskCreationRecord {
-        return this.getInScope(scope, taskId, actor);
-    }
-
-    getInScope(scope: string, taskId: string, actor?: string): TaskCreationRecord {
+    get(taskId: string): TaskCreationRecord {
         requireRule(this.registry.get(taskId)?.state === 'ready', 'not-found');
-        const record = this.initializer.read(taskId);
-        requireRule(record.scope === scope && (actor === undefined || record.actor === actor), 'not-found');
-        return record;
+        return this.initializer.read(taskId);
     }
 
-    create(scope: string, actor: string, key: string, creation: TaskCreation, connections: TaskConnectionConfig[] = [], fingerprintInput: Omit<TaskCreation, 'om'> = creation): TaskCreationRecord {
+    create(actor: string, key: string, creation: TaskCreation, connections: TaskConnectionConfig[] = [], fingerprintInput: Omit<TaskCreation, 'om'> = creation): TaskCreationRecord {
         requireRule(!!creation.instruction.trim(), 'invalid');
         requireRule([creation.om.source, creation.om.revision, creation.om.entry].every(value => !!value.trim()), 'invalid');
         runtimePath(creation.om.entry);
         const uploads = creation.materials?.flatMap(material => material.kind === 'upload' ? [material.uploadId] : []) ?? [];
         requireRule(!uploads.length || this.bindUploads, 'blocked', 'upload storage unavailable');
         requireRule(!connections.length || this.credentials, 'blocked', 'MCP credential storage unavailable');
-        const reservation = this.registry.reserve(scope, actor, key, this.fingerprint(canonical(
-            connections.length ? { creation: fingerprintInput, connections } : fingerprintInput,
-        )), this.newId());
+        const payload = canonical({ actor, creation: fingerprintInput, connections });
+        const reservation = this.registry.reserve(key, payload, this.newId());
         if (reservation.state === 'ready') return this.initializer.read(reservation.taskId);
         if (connections.length) this.credentials!.initialize(reservation.taskId, connections);
-        if (uploads.length) this.bindUploads!(scope, actor, reservation.taskId, uploads);
-        const record = this.initializer.initialize({ taskId: reservation.taskId, scope, actor, creation, acceptedAt: this.now(),
+        if (uploads.length) this.bindUploads!(taskStorageScope, actor, reservation.taskId, uploads);
+        const record = this.initializer.initialize({ taskId: reservation.taskId, actor, creation, acceptedAt: this.now(),
             ...(connections.length ? { connectionIds: connections.map(connection => connection.id) } : {}), });
         this.registry.markReady(record.taskId);
         return record;
