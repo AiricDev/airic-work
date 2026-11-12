@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { registerTaskDocs } from './task-docs';
 import Fastify, { type FastifyRequest } from 'fastify';
-import { taskAuthenticator, type TaskAction, type TaskActor, type TaskDelegation } from './task-auth';
+import { taskAuthenticator, type TaskAction, type TaskActor, type TaskServiceIdentity } from './task-auth';
 import multipart from '@fastify/multipart';
 import type { TaskCredentialStore } from '../../driven/mcp/task-credentials';
 import type { SqliteTaskUploads } from '../../driven/sqlite/task-uploads';
@@ -84,7 +84,7 @@ export function createTaskServer(
     dispatcher?: TaskDispatcher,
     uploads?: SqliteTaskUploads,
     credentials?: TaskCredentialStore,
-    integration?: TaskDelegation,
+    integration?: TaskServiceIdentity,
     omStatus?: () => Promise<{ source: string; kind: 'local' | 'managed'; state: string; revision?: string }>,
     defaultOm?: { source: string; revision: string; entry: string },
 ) {
@@ -108,7 +108,10 @@ export function createTaskServer(
         reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
         const config = request.routeOptions.config;
         if ('publicTaskEndpoint' in config && config.publicTaskEndpoint === true) return;
-        const actor = authenticate(request.headers.authorization, request.headers['x-airic-actor-assertion']);
+        const actor = authenticate(
+            request.headers.authorization, request.headers['x-airic-actor-id'],
+            request.headers['x-airic-task-id'], request.headers['x-airic-task-action'],
+        );
         if (!actor) return reply.header('WWW-Authenticate', 'Bearer').code(401).send({
             code: 'invalid_identity', message: 'Invalid credentials', retryable: false,
         });

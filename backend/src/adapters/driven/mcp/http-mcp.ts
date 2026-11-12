@@ -79,6 +79,62 @@ export class HttpMcpGateway implements Mcp {
         }
         finally { await client.close().catch(() => {}); }
     }
+    /** Transfer bytes through the same scoped connection as the prepared CertLab operation. */
+    async transferFile(scope: Scope, connection: string, transfer: {
+        path: string; size: number; sha256: string;
+    }, upload?: Buffer) {
+        requireRule(/^\/api\/v1\/asset-transfers\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/content$/.test(transfer.path)
+            && /^[0-9a-f]{64}$/.test(transfer.sha256)
+            && Number.isSafeInteger(transfer.size) && transfer.size > 0
+            && transfer.size <= 10 * 1024 * 1024, 'invalid', 'Invalid file transfer descriptor');
+        const verified = (bytes: Buffer) => bytes.length === transfer.size
+            && createHash('sha256').update(bytes).digest('hex') === transfer.sha256;
+        if (upload) requireRule(verified(upload), 'invalid', 'File differs from the prepared transfer');
+        const identity = await this.check(scope, connection);
+        const secret = await this.vault.secret(identity);
+        const endpoint = new URL(secret.url);
+        requireRule(endpoint.protocol === 'https:' && secret.token, 'forbidden');
+        const target = new URL(transfer.path, endpoint.origin);
+        const headers = new Headers({ Authorization: `Bearer ${secret.token}` });
+        if (upload) headers.set('Content-Type', 'application/octet-stream');
+        let response: Response;
+        try {
+            response = await this.fetcher(target, {
+                method: upload ? 'PUT' : 'GET', headers,
+                ...(upload ? { body: new Uint8Array(upload) } : {}),
+                redirect: 'error', credentials: 'omit', signal: AbortSignal.timeout(15000),
+            });
+        } catch {
+            throw new RuleError('blocked', 'File transfer connection unavailable');
+        }
+        if (!response.ok || upload) {
+            await response.body?.cancel();
+            if (secret.revision && response.status === 401)
+                this.vault.observe?.(connection, secret.revision, 'authorization_failed');
+            requireRule(response.ok, 'blocked', 'File transfer rejected by the application');
+            return undefined;
+        }
+        requireRule(response.body, 'blocked', 'File transfer returned no content');
+        const chunks: Buffer[] = [];
+        let count = 0;
+        const reader = response.body.getReader();
+        try {
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                count += value.length;
+                requireRule(count <= transfer.size, 'blocked', 'File exceeds the prepared size');
+                chunks.push(Buffer.from(value));
+            }
+        } finally {
+            await reader.cancel().catch(() => {});
+            reader.releaseLock();
+        }
+        const bytes = Buffer.concat(chunks);
+        requireRule(verified(bytes), 'blocked', 'File differs from the prepared transfer');
+        return bytes;
+    }
+
     async tools(userId: string, connection: string, scope?: Omit<Scope, 'userId'>) {
         requireRule(scope, 'invalid', 'execution scope required');
         return this.client({ userId, ...scope }, connection, async client => (await client.listTools()).map(t => {

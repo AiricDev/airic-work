@@ -11,8 +11,6 @@ servers:
   - url: /api/v1
 security:
   - bearerAuth: []
-  - bearerAuth: []
-    actorDelegation: []
 tags:
   - name: Tasks
     description: 委托、补充输入与停止
@@ -163,7 +161,7 @@ paths:
       tags: [Tasks]
       operationId: notifyTask
       summary: 向 Task 主干投递外部系统事件
-      description: 直接身份可向其 Task 投递通知。委托调用需签名声明目标 Task 及 notify 操作。
+      description: 直接身份可向其 Task 投递通知。服务调用需指定目标 Task 和 notify 操作。
       security:
         - bearerAuth: []
       parameters:
@@ -456,14 +454,11 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Airic Work 信任的调用凭据。MCP 凭据通过任务连接配置提供。
-    actorDelegation:
-      type: apiKey
-      in: header
-      name: X-Airic-Actor-Assertion
       description: |
-        业务后端代用户操作时必填。由受信任集成方签名，绑定调用方、实际操作者、受众、有效期和授权范围。
-        直接用户调用仅使用 Bearer。委托型调用凭据缺少有效声明时，服务端拒绝请求。
+        Airic Work 信任的 Bearer 凭据。业务后端用服务 Bearer，并通过 X-Airic-Actor-Id 传递它已认证的操作者。
+        Task 范围内的读取、作答、凭据更新和通知使用 X-Airic-Task-Id 和 X-Airic-Task-Action，
+        对应操作为 read、answer、credential 或 notify。调用方和访问范围由服务端配置。
+        MCP 凭据通过 Task 的连接配置提供。
   parameters:
     TaskId:
       name: taskId

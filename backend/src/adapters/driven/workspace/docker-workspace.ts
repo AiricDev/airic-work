@@ -72,27 +72,30 @@ export class DockerWorkspace implements Workspace {
     }
 
     async materialize(e: Execution, uploads: Upload[]) {
-        const inputs = join(this.directory, 'workspace', 'inputs');
         for (const upload of uploads) {
-            requireRule(upload.executionId === e.id && upload.userId === e.ownerId
-                && /^[A-Za-z0-9_-]{1,128}$/.test(upload.id) && this.files.read, 'forbidden');
-            const target = join(inputs, upload.id);
-            const stage = join(inputs, '.' + randomUUID());
-            const bytes = await this.files.read(upload);
-            try {
-                await writeFixed(stage, bytes);
-                try { await link(stage, target); }
-                catch (error) {
-                    if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
-                    requireRule((await readRegular(target, bytes.length)).equals(bytes), 'blocked');
-                }
-            } finally {
-                await unlink(stage).catch(error => {
-                    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
-                });
-            }
-            await syncDirectory(inputs);
+            requireRule(upload.executionId === e.id && upload.userId === e.ownerId && this.files.read, 'forbidden');
+            await this.storeInput(upload.id, await this.files.read(upload));
         }
+    }
+
+    async storeInput(id: string, bytes: Uint8Array) {
+        requireRule(/^[A-Za-z0-9_-]{1,128}$/.test(id), 'invalid');
+        const inputs = join(this.directory, 'workspace', 'inputs');
+        const target = join(inputs, id);
+        const stage = join(inputs, '.' + randomUUID());
+        try {
+            await writeFixed(stage, bytes);
+            try { await link(stage, target); }
+            catch (error) {
+                if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
+                requireRule((await readRegular(target, bytes.length)).equals(bytes), 'blocked');
+            }
+        } finally {
+            await unlink(stage).catch(error => {
+                if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+            });
+        }
+        await syncDirectory(inputs);
     }
 
     private mount(directory: string, target: string, readOnly: boolean) {

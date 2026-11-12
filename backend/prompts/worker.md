@@ -75,3 +75,14 @@
 让出时注明当前范围和结果引用。其他分支的进展以可核查记录为准。
 
 保留必要依据、来源和不确定性，避免在请求和回复中包含凭据。将反复出现的求助或方法缺口连同可定位的工作范围交给维护者。本次 Task 的反馈只按其适用范围处理，执行继续使用原固定 OM。
+
+
+When an MCP connection publishes many tools, pass the tool name to
+`work_discover_mcp` to get its exact schema and revision.
+
+When an authorized CertLab MCP connection returns a prepared asset transfer, use
+`work_transfer_file` with the same connection, the descriptor's relative URL,
+byte size and SHA-256. A download returns a verified read-only workspace path.
+For upload, pass the existing file path relative to `/work`, then use the
+original descriptor and command identity to commit it in CertLab. The Worker
+supports transfers up to 10 MiB through this tool.

@@ -1,5 +1,4 @@
 import { taskContract } from './support/task-contract';
-import { generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -78,24 +77,18 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
     };
     await writeFile(options.skillPath, 'Pinned worker skill for this fixture');
     const bearerToken = 'task-test-token-with-at-least-32-characters';
-    const keys = generateKeyPairSync('ed25519');
     const integration = {
         bearerToken: 'integration-token-with-at-least-32-characters',
-        callerId: 'certlab-test', issuer: 'test-issuer', audience: 'airic', scope: 'test-org',
-        publicKeyPem: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+        callerId: 'certlab-test', scope: 'test-org',
     };
-    function delegatedHeaders(sub: string, audience = integration.audience, grant?: { taskId: string; action: TaskAction }) {
-        const now = Math.floor(Date.now() / 1000);
-        const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
-        const payload = `${encode({ alg: 'EdDSA' })}.${encode({
-            iss: integration.issuer, aud: audience, sub, scope: integration.scope, iat: now, exp: now + 60, grant,
-        })}`;
+    function serviceHeaders(actor: string, grant?: { taskId: string; action: TaskAction }) {
         return {
             authorization: `Bearer ${integration.bearerToken}`,
-            'x-airic-actor-assertion': `${payload}.${sign(null, Buffer.from(payload), keys.privateKey).toString('base64url')}`,
+            'x-airic-actor-id': actor,
+            ...(grant ? { 'x-airic-task-id': grant.taskId, 'x-airic-task-action': grant.action } : {}),
         };
     }
-    const headers = delegatedHeaders('owner');
+    const headers = serviceHeaders('owner');
     const reference = { kind: 'reference', source: { object: { system: 'certlab', kind: 'report', id: 'report-demo' }, revision: 'rev-1' } };
     const startDispatcher = () => new TaskDispatcher(
         () => tasks.admitted(),
@@ -154,8 +147,8 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         const detail = (await contract.inject(server, { url: taskUrl, headers })).json();
         expect(detail).toMatchObject({ phase: 'waiting', pendingRequestCount: 1 });
         expect(Date.parse(detail.updatedAt)).toBeGreaterThan(Date.parse(detail.createdAt));
-        expect((await contract.inject(server, { url: taskUrl, headers: delegatedHeaders('other') })).statusCode).toBe(404);
-        expect((await contract.inject(server, { url: taskUrl, headers: delegatedHeaders('owner', 'wrong') })).statusCode).toBe(401);
+        expect((await contract.inject(server, { url: taskUrl, headers: serviceHeaders('other') })).statusCode).toBe(404);
+        expect((await contract.inject(server, { url: taskUrl, headers: { ...headers, authorization: 'Bearer wrong-token' } })).statusCode).toBe(401);
         expect((await contract.inject(server, { url: taskUrl, headers: { authorization: headers.authorization } })).statusCode).toBe(401);
         expect((await contract.inject(server, { url: taskUrl, headers: { authorization: `Bearer ${bearerToken}` } })).statusCode).toBe(404);
         const questions = (await contract.inject(server, { url: `${taskUrl}/decision-requests`, headers })).json();
@@ -175,9 +168,15 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect(question.json()).toMatchObject({
             canAnswer: true, context: { question: 'Confirm?', revision: 1, affectedWork: [{ label: 'review' }] },
         });
-        const reviewerRead = delegatedHeaders('reviewer', integration.audience, { taskId: 'review', action: 'read' });
-        const reviewerAnswer = delegatedHeaders('reviewer', integration.audience, { taskId: 'review', action: 'answer' });
+        const reviewerRead = serviceHeaders('reviewer', { taskId: 'review', action: 'read' });
+        const reviewerAnswer = serviceHeaders('reviewer', { taskId: 'review', action: 'answer' });
         expect((await contract.inject(server, { url: taskUrl, headers: reviewerRead })).statusCode).toBe(200);
+        expect((await contract.inject(server, {
+            url: taskUrl, headers: { ...headers, 'x-airic-task-id': 'review' },
+        })).statusCode).toBe(401);
+        expect((await contract.inject(server, {
+            url: taskUrl, headers: { ...reviewerRead, authorization: `Bearer ${bearerToken}` },
+        })).statusCode).toBe(401);
         expect((await contract.inject(server, { url: taskUrl, headers: reviewerAnswer })).statusCode).toBe(404);
         expect((await contract.inject(server, { url: `${taskUrl}-other`, headers: reviewerRead })).statusCode).toBe(404);
         const reviewerUpload = await contract.inject(server, {
@@ -205,6 +204,9 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         expect((await contract.inject(server, {
             ...sharedAnswer, headers: { ...sharedAnswer.headers, ...reviewerRead },
         })).statusCode).toBe(404);
+        expect((await contract.inject(server, {
+            ...sharedAnswer, headers: { ...sharedAnswer.headers, 'x-airic-task-id': 'local-review' },
+        })).statusCode).toBe(404);
         const receipt = await contract.inject(server, sharedAnswer);
         expect(receipt.statusCode).toBe(201);
         expect(receipt.json()).toMatchObject({ callerId: 'certlab-test', actorId: 'reviewer' });
@@ -214,7 +216,7 @@ it('runs a Task and resumes its persisted Session after a UserDecision', async (
         const notify = {
             ...completion,
             headers: { ...completion.headers,
-                ...delegatedHeaders('certlab:completion-worker', integration.audience, { taskId: 'review', action: 'notify' }) },
+                ...serviceHeaders('certlab:completion-worker', { taskId: 'review', action: 'notify' }) },
         };
         const notified = await contract.inject(server, notify);
         expect(notified.statusCode).toBe(201);

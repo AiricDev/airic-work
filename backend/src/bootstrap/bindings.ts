@@ -133,10 +133,10 @@ export function createMcpIntegration(options: McpIntegrationOptions, store: Cont
 
 export function mcpWorkerTools(application: Application, e: Execution): ToolRegistration[] {
     return [
-            defineTool({ name: 'work_discover_mcp', description: 'List current business MCP tools and their exact input schemas and revisions. Credentials remain with the host.', parameters: Type.Object({ connection: Type.String() }), replay: 'safe', execute: async ({ connection }) => {
+            defineTool({ name: 'work_discover_mcp', description: 'Discover current business MCP tools. Provide a tool name for just its exact schema and revision when a connection publishes many tools.', parameters: Type.Object({ connection: Type.String(), tool: Type.Optional(Type.String()) }), replay: 'safe', execute: async ({ connection, tool }) => {
                 const current = await application.query.queryExecution(e.ownerId, e.id);
                 const definitions = await application.mcpCases.discoverMcpTools(e.ownerId, e.id, current.generation, connection);
-                return { output: [{ type: 'text', text: JSON.stringify(definitions) }] };
+                return { output: [{ type: 'text', text: JSON.stringify(tool ? definitions.filter(definition => definition.name === tool) : definitions) }] };
             } }),
             defineTool({ name: 'work_call_mcp', description: 'Call a discovered business MCP tool using its exact schema/revision. Preserve original business operation identity on recovery.', parameters: Type.Object({ connection: Type.String(), tool: Type.String(), schemaRevision: Type.String(), parameters: Type.Record(Type.String(), Type.Unknown()) }), replay: 'safe', execute: async (args, api) => {
                 const current = await application.query.queryExecution(e.ownerId, e.id);

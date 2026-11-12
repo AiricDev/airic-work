@@ -14,7 +14,7 @@ await writeFile(directory + '/tasks/other/private', 'other task');
 const workspace = new DockerWorkspace({
     socketPath: '/var/run/docker.sock',
     hostDirectory: process.env.AIRIC_WORKSPACE_HOST_DATA, user: `${process.getuid()}:${process.getgid()}`,
-    image: 'airic-work:task',
+    image: process.env.AIRIC_WORKSPACE_IMAGE || 'airic-work:task',
     dataDirectory: directory,
     methodDirectory: async () => method,
 }, 'smoke', { read: async () => Buffer.from([0, 1, 255]) });
@@ -83,7 +83,7 @@ const dispatcher = new TaskDispatcher(() => tasks.admitted(), record => openTask
     models, model: { provider: 'faux', modelId: 'faux-1' }, skillPath: '/app/backend/prompts/worker.md',
 }, uploads, undefined, {
     socketPath: '/var/run/docker.sock', hostDirectory: process.env.AIRIC_WORKSPACE_HOST_DATA, user: `${process.getuid()}:${process.getgid()}`,
-    image: 'airic-work:task', dataDirectory: directory, methodDirectory: async () => method,
+    image: process.env.AIRIC_WORKSPACE_IMAGE || 'airic-work:task', dataDirectory: directory, methodDirectory: async () => method,
 }), () => { throw Error('Worker smoke failed'); });
 const server = createTaskServer(tasks, identity, dispatcher, uploads, undefined, undefined, undefined, { source: 'local', revision: 'a'.repeat(40), entry: 'om.md' });
 async function get(url, status = 200) {

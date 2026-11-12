@@ -3,7 +3,7 @@ import { request } from 'node:https';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { httpsIdentityFixture } from './support/https-identity';
 import { harness } from './support/harness';
 import { HttpMcpGateway } from '../src/adapters/driven/mcp/http-mcp';
@@ -236,4 +236,40 @@ it('rejects a credential URL outside the configured MCP service', async () => {
     await expect(integration.credentials.connect(u.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
     issuedPath = '/other/link/token';
     await expect(integration.credentials.connect(u.id, e.id, connection, 'web')).rejects.toMatchObject({ code: 'forbidden' });
+});
+
+it('transfers prepared files on the Task connection with bounded, verified bytes', async () => {
+    const { h, u, e, connection } = await setup();
+    const bytes = Buffer.from('Fixed material');
+    const path = '/api/v1/asset-transfers/a735b1cc-2026-47da-a27a-3816d7cef086/content';
+    const descriptor = { path, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+    const token = 'fixture-task-file-bearer';
+    const methods: string[] = [];
+    fixture.handler = (req, res) => {
+        expect(req.url).toBe(path);
+        expect(req.headers.authorization).toBe(`Bearer ${token}`);
+        methods.push(req.method!);
+        if (req.method === 'GET') {
+            res.end(bytes);
+            return;
+        }
+        const received: Buffer[] = [];
+        req.on('data', chunk => received.push(Buffer.from(chunk)));
+        req.on('end', () => {
+            expect(Buffer.concat(received)).toEqual(bytes);
+            res.statusCode = 204;
+            res.end();
+        });
+    };
+    const gateway = new HttpMcpGateway(h.store, {
+        connection: () => ({ issuer: u.issuer }),
+        async secret() { return { url: fixture.options.endpoint, token }; },
+    }, fetcher, 'task-transfer');
+    const scope = { userId: u.id, executionId: e.id, sessionId: e.sessionId, generation: e.generation };
+    expect(await gateway.transferFile(scope, connection, descriptor)).toEqual(bytes);
+    await gateway.transferFile(scope, connection, descriptor, bytes);
+    await expect(gateway.transferFile(scope, connection, { ...descriptor, path: 'https://outside.invalid/file' })).rejects.toMatchObject({ code: 'invalid' });
+    await expect(gateway.transferFile(scope, connection, descriptor, Buffer.from('wrong'))).rejects.toMatchObject({ code: 'invalid' });
+    await expect(gateway.transferFile(scope, connection, { ...descriptor, size: bytes.length - 1 })).rejects.toMatchObject({ code: 'blocked' });
+    expect(methods).toEqual(['GET', 'PUT', 'GET']);
 });

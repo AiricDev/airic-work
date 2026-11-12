@@ -42,7 +42,7 @@
 
 一次创建请求包含指令、可选资料和外部引用，以及可选的具名 MCP 连接。实例启动时验证配置的 OM 仓库、提交和入口，并固定可接单版本。验证失败时实例停止启动。创建时保存原始委托和当前固定版本，在创建回执返回 pinnedOm。外部引用作为结构化目标传入 Worker。续行使用原装配版本，Workspace 只挂载当前 Task 的工作文件，OM 快照只读。宿主按策略限定可解析的来源、可访问的 MCP 目的地和文件路径。
 
-独立测试使用 Airic Work 签发或信任的 API 身份。集成调用分别校验**调用方**、**实际操作者**和**目标 Task 或请求的访问权限**。CertLab 先按当前用户和业务范围检查授权，再通过受信任的委托身份声明传递实际操作者。Airic Work 校验声明签发者、受众、有效期与允许的委托范围，并将操作者和调用方分别记入回执。普通请求正文中的姓名或用户 ID 只作展示或关联。实例部署可以选择身份签发机制，接口层统一向应用交付已验证身份。
+直接操作使用实例操作凭据。业务后端用专用服务 Bearer，Airic Work 从服务端配置取得调用方及访问范围。业务后端核对当前用户权限，提供实际操作者及需要限定的 Task 和操作。Airic Work 校验目标 Task、请求和附件归属，将实际操作者及服务调用方分别记入回答回执。
 
 调用 Airic Work 的凭据与 Worker 调用 MCP 的凭据分别管理。连接认证失败时记录受影响的工作。授权方可以更新同一连接的凭据，恢复前重新验证绑定和权限。敏感端点、请求头和凭据在运行宿主内使用，出站模型输入、Workspace、错误、查询结果和轨迹使用脱敏信息。
 
@@ -58,7 +58,7 @@ Airic Work 宿主在 Task 的 MCP JSON-RPC 请求中通过 `params._meta` 传递
 
 例如，业务应用可以用可信的 Task ID 归因 Agent 创建的事项，在事项完成后向原 Task 发送结构化通知。
 
-外部系统负责确认事件与原 Task 的业务关联，并用原 Task 所属的直接身份或带 Task 和 `notify` 权限的签名委托身份投递。Airic Work 按事件 ID 幂等保存，将事件与人工 steering 一起投递到主 Session。事件类型、外部对象引用及其版本由发送方定义，Worker 按 OM 解释并按需读取最新业务事实。
+外部系统负责确认事件与原 Task 的业务关联，并用原 Task 所属的直接身份或指定 Task 和 `notify` 操作的服务身份投递。Airic Work 按事件 ID 幂等保存，将事件与人工 steering 一起投递到主 Session。事件类型、外部对象引用及其版本由发送方定义，Worker 按 OM 解释并按需读取最新业务事实。
 
 ## Decision Request 与续行
 
@@ -84,7 +84,7 @@ Task API 分开呈现本轮运行状态、等待依赖、受阻原因及停止�
 | --- | --- |
 | `POST /tasks`，`GET /tasks`，`GET /tasks/{taskId}` | 创建、筛选和查询 Task。创建返回持久 Task ID 与当前状态。 |
 | `POST /tasks/{taskId}/steering`，`POST /tasks/{taskId}/cancel` | 追加输入及记录停止意图。 |
-| `POST /tasks/{taskId}/notify` | 接收外部系统发往直接身份所属或由签名声明授权的 Task 的结构化事件。 |
+| `POST /tasks/{taskId}/notify` | 接收外部系统发往直接身份所属或由服务范围及目标约束授权的 Task 的结构化事件。 |
 | `GET /decision-requests`，`GET /tasks/{taskId}/decision-requests` | 分页读取有权查看的待办和任务问题，支持状态及外部引用筛选。 |
 | `GET /decision-requests/{requestId}`，`GET /decision-requests/{requestId}/episode` | 读取问题、依据版本和完整协作记录。 |
 | `POST /decision-requests/{requestId}/user-decisions` | 提交或更正回答，返回持久回答 ID 及当前投递状态。 |

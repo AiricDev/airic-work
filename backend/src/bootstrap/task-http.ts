@@ -43,10 +43,11 @@ async function main() {
             (scope, actor, taskId, ids) => uploads.bind(scope, actor, taskId, ids),
             credentials,
         );
-        const integration = process.env.AIRIC_TASK_DELEGATION ? z.strictObject({
-            bearerToken: z.string(), callerId: z.string().min(1), issuer: z.string().min(1),
-            audience: z.string().min(1), scope: z.string().min(1), publicKeyPem: z.string().min(1),
-        }).parse(JSON.parse(process.env.AIRIC_TASK_DELEGATION)) : undefined;
+        const integration = process.env.AIRIC_TASK_SERVICE_TOKEN ? {
+            bearerToken: process.env.AIRIC_TASK_SERVICE_TOKEN,
+            callerId: process.env.AIRIC_TASK_SERVICE_CALLER_ID || 'certlab',
+            scope: process.env.AIRIC_TASK_SERVICE_SCOPE || 'certlab',
+        } : undefined;
         const identity = { bearerToken: AIRIC_TASK_TOKEN, scope: 'local', actor: 'operator' };
         let dispatcher: TaskDispatcher | undefined;
         let omStatus: Parameters<typeof createTaskServer>[6];

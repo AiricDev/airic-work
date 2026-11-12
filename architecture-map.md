@@ -16,3 +16,8 @@
 回答、`steering` 和 `notify` 共用持久输入队列。输入用例选择并复核队首，Worker 每投递一条就等 Pi 完成本轮工作，再选择下一条。Pi 负责判断续行锚点是否已就绪，以及记录接收回执。
 
 旧前端、HTTP 和管理命令已清理。Task API、每 Task 存储、Worker 派发和 Compose 发布入口已接入。Workspace 命令由受限容器执行，容器只挂载当前 Task 的工作目录、输入和固定 OM。两条 Swagger 路径已在隔离环境验证，完整的 OpenAPI 合同核对和发布切换仍待完成。
+
+
+## CertLab 资料传输
+
+[CertLab MCP 传输合同](../certlab/docs/api/assistant-protocol.md)定义描述、固定修订及项目权限。Task 通过 [运行装配](backend/src/bootstrap/task-runtime.ts)注册文件传输工具，由 [MCP HTTP 适配器](backend/src/adapters/driven/mcp/http-mcp.ts)使用同一连接身份并校验字节数与哈希，由 [Workspace](backend/src/adapters/driven/workspace/docker-workspace.ts)保存输入。跨服务修改同时核对 [Airic Work 传输测试](backend/tests/mcp-integration.test.ts)与 [CertLab 项目授权测试](../certlab/tests/api/test_airic_work.py)。
