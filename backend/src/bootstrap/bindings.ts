@@ -259,10 +259,9 @@ function workerConfiguration(values: NodeJS.ProcessEnv, base: string, data: stri
 export function loadTaskWorkerConfiguration(directory: string, environment: NodeJS.ProcessEnv = process.env) {
     const repository = environment.AIRIC_OM_REPOSITORY?.trim();
     requireRule(repository, 'invalid', 'AIRIC_OM_REPOSITORY is required');
-    const source = isAbsolute(repository) && environment.AIRIC_WORKSPACE_HOST_DATA ? '/om' : repository;
-    methodSource(source);
+    requireRule(isAbsolute(repository), 'invalid', 'AIRIC_OM_REPOSITORY must be an absolute path to a local Git repository');
     return workerConfiguration({ ...environment, AIRIC_METHOD_DIRECTORY: resolve(directory, 'methods') },
-        resolve(import.meta.dirname, '../../..'), directory, { local: source });
+        resolve(import.meta.dirname, '../../..'), directory, { local: repository });
 }
 
 /** 从显式配置建立模型集合；不把 .env 写进全局环境，也不从宿主其他登录文件隐式取得身份。 */

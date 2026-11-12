@@ -44,7 +44,6 @@ def main():
             **os.environ,
             "AIRIC_IMAGE": os.environ.get("AIRIC_IMAGE", "airic-work:task"),
             "AIRIC_OM_REPOSITORY": str(repo),
-            "AIRIC_DEPLOY_OM_MOUNT": str(repo),
             "AIRIC_DEPLOY_DATA": str(data),
             "AIRIC_DEPLOY_UID": str(os.getuid()),
             "AIRIC_DEPLOY_GID": str(os.getgid()),

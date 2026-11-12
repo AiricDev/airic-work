@@ -1,13 +1,13 @@
 # Run Airic Work with Compose
 
-Copy `task.env.example` to `.env` in this directory. Set `AIRIC_SECRET_KEY` to a random Bearer token of at least 32 characters. Configure the model credentials and set `AIRIC_OM_REPOSITORY` to an absolute local Git path or a Git HTTPS/SSH URL.
+Copy `task.env.example` to `.env` in this directory. Set `AIRIC_SECRET_KEY` to a random Bearer token of at least 32 characters. Configure the model credentials and set `AIRIC_OM_REPOSITORY` to the absolute path of an existing local Git repository on the host.
 
 Place `compose.yaml` and `.env` in the deployment directory. Run there as a
 non-root user with Docker access. Prepare the directories before starting:
 
 ```sh
 cp task.env.example .env
-mkdir -p -m 700 data om
+mkdir -p -m 700 data
 id -u
 id -g
 # Linux Docker socket group. On Docker Desktop use 0.
@@ -21,12 +21,10 @@ absolute path of `data/` in this deployment directory. It must identify the
 same host directory for the Worker and its command containers. The user
 identified by UID/GID must own `data/`.
 
-For a local OM, place its Git checkout in `om/`, set
-`AIRIC_OM_REPOSITORY` to that checkout's absolute path, and leave
-`AIRIC_DEPLOY_OM_MOUNT=./om`. For a remote Git URL, set
-`AIRIC_OM_REPOSITORY` to the URL and leave `om/` as an empty mount directory.
-Remote checkouts are stored under `data/`. Both forms keep the deployment's
-files together for backup.
+Compose mounts the repository from `AIRIC_OM_REPOSITORY` read-only at
+`/om`. Prepare and update the checkout outside Airic Work. Restart the service
+after updating its local HEAD to use that commit for new Tasks. Each existing
+Task keeps the OM revision pinned at creation.
 
 If the GHCR package is private, sign in with `docker login ghcr.io` first.
 
@@ -42,7 +40,7 @@ or replace it with the Task image. Set `AIRIC_IMAGE` in `.env` to pin a
 specific Task release tag or digest. The main-branch workflow publishes
 images after tests and the image smoke check pass.
 
-Open [Swagger UI](http://127.0.0.1:8080/docs/) and authorize with the configured Bearer token. Task data is stored in `deploy/data/` beside `compose.yaml` and mounted at `/var/lib/airic-work`. A local OM is mounted read-only at `/om`. A remote OM is cloned into the data directory. The source ID in Task requests is `local` for either form. The service is published on loopback at port 8080. The OM source in the sample configuration is named `local`.
+Open [Swagger UI](http://127.0.0.1:8080/docs/) and authorize with the configured Bearer token. Task data is stored in `deploy/data/` beside `compose.yaml` and mounted at `/var/lib/airic-work`. The service is published on loopback at port 8080. The OM source is named `local`.
 
 Use `AIRIC_SECRET_KEY` as the API Bearer token over HTTPS. It grants access to every Task in the instance. CertLab authorizes its users and supplies `X-Airic-Actor-Id` for attribution. For Task-bound reads, answers, credential updates and notifications it also supplies `X-Airic-Task-Id` and `X-Airic-Task-Action` to identify the target operation.
 

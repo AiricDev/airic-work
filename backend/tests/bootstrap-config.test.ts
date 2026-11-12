@@ -120,3 +120,17 @@ it('loads Task Worker configuration independently of obsolete identity and HTTP 
     expect(config.methods.sources).toEqual({ local: '/tmp/test-om' });
     expect(config.methods.directory).toBe('/tmp/airic-task/methods');
 });
+
+it('accepts only an absolute local OM path and uses the path visible to the Worker', async () => {
+    const { loadTaskWorkerConfiguration } = await import('../src/bootstrap/bindings');
+    const config = loadTaskWorkerConfiguration('/tmp/airic-task', {
+        AIRIC_OM_REPOSITORY: '/om',
+        AIRIC_WORKSPACE_HOST_DATA: '/srv/airic-work/data',
+    });
+    expect(config.methods.sources).toEqual({ local: '/om' });
+    for (const repository of ['https://example.invalid/om.git', 'git@example.invalid:om.git', './om']) {
+        expect(() => loadTaskWorkerConfiguration('/tmp/airic-task', {
+            AIRIC_OM_REPOSITORY: repository,
+        })).toThrow('AIRIC_OM_REPOSITORY must be an absolute path');
+    }
+});
