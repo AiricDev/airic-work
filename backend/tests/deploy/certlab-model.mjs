@@ -29,7 +29,7 @@ export function builtinModels() {
                 connection: 'certlab', tool: definition.name, schemaRevision: definition.schemaRevision,
                 parameters: {
                     report_id: report, assessment_id: assessment, expected_record_no: 0,
-                    requirements: 'Verify protective bonding', asset_revision_ids: [], register_blocker: false,
+                    requirements: 'Verify protective bonding', asset_revision_ids: [], register_wait: false,
                     domain_release: 'certlab/v4', command_id: 'test-item',
                 },
             });
