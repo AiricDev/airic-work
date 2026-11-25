@@ -1,8 +1,14 @@
 # Reflection Principles
 
-## Scope
+## Scope & Orthogonal Separation
 
-Audit changeability, architecture conformance (discoverability, boundary trust, ownership predictability), and Living Knowledge synchronization for completed changes. Do not present this audit as validation of product correctness, domain completeness, or all quality attributes.
+`/cs-reflect` audits code changeability, architecture conformance (discoverability, boundary trust, ownership predictability), human-AI mental-model alignment, and ephemeral trace capture immediately after coding.
+
+Keep `/cs-reflect` and `/cs-merge` cleanly separated:
+- **`/cs-reflect` (in-session, trace-hot)**: Diagnoses structural friction, executes user-approved code refactors in-branch, syncs unexpected discoveries with the human owner, and records `Section 4 (Reflection & Merge Handoff)` into the Change file. It **never** plans Living Knowledge folder layouts, mutates Living Knowledge (`docs/`, `GLOSSARY.md`, `Architecture Map`, etc.), or closes the Change file, because unmerged branches may still change or be abandoned.
+- **`/cs-merge` (stateless, merge-time)**: Owns mapping realized changes onto `.cstack/index.md` targets, reconciling against the final `git diff`, and curating canonical Living Knowledge (`ADD` / `RESOLVE` / `COMPRESS` / `PRUNE`) atomically when landing.
+
+Do not present `/cs-reflect` as validation of overall product correctness, domain completeness, or non-inspected quality attributes (security, performance, concurrency).
 
 ## Evidence Before Judgment
 
@@ -15,15 +21,17 @@ Audit changeability, architecture conformance (discoverability, boundary trust, 
 - Prefer no finding over a generic or speculative finding.
 - Treat passing tests as behavior evidence, not proof that placement and boundaries are correct.
 
-## Authority Before Repair & Merge
+## Authority Before Refactor & Handoff
 
-Default to **Report mode**. A reflection request authorizes inspection and recommendations, not writes. Human review in Report mode serves two roles: **governance** (deciding which repairs or merges are authorized) and **two-way knowledge synchronization** (the human learns what practice exposed behind the final diff, and supplies domain or organizational context to confirm, narrow, or reject the agent's interpretation). Enter **Repair / Merge mode** only when the user explicitly authorizes applying findings or merging Knowledge Deltas into Living Knowledge.
+Default to **Report mode** (zero writes). Human review in Report mode serves two roles:
+1. **Architectural governance**: Deciding which `[R-*]` Refactor Proposals to execute right now in `/cs-reflect` (and resolving any `what-level` choice) vs. deferring as `defer-to-followup` (to prevent PR scope creep) or closing as `wont-fix`.
+2. **Two-way knowledge synchronization**: Learning what practice exposed behind the final diff, and confirming which ephemeral trace clues belong in Change File Section 4 for `/cs-merge`.
 
-Classify every proposed action as:
-- **How-level** — action inside an already-authorized behavior, owner, boundary, or placement convention (e.g. fix a stale pointer, add a closure index comment, improve a focused test, route through an existing port, remove duplication in favor of an existing owner, merge unconflicted realized deltas into registered Living Knowledge).
-- **What-level** — a decision that creates or changes behavior, ownership, a boundary, a layer, dependency direction, a shared abstraction, or resolves a conflict with direct human edits to Living Knowledge. Report the decision and request authority.
+Classify every `[R-*]` Refactor Proposal as:
+- **How-level** — refactor inside an already-authorized behavior, owner, boundary, or placement convention (e.g. fix a stale symbol/pointer, add a Semantic Comment / Modification Closure Index, route through an existing port, consolidate accidental duplication into an established owner).
+- **What-level** — refactor that creates or changes behavior, capability ownership, port semantics, a boundary, a layer, dependency direction, or a shared abstraction. Present concrete options with CMP trade-offs so the human architect chooses before `/cs-reflect` executes the refactor (or defers it).
 
-How-level describes design authority, not automatic permission to edit. All writes still require user authorization.
+How-level describes design authority, not automatic permission to edit. All code edits and Change file writes require explicit user authorization.
 
 ## Anti-Overreach
 
@@ -32,21 +40,14 @@ Do not:
 - treat every wide search or duplicate as a design defect;
 - create a shared abstraction merely because reuse seems possible;
 - silently decide ownership or placement;
-- redesign architecture after a local task;
+- bloat a focused feature branch with sprawling refactors when `defer-to-followup` keeps review clean;
 - hide a what-level decision inside a small patch;
-- silently mutate Living Knowledge, Architecture Maps, `AGENTS.md`, or skills without explicit authorization.
+- pre-plan doc file structures or mutate Living Knowledge, Architecture Maps, `AGENTS.md`, or skills directly during `/cs-reflect`.
 
-## Controlled Learning Loop
+## Controlled Guidance Feedback
 
-Reflection may identify improvements to existing guidance surfaces (Architecture Map, `AGENTS.md`, test conventions, or skills). Recommend such changes only when the task provides concrete evidence that current guidance caused or failed to prevent a routing problem.
-
-Prefer this progression:
-1. Record the task-local signal.
-2. Look for recurrence or strong omission risk.
-3. Propose the smallest update to an existing guidance owner.
-4. Obtain authorization.
-5. Apply and forward-test the guidance change independently.
+When concrete trace evidence shows that repository guidance (`AGENTS.md`, Architecture Map, or Living Knowledge) misled the agent or diluted context, record it accurately in Section `4.2` (`Contradicted / Stale` or `Read & Unused`) and Section `4.3` (`Trace Clues`) so `/cs-merge` can govern it at merge time with diff verification.
 
 ## Quality Bar
 
-A good reflection is concise, evidence-backed, explicit about uncertainty, useful to the next modifier, and comfortable reporting no issue. A bad reflection re-summarizes the implementation, produces generic architecture advice, or recommends a new abstraction without ownership analysis.
+A good reflection is concise, evidence-backed, explicit about uncertainty, actionable in its Refactor Proposals, focused strictly on ephemeral clues that `Sections 1–3 + git diff` would miss, and comfortable reporting no issue. A bad reflection re-summarizes the implementation, produces generic architecture advice, or prematurely drafts documentation edits before the branch lands.

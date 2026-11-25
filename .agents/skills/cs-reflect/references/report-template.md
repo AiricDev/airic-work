@@ -1,6 +1,6 @@
 # Post-Change Design Reflection
 
-Keep the report concise. Use `—` where a field does not apply.
+Keep the report concise. Use `—` where a field does not apply. Perform **zero writes** until the user responds to the Human Review Gate.
 
 ## Trace Coverage
 
@@ -10,16 +10,11 @@ Keep the report concise. Use `—` where a field does not apply.
 - Additional fact checks performed: `None` unless a specific uncertainty required one.
 - Overall confidence: `high | medium | low`
 
-## Task Route
+## Task Route & Modification Closure
 
 - Natural entry point and useful routing signals:
 - Misleading paths, corrections, shortcuts, or placement uncertainty:
-- Final placement decision and why it appeared to fit the existing design:
-
-## Modification Closure
-
-- Expected route for a future modifier:
-- Files, contracts, tests, and guidance that had to stay consistent:
+- Final placement & artifacts that had to stay consistent together:
 - Verification used:
 
 ## CMP Checks
@@ -30,30 +25,35 @@ Keep the report concise. Use `—` where a field does not apply.
 | Boundary Bypass | `found | not-found | unknown` | | | | `how-level | what-level | —` |
 | Unowned Capability | `found | not-found | unknown` | | | | `how-level | what-level | —` |
 
-## Practice Discoveries & Expectation Gaps
+## Refactor Proposals (`[R-*]`)
+
+*(Write `None — no actionable structural friction found` when all checks are `not-found`.)*
+
+- **`[R-1]` `<Missing Path | Boundary Bypass | Unowned Capability>`** — `<file/module>` (`<how-level | what-level>`)
+  - **Symptom & CMP Root Cause**:
+  - **Refactor Proposal** *(include options & CMP trade-offs if `what-level`)*:
+  - **Recommended Action**: `Execute now in /cs-reflect` | `defer-to-followup (avoid PR scope creep)` | `Reopen /cs-spec or /cs-explore`
+
+## Practice Discoveries & Expectation Gaps (Human Sync)
 
 *(Report only non-obvious friction discoveries or deviations from expected outcome; write `None` if execution matched expectations.)*
 
 - **Expected vs. actual**:
-- **Evidence & uncertainty / scope**:
-- **Candidate Knowledge Delta & destination**: `keep local | Living Knowledge | guidance | /cs-spec | /cs-explore`
+- **Evidence & scope**:
 
-## Recommended Response
+## Section 4 Handoff Preview (Ephemeral Clues for `/cs-merge`)
 
-- Priority: `Do now | Schedule later | Just note | None`
-- Smallest action:
-- Existing owner or destination:
-- Human decision required:
-- Cross-stage feedback *(only if root cause belongs in `/cs-spec` or `/cs-explore`, else `None`)*:
+- **Target Change file**: `<changes-dir>/<change-id>.md` *(or `Fast Path — create compact Change file` / `None — zero-overhead Fast Path`)*
+- **4.2 Touched Knowledge Slice**:
+  - *Read & Used*:
+  - *Contradicted / Stale*:
+  - *Read & Unused (Zero-Utility)*:
+- **4.3 Trace Clues for `/cs-merge`**:
+  - *Spec Deviations & Hidden Why*:
+  - *Contradicted Claims / Code-Internalized Guardrails*:
+  - *Exception Hotspots & Structural Routes*:
 
-## Living Knowledge Merge Proposal *(omit only if neither an active Change file nor a practice-discovered Knowledge Delta applies)*
+## Human Review Gate
 
-- Active Change file: `<changes-dir>/<change-id>.md` *(or `None — practice-discovered delta only`)*
-- Target Living Knowledge / Architecture Map updates:
-- Conflicts with direct human edits to Living Knowledge: `None` or explicit diff/question
-- Index closeout: Mark `<change-id>` as `merged` in `.cstack/index.md` upon authorization *(if an active Change file applies)*.
-
-## Learning Feedback
-
-- Should an existing Architecture Map, `AGENTS.md`, test convention, or skill be updated? Give concrete evidence, or `No`.
-- Apply repairs, merges, or guidance updates **only if explicitly authorized**.
+1. **Refactors**: Which `[R-*]` proposals should be **executed now in `/cs-reflect`** (and which option if `what-level`), vs. recorded as `defer-to-followup` or `wont-fix`?
+2. **Merge Handoff**: Confirm writing Section 4 (`4.1–4.3`) to the Change file for `/cs-merge` *(Living Knowledge routing & edits remain untouched until `/cs-merge`)*.

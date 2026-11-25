@@ -126,8 +126,6 @@ def check():
         headers={**engineer, "Idempotency-Key": "complete-fieldwork"},
         json={
             "expected_version": details["version"],
-            "mode": "no_longer_needed",
-            "source": "Fixture engineer",
             "note": "Existing measurement supplied",
             "expected_assessments": [],
         },
